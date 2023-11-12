@@ -936,7 +936,7 @@ pub inline fn  _mm_sign_epi32 (a: __m128i, b: __m128i) __m128i {
         return res;
     } else {
         const zero: @Vector(4, i32) = @splat(0);
-        const r = @select(i32, zero > bitCast_i32x4(b), -bitCast_i32x4(a), bitCast_i32x4(a));
+        const r = @select(i32, zero > bitCast_i32x4(b), -%bitCast_i32x4(a), bitCast_i32x4(a));
         return @bitCast(@select(i32, (zero == bitCast_i32x4(b)), zero, r));
     }
 }
@@ -957,7 +957,7 @@ pub inline fn  _mm_sign_epi16 (a: __m128i, b: __m128i) __m128i {
         return res;
     } else {
         const zero: @Vector(8, i16) = @splat(0);
-        const r = @select(i16, zero > bitCast_i16x8(b), -bitCast_i16x8(a), bitCast_i16x8(a));
+        const r = @select(i16, zero > bitCast_i16x8(b), -%bitCast_i16x8(a), bitCast_i16x8(a));
         return @bitCast(@select(i16, (zero == bitCast_i16x8(b)), zero, r));
     }
 }
@@ -978,7 +978,7 @@ pub inline fn  _mm_sign_epi8 (a: __m128i, b: __m128i) __m128i {
         return res;
     } else {
         const zero: @Vector(16, i8) = @splat(0);
-        const r = @select(i8, zero > bitCast_i8x16(b), -bitCast_i8x16(a), bitCast_i8x16(a));
+        const r = @select(i8, zero > bitCast_i8x16(b), -%bitCast_i8x16(a), bitCast_i8x16(a));
         return @bitCast(@select(i8, (zero == bitCast_i8x16(b)), zero, r));
     }
 }
