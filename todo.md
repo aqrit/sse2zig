@@ -1,30 +1,15 @@
 all floating point stuff and....
 
 ```
-export fn _mm_sll_epi32 (a: __m128i, count: __m128i) __m128i {
-export fn _mm_sll_epi64 (a: __m128i, count: __m128i) __m128i {
-export fn _mm_sra_epi16 (a: __m128i, count: __m128i) __m128i {
-export fn _mm_sra_epi32 (a: __m128i, count: __m128i) __m128i {
-export fn _mm_srl_epi16 (a: __m128i, count: __m128i) __m128i {
-export fn _mm_srl_epi32 (a: __m128i, count: __m128i) __m128i {
-export fn _mm_srl_epi64 (a: __m128i, count: __m128i) __m128i {
-
 export fn _mm_packs_epi16 (a: __m128i, b: __m128i) __m128i {
 export fn _mm_packs_epi32 (a: __m128i, b: __m128i) __m128i {
 export fn _mm_packus_epi16 (a: __m128i, b: __m128i) __m128i {
 export fn _mm_packus_epi32 (a: __m128i, b: __m128i) __m128i {
 
-export fn _mm_sign_epi32 (a: __m128i, b: __m128i) __m128i { 
-export fn _mm_sign_epi16 (a: __m128i, b: __m128i) __m128i {
-export fn _mm_sign_epi8 (a: __m128i, b: __m128i) __m128i {
-
 __m128i _mm_minpos_epu16 (__m128i a)
 
 __m128i _mm_mpsadbw_epu8 (__m128i a, __m128i b, const int imm8)
 __m128i _mm_sad_epu8 (__m128i a, __m128i b)
-
-export fn _mm_mulhi_epi16 (a: __m128i, b: __m128i) __m128i {
-export fn _mm_mulhi_epu16 (a: __m128i, b: __m128i) __m128i {
 
 int _mm_movemask_epi8 (__m128i a)
 
