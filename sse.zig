@@ -1051,6 +1051,18 @@ pub inline fn _mm_mullo_epi16 (a: __m128i, b: __m128i) __m128i {
 }
 
 
+pub inline fn _mm_mulhi_epi16 (a: __m128i, b: __m128i) __m128i {
+    const r = (intCast_i32x8(bitCast_i16x8(a)) *% intCast_i32x8(bitCast_i16x8(b)));
+    return @bitCast(@as(@Vector(8, i16), @truncate(r >> @splat(16))));
+}
+
+
+pub inline fn _mm_mulhi_epu16 (a: __m128i, b: __m128i) __m128i {
+    const r = (intCast_u32x8(bitCast_u16x8(a)) *% intCast_u32x8(bitCast_u16x8(b)));
+    return @bitCast(@as(@Vector(8, u16), @truncate(r >> @splat(16))));
+}
+
+
 pub inline fn _mm_madd_epi16 (a: __m128i, b: __m128i) __m128i {
     const r = intCast_i32x8(bitCast_i16x8(a)) *%
         intCast_i32x8(bitCast_i16x8(b));
