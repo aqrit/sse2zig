@@ -323,6 +323,174 @@ pub inline fn _mm_srai_epi16 (a: __m128i, comptime imm8: comptime_int) __m128i {
 }
 
 
+pub inline fn _mm_sll_epi64 (a: __m128i, count: __m128i) __m128i {
+    if (has_avx) {
+        return asm ("vpsllq %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128i)
+            : [a] "x" (a), [b] "x" (count)
+            : );
+    } else if (has_sse2) {
+        var res = a;
+        asm ("psllq %[b], %[a]"
+            : [a] "+x" (res)
+            : [b] "x" (count)
+            : );
+        return res;
+    } else {
+        var shift = bitCast_u64x2(count)[0];
+        if (shift > 63) { return @splat(0); }
+        return @bitCast(bitCast_u64x2(a) << @splat(@truncate(shift)));
+    }
+}
+
+
+pub inline fn _mm_sll_epi32 (a: __m128i, count: __m128i) __m128i {
+    if (has_avx) {
+        return asm ("vpslld %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128i)
+            : [a] "x" (a), [b] "x" (count)
+            : );
+    } else if (has_sse2) {
+        var res = a;
+        asm ("pslld %[b], %[a]"
+            : [a] "+x" (res)
+            : [b] "x" (count)
+            : );
+        return res;
+    } else {
+        var shift = bitCast_u64x2(count)[0];
+        if (shift > 31) { return @splat(0); }
+        return @bitCast(bitCast_u32x4(a) << @splat(@truncate(shift)));
+    }
+}
+
+
+pub inline fn _mm_sll_epi16 (a: __m128i, count: __m128i) __m128i {
+    if (has_avx) {
+        return asm ("vpsllw %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128i)
+            : [a] "x" (a), [b] "x" (count)
+            : );
+    } else if (has_sse2) {
+        var res = a;
+        asm ("psllw %[b], %[a]"
+            : [a] "+x" (res)
+            : [b] "x" (count)
+            : );
+        return res;
+    } else {
+        var shift = bitCast_u64x2(count)[0];
+        if (shift > 15) { return @splat(0); }
+        return @bitCast(bitCast_u16x8(a) << @splat(@truncate(shift)));
+    }
+}
+
+
+pub inline fn _mm_sra_epi32 (a: __m128i, count: __m128i) __m128i {
+    if (has_avx) {
+        return asm ("vpsrad %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128i)
+            : [a] "x" (a), [b] "x" (count)
+            : );
+    } else if (has_sse2) {
+        var res = a;
+        asm ("psrad %[b], %[a]"
+            : [a] "+x" (res)
+            : [b] "x" (count)
+            : );
+        return res;
+    } else {
+        var shift = bitCast_u64x2(count)[0];
+        if (shift > 31) { shift = 31; }
+        return @bitCast(bitCast_i32x4(a) >> @splat(@truncate(shift)));
+    }
+}
+
+
+pub inline fn _mm_sra_epi16 (a: __m128i, count: __m128i) __m128i {
+    if (has_avx) {
+        return asm ("vpsraw %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128i)
+            : [a] "x" (a), [b] "x" (count)
+            : );
+    } else if (has_sse2) {
+        var res = a;
+        asm ("psraw %[b], %[a]"
+            : [a] "+x" (res)
+            : [b] "x" (count)
+            : );
+        return res;
+    } else {
+        var shift = bitCast_u64x2(count)[0];
+        if (shift > 15) { shift = 15; }
+        return @bitCast(bitCast_i16x8(a) >> @splat(@truncate(shift)));
+    }
+}
+
+
+pub inline fn _mm_srl_epi64 (a: __m128i, count: __m128i) __m128i {
+    if (has_avx) {
+        return asm ("vpsrlq %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128i)
+            : [a] "x" (a), [b] "x" (count)
+            : );
+    } else if (has_sse2) {
+        var res = a;
+        asm ("psrlq %[b], %[a]"
+            : [a] "+x" (res)
+            : [b] "x" (count)
+            : );
+        return res;
+    } else {
+        var shift = bitCast_u64x2(count)[0];
+        if (shift > 63) { return @splat(0); }
+        return @bitCast(bitCast_u64x2(a) >> @splat(@truncate(shift)));
+    }
+}
+
+
+pub inline fn _mm_srl_epi32 (a: __m128i, count: __m128i) __m128i {
+    if (has_avx) {
+        return asm ("vpsrld %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128i)
+            : [a] "x" (a), [b] "x" (count)
+            : );
+    } else if (has_sse2) {
+        var res = a;
+        asm ("psrld %[b], %[a]"
+            : [a] "+x" (res)
+            : [b] "x" (count)
+            : );
+        return res;
+    } else {
+        var shift = bitCast_u64x2(count)[0];
+        if (shift > 31) { return @splat(0); }
+        return @bitCast(bitCast_u32x4(a) >> @splat(@truncate(shift)));
+    }
+}
+
+
+pub inline fn _mm_srl_epi16 (a: __m128i, count: __m128i) __m128i {
+    if (has_avx) {
+        return asm ("vpsrlw %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128i)
+            : [a] "x" (a), [b] "x" (count)
+            : );
+    } else if (has_sse2) {
+        var res = a;
+        asm ("psrlw %[b], %[a]"
+            : [a] "+x" (res)
+            : [b] "x" (count)
+            : );
+        return res;
+    } else {
+        var shift = bitCast_u64x2(count)[0];
+        if (shift > 15) { return @splat(0); }
+        return @bitCast(bitCast_u16x8(a) >> @splat(@truncate(shift)));
+    }
+}
+
+
 pub inline fn _mm_abs_epi32 (a: __m128i) __m128i {
     return @bitCast(@abs(bitCast_i32x4(a)));
 }
