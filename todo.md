@@ -1,11 +1,6 @@
 all floating point stuff and....
 
 ```
-export fn _mm_packs_epi16 (a: __m128i, b: __m128i) __m128i {
-export fn _mm_packs_epi32 (a: __m128i, b: __m128i) __m128i {
-export fn _mm_packus_epi16 (a: __m128i, b: __m128i) __m128i {
-export fn _mm_packus_epi32 (a: __m128i, b: __m128i) __m128i {
-
 __m128i _mm_minpos_epu16 (__m128i a)
 
 __m128i _mm_mpsadbw_epu8 (__m128i a, __m128i b, const int imm8)
