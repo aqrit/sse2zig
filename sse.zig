@@ -1162,3 +1162,63 @@ pub inline fn  _mm_sign_epi8 (a: __m128i, b: __m128i) __m128i {
         return @bitCast(@select(i8, (zero == bitCast_i8x16(b)), zero, r));
     }
 }
+
+
+pub inline fn _mm_packs_epi32 (a: __m128i, b: __m128i) __m128i {
+    const shuf: @Vector(8, i32) = .{ 0, 1, 2, 3, -1, -2, -3, -4 };
+    var ab = @shuffle(i32, bitCast_i32x4(a), bitCast_i32x4(b), shuf);
+    ab = @min(ab, @as(@Vector(8, i32), @splat(32767)));
+    ab = @max(ab, @as(@Vector(8, i32), @splat(-32768)));
+    return @bitCast(@as(@Vector(8, i16), @truncate(ab)));
+}
+
+
+pub inline fn _mm_packs_epi16 (a: __m128i, b: __m128i) __m128i {
+    const shuf: @Vector(16, i32) = .{0,1,2,3,4,5,6,7,-1,-2,-3,-4,-5,-6,-7,-8};
+    var ab = @shuffle(i16, bitCast_i16x8(a), bitCast_i16x8(b), shuf);
+    ab = @min(ab, @as(@Vector(16, i16), @splat(127)));
+    ab = @max(ab, @as(@Vector(16, i16), @splat(-128)));
+    return @bitCast(@as(@Vector(16, i8), @truncate(ab)));
+}
+
+
+pub inline fn _mm_packus_epi32 (a: __m128i, b: __m128i) __m128i {
+    if (has_avx) {
+        return asm ("vpackusdw %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128i)
+            : [a] "x" (a), [b] "x" (b)
+            : );
+    } else if (has_sse41) {
+        var res = a;
+        asm ("packusdw %[b], %[a]"
+            : [a] "+x" (res)
+            : [b] "x" (b)
+            : );
+        return res;
+    } else {
+        const shuf: @Vector(8, i32) = .{ 0, 1, 2, 3, -1, -2, -3, -4 };
+        const ab = @shuffle(u32, bitCast_u32x4(a), bitCast_u32x4(b), shuf);
+        return @bitCast(@min(ab, @as(@Vector(8, u16), @splat(0xFFFF))));
+    }
+}
+
+
+pub inline fn _mm_packus_epi16 (a: __m128i, b: __m128i) __m128i {
+    if (has_avx) {
+        return asm ("vpackuswb %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128i)
+            : [a] "x" (a), [b] "x" (b)
+            : );
+    } else if (has_sse2) {
+        var res = a;
+        asm ("packuswb %[b], %[a]"
+            : [a] "+x" (res)
+            : [b] "x" (b)
+            : );
+        return res;
+    } else {
+        const shuf: @Vector(16, i32) = .{0,1,2,3,4,5,6,7,-1,-2,-3,-4,-5,-6,-7,-8};
+        const ab = @shuffle(u16, bitCast_u16x8(a), bitCast_u16x8(b), shuf);
+        return @bitCast(@min(ab, @as(@Vector(16, u8), @splat(0xFF))));
+    }
+}
