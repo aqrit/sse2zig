@@ -62,6 +62,77 @@ pub inline fn _mm_undefined_si128 () __m128i {
 }
 
 
+pub inline fn _mm_load_si128 (mem_addr: *const __m128i) __m128i {
+    return mem_addr.*;
+}
+
+
+pub inline fn _mm_loadu_si128 (mem_addr: *align(1) const __m128i) __m128i {
+    return mem_addr.*;
+}
+
+
+pub inline fn _mm_loadu_si64 (mem_addr: *const void) __m128i {
+    const qword = @as(*align(1) const u64, @ptrCast(mem_addr)).*;
+    return @bitCast(@Vector(2, u64) { qword, 0 });
+}
+
+
+pub inline fn _mm_loadu_si32 (mem_addr: *const void) __m128i {
+    const dword = @as(*align(1) const u32, @ptrCast(mem_addr)).*;
+    return @bitCast(@Vector(4, u32) { dword, 0, 0, 0 });
+}
+
+
+pub inline fn _mm_loadu_si16 (mem_addr: *const void) __m128i {
+    const word = @as(*align(1) const u16, @ptrCast(mem_addr)).*;
+    return @bitCast(@Vector(8, u16) { word, 0, 0, 0, 0, 0, 0, 0 });
+}
+
+
+// Despite the signature, this is the same as _mm_loadu_si64
+pub inline fn _mm_loadl_epi64 (mem_addr: *align(1) const __m128i) __m128i {
+    return _mm_loadu_si64(@ptrCast(mem_addr));
+}
+
+
+pub inline fn _mm_store_si128 (mem_addr: *__m128i, a: __m128i) void {
+    mem_addr.* = a;
+}
+
+
+pub inline fn _mm_storeu_si128 (mem_addr: *align(1) __m128i, a: __m128i) void {
+    mem_addr.* = a;
+}
+
+
+pub inline fn _mm_storeu_si64 (mem_addr: * void, a: __m128i) void {
+    @as(*align(1) u64, @ptrCast(mem_addr)).* = bitCast_u64x2(a)[0];
+}
+
+
+pub inline fn _mm_storeu_si32 (mem_addr: * void, a: __m128i) void {
+    @as(*align(1) u32, @ptrCast(mem_addr)).* = bitCast_u32x4(a)[0];
+}
+
+
+pub inline fn _mm_storeu_si16 (mem_addr: * void, a: __m128i) void {
+    @as(*align(1) u16, @ptrCast(mem_addr)).* = bitCast_u16x8(a)[0];
+}
+
+
+// Despite the signature, this function is the same as _mm_storeu_si64
+pub inline fn _mm_storel_epi64 (mem_addr: *align(1) __m128i, a: __m128i) void {
+    return _mm_storeu_si64(@ptrCast(mem_addr), a);
+}
+
+
+// lddqu is only useful on the P4
+pub inline fn _mm_lddqu_si128 (mem_addr: *align(1) const __m128i) __m128i {
+    return _mm_loadu_si128(mem_addr);
+}
+
+
 pub inline fn _mm_move_epi64 (a: __m128i) __m128i {
     const r: @Vector(2, i64) = .{ bitCast_i64x2(a)[0], 0 };
     return @bitCast(r);
