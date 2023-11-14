@@ -1,4 +1,6 @@
-all floating point stuff and....
+all floating point stuff..
+
+add `m` additional constraint to inline asm
 
 ```
 __m128i _mm_minpos_epu16 (__m128i a)
@@ -17,21 +19,6 @@ int _mm_testz_si128 (__m128i a, __m128i b)
 
 __m128i _mm_mulhrs_epi16 (__m128i a, __m128i b)
 
-__m128i _mm_load_si128 (__m128i const* mem_addr)
-__m128i _mm_loadl_epi64 (__m128i const* mem_addr)
-__m128i _mm_loadu_si128 (__m128i const* mem_addr)
-__m128i _mm_loadu_si16 (void const* mem_addr)
-__m128i _mm_loadu_si32 (void const* mem_addr)
-__m128i _mm_loadu_si64 (void const* mem_addr)
-
-void _mm_store_si128 (__m128i* mem_addr, __m128i a)
-void _mm_storel_epi64 (__m128i* mem_addr, __m128i a)
-void _mm_storeu_si128 (__m128i* mem_addr, __m128i a)
-void _mm_storeu_si16 (void* mem_addr, __m128i a)
-void _mm_storeu_si32 (void* mem_addr, __m128i a)
-void _mm_storeu_si64 (void* mem_addr, __m128i a)
-
-__m128i _mm_lddqu_si128 (__m128i const* mem_addr)
 __m128i _mm_stream_load_si128 (__m128i * mem_addr)
 void _mm_stream_si128 (__m128i* mem_addr, __m128i a)
 
