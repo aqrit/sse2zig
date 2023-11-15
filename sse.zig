@@ -1276,3 +1276,26 @@ pub inline fn _mm_packus_epi16(a: __m128i, b: __m128i) __m128i {
         return @bitCast(@min(ab, @as(u8x16, @splat(0xFF))));
     }
 }
+
+pub inline fn _mm_movemask_epi8(a: __m128i) i32 {
+    if (has_avx) {
+        return asm ("vpmovmskb %[a], %[ret]"
+            : [ret] "=r" (-> i32),
+            : [a] "x" (a),
+        );
+    } else if (has_sse2) {
+        var res: i32 = undefined;
+        asm ("pmovmskb %[a], %[res]"
+            : [res] "=r" (res),
+            : [a] "x" (a),
+        );
+        return res;
+    } else {
+        var res: u32 = 0;
+        for (0..16) |i| {
+            res <<= 1;
+            res |= bitCast_u8x16(a)[15 - i] >> 7;
+        }
+        return @bitCast(res);
+    }
+}
