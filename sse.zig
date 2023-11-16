@@ -1278,22 +1278,34 @@ pub inline fn _mm_packus_epi16(a: __m128i, b: __m128i) __m128i {
 }
 
 pub inline fn _mm_movemask_epi8(a: __m128i) i32 {
+    const cmp = @as(i8x16, @splat(0)) > bitCast_i8x16(a);
+    return @intCast(@as(*const u16, @ptrCast(&cmp)).*);
+}
+
+pub inline fn _mm_sad_epu8(a: __m128i, b: __m128i) __m128i {
     if (has_avx) {
-        return asm ("vpmovmskb %[a], %[ret]"
-            : [ret] "=r" (-> i32),
+        return asm ("vpsadbw %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128i),
             : [a] "x" (a),
+              [b] "x" (b),
         );
     } else if (has_sse2) {
-        return asm ("pmovmskb %[a], %[res]"
-            : [res] "=r" (-> i32),
-            : [a] "x" (a),
+        var res = a;
+        asm ("psadbw %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
         );
+        return res;
     } else {
-        var res: u32 = 0;
-        for (0..16) |i| {
-            res <<= 1;
-            res |= bitCast_u8x16(a)[15 - i] >> 7;
-        }
-        return @bitCast(res);
+        const shuf_lo = i32x8{ 0, 1, 2, 3, 4, 5, 6, 7 };
+        const shuf_hi = i32x8{ 8, 9, 10, 11, 12, 13, 14, 15 };
+
+        const max = @max(bitCast_u8x16(a), bitCast_u8x16(b));
+        const min = @min(bitCast_u8x16(a), bitCast_u8x16(b));
+        const abd = intCast_u16x16(max - min);
+
+        const lo = @reduce(.Add, @shuffle(u16, abd, undefined, shuf_lo));
+        const hi = @reduce(.Add, @shuffle(u16, abd, undefined, shuf_hi));
+        return @bitCast(u64x2{ lo, hi });
     }
 }
