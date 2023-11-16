@@ -1278,7 +1278,7 @@ pub inline fn _mm_packus_epi16(a: __m128i, b: __m128i) __m128i {
 }
 
 pub inline fn _mm_movemask_epi8(a: __m128i) i32 {
-    const cmp = @as(i8x16, @splat(0)) > bitCast_i8x16(a);
+    const cmp = @intFromBool(@as(i8x16, @splat(0)) > bitCast_i8x16(a));
     return @intCast(@as(*const u16, @ptrCast(&cmp)).*);
 }
 
