@@ -1284,12 +1284,10 @@ pub inline fn _mm_movemask_epi8(a: __m128i) i32 {
             : [a] "x" (a),
         );
     } else if (has_sse2) {
-        var res: i32 = undefined;
-        asm ("pmovmskb %[a], %[res]"
-            : [res] "=r" (res),
+        return asm ("pmovmskb %[a], %[res]"
+            : [res] "=r" (-> i32),
             : [a] "x" (a),
         );
-        return res;
     } else {
         var res: u32 = 0;
         for (0..16) |i| {
