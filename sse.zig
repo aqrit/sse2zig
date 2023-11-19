@@ -1334,13 +1334,11 @@ pub inline fn _mm_testnzc_si128(a: __m128i, b: __m128i) i32 {
               [b] "x" (b),
         );
     } else if (has_sse41) {
-        var res: i32 = undefined;
-        asm ("ptest %[b],%[a]"
-            : [_] "={@cca}" (res),
+        return asm ("ptest %[b],%[a]"
+            : [_] "={@cca}" (-> i32),
             : [a] "x" (a),
               [b] "x" (b),
         );
-        return res;
     } else {
         return @intFromBool((_mm_testz_si128(a, b) | _mm_testc_si128(a, b)) == 0);
     }
