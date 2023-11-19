@@ -1,14 +1,13 @@
-pub const __m128i = @Vector(4, i32);
+pub const has_avx2 = false;
+pub const has_avx = false;
+pub const has_sse42 = false;
+pub const has_sse41 = false;
+pub const has_ssse3 = false;
+pub const has_sse3 = false;
+pub const has_sse2 = false;
+pub const has_sse = false;
 
-/// TODO
-pub const has_avx2 = true;
-pub const has_avx = true;
-pub const has_sse42 = true;
-pub const has_sse41 = true;
-pub const has_ssse3 = true;
-pub const has_sse3 = true;
-pub const has_sse2 = true;
-pub const has_sse = true;
+pub const __m128i = @Vector(4, i32);
 
 // helpers to reduce verbosity
 const u64x1 = @Vector(1, u64);
