@@ -139,6 +139,11 @@ inline fn intCast_i8x32(a: anytype) i8x32 {
     return @intCast(a);
 }
 
+/// macro not listed in intel intrinsics guide (but is very common)
+pub inline fn _MM_SHUFFLE(comptime e3: comptime_int, comptime e2: comptime_int, comptime e1: comptime_int, comptime e0: comptime_int) comptime_int {
+    return (e3 << 6) | (e2 << 4) | (e1 << 2) | e0;
+}
+
 pub inline fn _mm_setzero_si128() __m128i {
     return @splat(0);
 }
