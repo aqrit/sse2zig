@@ -1309,3 +1309,19 @@ pub inline fn _mm_sad_epu8(a: __m128i, b: __m128i) __m128i {
         return @bitCast(u64x2{ lo, hi });
     }
 }
+
+pub inline fn _mm_test_all_ones(a: __m128i) i32 {
+    return _mm_testc_si128(a, @bitCast(@as(i32x4, @splat(-1))));
+}
+
+pub inline fn _mm_test_all_zeros(mask: __m128i, a: __m128i) i32 {
+    return _mm_testz_si128(mask, a);
+}
+
+pub inline fn _mm_testc_si128(a: __m128i, b: __m128i) i32 {
+    return _mm_testz_si128(~a, b);
+}
+
+pub inline fn _mm_testz_si128(a: __m128i, b: __m128i) i32 {
+    return @intFromBool(@reduce(.Or, (a & b)) == 0);
+}
