@@ -1326,7 +1326,27 @@ pub inline fn _mm_maddubs_epi16(a: __m128i, b: __m128i) __m128i {
     }
 }
 
-// ## pub inline fn _mm_mulhrs_epi16 (a: __m128i, b: __m128i) __m128i {}
+pub inline fn _mm_mulhrs_epi16(a: __m128i, b: __m128i) __m128i {
+    if (has_avx) {
+        return asm ("vpmulhrsw %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128i),
+            : [a] "x" (a),
+              [b] "x" (b),
+        );
+    } else if (has_ssse3) {
+        var res = a;
+        asm ("pmulhrsw %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+        );
+        return res;
+    } else {
+        var r = intCast_i32x8(bitCast_i16x8(a));
+        r *%= intCast_i32x8(bitCast_i16x8(b));
+        r += @splat(1 << 14);
+        return @bitCast(@as(i16x8, @truncate(r >> @splat(15))));
+    }
+}
 
 pub inline fn _mm_shuffle_epi8(a: __m128i, b: __m128i) __m128i {
     if (has_avx) {
