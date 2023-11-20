@@ -1655,7 +1655,9 @@ pub inline fn _mm_extract_epi8(a: __m128i, comptime imm8: comptime_int) i32 {
 }
 
 // returns i32 because it places the f32 into a general purpose register
-// ## pub inline fn _mm_extract_ps (a: __m128, comptime imm8: comptime_int) i32 {}
+pub inline fn _mm_extract_ps(a: __m128, comptime imm8: comptime_int) i32 {
+    return _mm_extract_epi32(@as(__m128i, @bitCast(a)), imm8);
+}
 
 // ## pub inline fn _mm_floor_pd (a: __m128d) __m128d {}
 
