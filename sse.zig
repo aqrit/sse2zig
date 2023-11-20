@@ -1662,7 +1662,15 @@ pub inline fn _mm_insert_epi8(a: __m128i, i: i8, comptime imm8: comptime_int) __
     return @bitCast(r);
 }
 
-// ## pub inline fn _mm_insert_ps (a: __m128, b: __m128, comptime imm8: comptime_int) __m128 {}
+pub inline fn _mm_insert_ps(a: __m128, b: __m128, comptime imm8: comptime_int) __m128 {
+    var r = a;
+    r[(imm8 >> 4) & 3] = b[imm8 >> 6];
+    if ((imm8 & 1) == 1) r[0] = 0;
+    if ((imm8 & 2) == 2) r[1] = 0;
+    if ((imm8 & 4) == 4) r[2] = 0;
+    if ((imm8 & 8) == 8) r[3] = 0;
+    return r;
+}
 
 pub inline fn _mm_max_epi32(a: __m128i, b: __m128i) __m128i {
     return @bitCast(@max(bitCast_i32x4(a), bitCast_i32x4(b)));
