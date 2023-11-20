@@ -1450,7 +1450,7 @@ pub inline fn _mm_mulhrs_epi16(a: __m128i, b: __m128i) __m128i {
     } else {
         var r = intCast_i32x8(bitCast_i16x8(a));
         r *%= intCast_i32x8(bitCast_i16x8(b));
-        r += @splat(1 << 14);
+        r +%= @splat(1 << 14);
         return @bitCast(@as(i16x8, @truncate(r >> @splat(15))));
     }
 }
