@@ -286,9 +286,19 @@ pub inline fn _mm_sub_ss(a: __m128, b: __m128) __m128 {
 // ## pub inline fn _mm_ucomile_ss (a: __m128, b: __m128) i32 {}
 // ## pub inline fn _mm_ucomilt_ss (a: __m128, b: __m128) i32 {}
 // ## pub inline fn _mm_ucomineq_ss (a: __m128, b: __m128) i32 {}
-// ## pub inline fn  _mm_undefined_ps () __m128 {}
-// ## pub inline fn  _mm_unpackhi_ps (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn  _mm_unpacklo_ps (a: __m128, b: __m128) __m128 {}
+
+pub inline fn _mm_undefined_ps() __m128 {
+    // zig `undefined` doesn't compare equal to itself ?
+    return @splat(0);
+}
+
+pub inline fn _mm_unpackhi_ps(a: __m128, b: __m128) __m128 {
+    return .{ a[2], b[2], a[3], b[3] };
+}
+
+pub inline fn _mm_unpacklo_ps(a: __m128, b: __m128) __m128 {
+    return .{ a[0], b[0], a[1], b[1] };
+}
 
 pub inline fn _mm_xor_ps(a: __m128, b: __m128) __m128 {
     return @bitCast(bitCast_u32x4(a) ^ bitCast_u32x4(b));
@@ -1168,7 +1178,11 @@ pub inline fn _mm_subs_epu8(a: __m128i, b: __m128i) __m128i {
 // ## pub inline fn _mm_ucomile_sd (a: __m128d, b: __m128d) i32 {}
 // ## pub inline fn _mm_ucomilt_sd (a: __m128d, b: __m128d) i32 {}
 // ## pub inline fn _mm_ucomineq_sd (a: __m128d, b: __m128d) i32 {}
-// ## pub inline fn _mm_undefined_pd () __m128d {}
+
+pub inline fn _mm_undefined_pd() __m128d {
+    // zig `undefined` doesn't compare equal to itself ?
+    return @splat(0);
+}
 
 pub inline fn _mm_undefined_si128() __m128i {
     // zig `undefined` doesn't compare equal to itself ?
@@ -1195,7 +1209,9 @@ pub inline fn _mm_unpackhi_epi8(a: __m128i, b: __m128i) __m128i {
     return @bitCast(@shuffle(u8, bitCast_u8x16(a), bitCast_u8x16(b), shuf));
 }
 
-// ## pub inline fn _mm_unpackhi_pd (a: __m128d, b: __m128d) __m128d {}
+pub inline fn _mm_unpackhi_pd(a: __m128d, b: __m128d) __m128d {
+    return .{ a[1], b[1] };
+}
 
 pub inline fn _mm_unpacklo_epi16(a: __m128i, b: __m128i) __m128i {
     const shuf = i32x8{ 0, -1, 1, -2, 2, -3, 3, -4 };
@@ -1217,7 +1233,9 @@ pub inline fn _mm_unpacklo_epi8(a: __m128i, b: __m128i) __m128i {
     return @bitCast(@shuffle(u8, bitCast_u8x16(a), bitCast_u8x16(b), shuf));
 }
 
-// ## pub inline fn _mm_unpacklo_pd (a: __m128d, b: __m128d) __m128d {}
+pub inline fn _mm_unpacklo_pd(a: __m128d, b: __m128d) __m128d {
+    return .{ a[0], b[0] };
+}
 
 pub inline fn _mm_xor_pd(a: __m128d, b: __m128d) __m128d {
     return @bitCast(bitCast_u64x2(a) ^ bitCast_u64x2(b));
