@@ -200,8 +200,15 @@ pub inline fn _mm_andnot_ps(a: __m128, b: __m128) __m128 {
 // ## pub inline fn _mm_cvtt_ss2si (a: __m128) i32 {}
 // ## pub inline fn _mm_cvttss_si32 (a: __m128) i32 {}
 // ## pub inline fn _mm_cvttss_si64 (a: __m128) i64 {}
-// ## pub inline fn _mm_div_ps (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_div_ss (a: __m128, b: __m128) __m128 {}
+
+pub inline fn _mm_div_ps(a: __m128, b: __m128) __m128 {
+    return a / b;
+}
+
+pub inline fn _mm_div_ss(a: __m128, b: __m128) __m128 {
+    return .{ a[0] / b[0], a[1], a[2], a[3] };
+}
+
 // ## pub inline fn _mm_free (mem_addr: *void) void {}
 // ## pub inline fn _MM_GET_EXCEPTION_MASK () u32 {}
 // ## pub inline fn _MM_GET_EXCEPTION_STATE () u32 {}
@@ -223,8 +230,14 @@ pub inline fn _mm_andnot_ps(a: __m128, b: __m128) __m128 {
 // ## pub inline fn _mm_movehl_ps (a: __m128, b: __m128) __m128 {}
 // ## pub inline fn _mm_movelh_ps (a: __m128, b: __m128) __m128 {}
 // ## pub inline fn _mm_movemask_ps (a: __m128) i32 {}
-// ## pub inline fn _mm_mul_ps (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_mul_ss (a: __m128, b: __m128) __m128 {}
+
+pub inline fn _mm_mul_ps(a: __m128, b: __m128) __m128 {
+    return a * b;
+}
+
+pub inline fn _mm_mul_ss(a: __m128, b: __m128) __m128 {
+    return .{ a[0] * b[0], a[1], a[2], a[3] };
+}
 
 pub inline fn _mm_or_ps(a: __m128, b: __m128) __m128 {
     return @bitCast(bitCast_u32x4(a) | bitCast_u32x4(b));
@@ -507,8 +520,14 @@ pub inline fn _mm_cvtsi64x_si128(a: i64) __m128i {
 // ## pub inline fn _mm_cvttsd_si32 (a: __m128d) i32 {}
 // ## pub inline fn _mm_cvttsd_si64 (a: __m128d) i64 {}
 // ## pub inline fn _mm_cvttsd_si64x (a: __m128d) i64 {}
-// ## pub inline fn _mm_div_pd (a: __m128d, b: __m128d) __m128d {}
-// ## pub inline fn _mm_div_sd (a: __m128d, b: __m128d) __m128d {}
+
+pub inline fn _mm_div_pd(a: __m128d, b: __m128d) __m128d {
+    return a / b;
+}
+
+pub inline fn _mm_div_sd(a: __m128d, b: __m128d) __m128d {
+    return .{ a[0] / b[0], a[1] };
+}
 
 /// zero-extends u16 to i32, as per C intrinsic
 pub inline fn _mm_extract_epi16(a: __m128i, comptime imm8: comptime_int) i32 {
@@ -618,8 +637,13 @@ pub inline fn _mm_mul_epu32(a: __m128i, b: __m128i) __m128i {
     return @bitCast(x *% y);
 }
 
-// ## pub inline fn _mm_mul_pd (a: __m128d, b: __m128d) __m128d {}
-// ## pub inline fn _mm_mul_sd (a: __m128d, b: __m128d) __m128d {}
+pub inline fn _mm_mul_pd(a: __m128d, b: __m128d) __m128d {
+    return a * b;
+}
+
+pub inline fn _mm_mul_sd(a: __m128d, b: __m128d) __m128d {
+    return .{ a[0] * b[0], a[1] };
+}
 
 pub inline fn _mm_mulhi_epi16(a: __m128i, b: __m128i) __m128i {
     const r = (intCast_i32x8(bitCast_i16x8(a)) *% intCast_i32x8(bitCast_i16x8(b)));
