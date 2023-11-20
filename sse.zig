@@ -144,8 +144,13 @@ inline fn intCast_i8x32(a: anytype) i8x32 {
 
 // SSE =================================================================
 
-// ## pub inline fn _mm_add_ps (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_add_ss (a: __m128, b: __m128) __m128 {}
+pub inline fn _mm_add_ps(a: __m128, b: __m128) __m128 {
+    return a + b;
+}
+
+pub inline fn _mm_add_ss(a: __m128, b: __m128) __m128 {
+    return .{ a[0] + b[0], a[1], a[2], a[3] };
+}
 
 pub inline fn _mm_and_ps(a: __m128, b: __m128) __m128 {
     return @bitCast(bitCast_u32x4(a) & bitCast_u32x4(b));
@@ -252,8 +257,15 @@ pub inline fn _mm_or_ps(a: __m128, b: __m128) __m128 {
 // ## pub inline fn _mm_storer_ps (mem_addr: *f32, a: __m128) void {} // align 16
 // ## pub inline fn _mm_storeu_ps (mem_addr: *align(1) f32, a: __m128) void {}
 // ## pub inline fn _mm_stream_ps (mem_addr: *f32, a: __m128) void {} // align 16
-// ## pub inline fn _mm_sub_ps (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_sub_ss (a: __m128, b: __m128) __m128 {}
+
+pub inline fn _mm_sub_ps(a: __m128, b: __m128) __m128 {
+    return a - b;
+}
+
+pub inline fn _mm_sub_ss(a: __m128, b: __m128) __m128 {
+    return .{ a[0] - b[0], a[1], a[2], a[3] };
+}
+
 // ## ?? void _MM_TRANSPOSE4_PS (__m128 row0, __m128 row1, __m128 row2, __m128 row3) ??
 // ## pub inline fn _mm_ucomieq_ss (a: __m128, b: __m128) i32 {}
 // ## pub inline fn _mm_ucomige_ss (a: __m128, b: __m128) i32 {}
@@ -287,9 +299,13 @@ pub inline fn _mm_add_epi8(a: __m128i, b: __m128i) __m128i {
     return @bitCast(bitCast_u8x16(a) +% bitCast_u8x16(b));
 }
 
-// ## pub inline fn _mm_add_pd (a: __m128d, b: __m128d) __m128d {}
+pub inline fn _mm_add_pd(a: __m128d, b: __m128d) __m128d {
+    return a + b;
+}
 
-// ## pub inline fn _mm_add_sd (a: __m128d, b: __m128d) __m128d {}
+pub inline fn _mm_add_sd(a: __m128d, b: __m128d) __m128d {
+    return .{ a[0] + b[0], a[1] };
+}
 
 pub inline fn _mm_adds_epi16(a: __m128i, b: __m128i) __m128i {
     return @bitCast(bitCast_i16x8(a) +| bitCast_i16x8(b));
@@ -1098,8 +1114,13 @@ pub inline fn _mm_sub_epi8(a: __m128i, b: __m128i) __m128i {
     return @bitCast(bitCast_u8x16(a) -% bitCast_u8x16(b));
 }
 
-// ## pub inline fn _mm_sub_pd (a: __m128d, b: __m128d) __m128d {}
-// ## pub inline fn _mm_sub_sd (a: __m128d, b: __m128d) __m128d {}
+pub inline fn _mm_sub_pd(a: __m128d, b: __m128d) __m128d {
+    return a - b;
+}
+
+pub inline fn _mm_sub_sd(a: __m128d, b: __m128d) __m128d {
+    return .{ a[0] - b[0], a[1] };
+}
 
 pub inline fn _mm_subs_epi16(a: __m128i, b: __m128i) __m128i {
     return @bitCast(bitCast_i16x8(a) -| bitCast_i16x8(b));
