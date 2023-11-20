@@ -1229,9 +1229,13 @@ pub inline fn _mm_xor_si128(a: __m128i, b: __m128i) __m128i {
 
 // SSE3 ================================================================
 
-// ## pub inline fn  _mm_addsub_pd (a: __m128d, b: __m128d) __m128d {}
+pub inline fn _mm_addsub_pd(a: __m128d, b: __m128d) __m128d {
+    return .{ a[0] - b[0], a[1] + b[1] };
+}
 
-// ## pub inline fn  _mm_addsub_ps (a: __m128, b: __m128) __m128 {}
+pub inline fn _mm_addsub_ps(a: __m128, b: __m128) __m128 {
+    return .{ a[0] - b[0], a[1] + b[1], a[2] - b[2], a[3] + b[3] };
+}
 
 pub inline fn _mm_hadd_pd(a: __m128d, b: __m128d) __m128d {
     const shuf_even = i32x2{ 0, -1 };
