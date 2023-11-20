@@ -146,8 +146,15 @@ inline fn intCast_i8x32(a: anytype) i8x32 {
 
 // ## pub inline fn _mm_add_ps (a: __m128, b: __m128) __m128 {}
 // ## pub inline fn _mm_add_ss (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_and_ps (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_andnot_ps (a: __m128, b: __m128) __m128 {}
+
+pub inline fn _mm_and_ps(a: __m128, b: __m128) __m128 {
+    return @bitCast(bitCast_u32x4(a) & bitCast_u32x4(b));
+}
+
+pub inline fn _mm_andnot_ps(a: __m128, b: __m128) __m128 {
+    return @bitCast(~bitCast_u32x4(a) & bitCast_u32x4(b));
+}
+
 // ## pub inline fn _mm_cmpeq_ps (a: __m128, b: __m128) __m128 {}
 // ## pub inline fn _mm_cmpeq_ss (a: __m128, b: __m128) __m128 {}
 // ## pub inline fn _mm_cmpge_ps (a: __m128, b: __m128) __m128 {}
@@ -213,7 +220,11 @@ inline fn intCast_i8x32(a: anytype) i8x32 {
 // ## pub inline fn _mm_movemask_ps (a: __m128) i32 {}
 // ## pub inline fn _mm_mul_ps (a: __m128, b: __m128) __m128 {}
 // ## pub inline fn _mm_mul_ss (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_or_ps (a: __m128, b: __m128) __m128 {}
+
+pub inline fn _mm_or_ps(a: __m128, b: __m128) __m128 {
+    return @bitCast(bitCast_u32x4(a) | bitCast_u32x4(b));
+}
+
 // ## pub inline fn _mm_prefetch (p: *const i8, i: i32) void {}
 // ## pub inline fn _mm_rcp_ps (a: __m128) __m128 {}
 // ## pub inline fn _mm_rcp_ss (a: __m128) __m128 {}
@@ -253,7 +264,10 @@ inline fn intCast_i8x32(a: anytype) i8x32 {
 // ## pub inline fn  _mm_undefined_ps () __m128 {}
 // ## pub inline fn  _mm_unpackhi_ps (a: __m128, b: __m128) __m128 {}
 // ## pub inline fn  _mm_unpacklo_ps (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn  _mm_xor_ps (a: __m128, b: __m128) __m128 {}
+
+pub inline fn _mm_xor_ps(a: __m128, b: __m128) __m128 {
+    return @bitCast(bitCast_u32x4(a) ^ bitCast_u32x4(b));
+}
 
 // SSE2 ================================================================
 
@@ -293,13 +307,17 @@ pub inline fn _mm_adds_epu8(a: __m128i, b: __m128i) __m128i {
     return @bitCast(bitCast_u8x16(a) +| bitCast_u8x16(b));
 }
 
-// ## pub inline fn _mm_and_pd (a: __m128d, b: __m128d) __m128d {}
+pub inline fn _mm_and_pd(a: __m128d, b: __m128d) __m128d {
+    return @bitCast(bitCast_u64x2(a) & bitCast_u64x2(b));
+}
 
 pub inline fn _mm_and_si128(a: __m128i, b: __m128i) __m128i {
     return a & b;
 }
 
-// ## pub inline fn _mm_andnot_pd (a: __m128d, b: __m128d) __m128d {}
+pub inline fn _mm_andnot_pd(a: __m128d, b: __m128d) __m128d {
+    return @bitCast(~bitCast_u64x2(a) & bitCast_u64x2(b));
+}
 
 pub inline fn _mm_andnot_si128(a: __m128i, b: __m128i) __m128i {
     return ~a & b;
@@ -601,7 +619,9 @@ pub inline fn _mm_mullo_epi16(a: __m128i, b: __m128i) __m128i {
     return @bitCast(bitCast_i16x8(a) *% bitCast_i16x8(b));
 }
 
-// ## pub inline fn _mm_or_pd (a: __m128d, b: __m128d) __m128d {}
+pub inline fn _mm_or_pd(a: __m128d, b: __m128d) __m128d {
+    return @bitCast(bitCast_u64x2(a) | bitCast_u64x2(b));
+}
 
 pub inline fn _mm_or_si128(a: __m128i, b: __m128i) __m128i {
     return a | b;
@@ -1153,7 +1173,10 @@ pub inline fn _mm_unpacklo_epi8(a: __m128i, b: __m128i) __m128i {
 }
 
 // ## pub inline fn _mm_unpacklo_pd (a: __m128d, b: __m128d) __m128d {}
-// ## pub inline fn _mm_xor_pd (a: __m128d, b: __m128d) __m128d {}
+
+pub inline fn _mm_xor_pd(a: __m128d, b: __m128d) __m128d {
+    return @bitCast(bitCast_u64x2(a) ^ bitCast_u64x2(b));
+}
 
 pub inline fn _mm_xor_si128(a: __m128i, b: __m128i) __m128i {
     return a ^ b;
