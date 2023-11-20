@@ -1573,13 +1573,23 @@ pub inline fn _mm_blendv_ps(a: __m128, b: __m128, mask: __m128) __m128 {
     return @select(f32, cmp, b, a);
 }
 
-// ## pub inline fn _mm_ceil_pd (a: __m128d) __m128d {}
+pub inline fn _mm_ceil_pd(a: __m128d) __m128d {
+    return @ceil(a);
+}
 
-// ## pub inline fn _mm_ceil_ps (a: __m128) __m128 {}
+pub inline fn _mm_ceil_ps(a: __m128) __m128 {
+    return @ceil(a);
+}
 
-// ## pub inline fn _mm_ceil_sd (a: __m128d, b: __m128d) __m128d {}
+pub inline fn _mm_ceil_sd(a: __m128d, b: __m128d) __m128d {
+    // TODO: generated code uses an extra blend
+    return .{ @ceil(b[0]), a[1] };
+}
 
-// ## pub inline fn _mm_ceil_ss (a: __m128, b: __m128) __m128 {}
+pub inline fn _mm_ceil_ss(a: __m128, b: __m128) __m128 {
+    // TODO: generated code uses an extra blend
+    return .{ @ceil(b[0]), a[1], a[2], a[3] };
+}
 
 pub inline fn _mm_cmpeq_epi64(a: __m128i, b: __m128i) __m128i {
     const cmpBool = (bitCast_i64x2(a) == bitCast_i64x2(b));
@@ -1681,13 +1691,23 @@ pub inline fn _mm_extract_ps(a: __m128, comptime imm8: comptime_int) i32 {
     return bitCast_i32x4(a)[imm8];
 }
 
-// ## pub inline fn _mm_floor_pd (a: __m128d) __m128d {}
+pub inline fn _mm_floor_pd(a: __m128d) __m128d {
+    return @floor(a);
+}
 
-// ## pub inline fn _mm_floor_ps (a: __m128) __m128 {}
+pub inline fn _mm_floor_ps(a: __m128) __m128 {
+    return @floor(a);
+}
 
-// ## pub inline fn _mm_floor_sd (a: __m128d, b: __m128d) __m128d {}
+pub inline fn _mm_floor_sd(a: __m128d, b: __m128d) __m128d {
+    // TODO: generated code uses an extra blend
+    return .{ @floor(b[0]), a[1] };
+}
 
-// ## pub inline fn _mm_floor_ss (a: __m128, b: __m128) __m128 {}
+pub inline fn _mm_floor_ss(a: __m128, b: __m128) __m128 {
+    // TODO: generated code uses an extra blend
+    return .{ @floor(b[0]), a[1], a[2], a[3] };
+}
 
 pub inline fn _mm_insert_epi32(a: __m128i, i: i32, comptime imm8: comptime_int) __m128i {
     var r = bitCast_i32x4(a);
