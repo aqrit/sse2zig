@@ -1274,13 +1274,22 @@ pub inline fn _mm_lddqu_si128(mem_addr: *align(1) const __m128i) __m128i {
     return _mm_loadu_si128(mem_addr);
 }
 
-// ## pub inline fn _mm_loaddup_pd (mem_addr *const f64) __m128d {}
+pub inline fn _mm_loaddup_pd(mem_addr: *const f64) __m128d {
+    const e = mem_addr.*;
+    return .{ e, e };
+}
 
-// ## pub inline fn _mm_movedup_pd (a: __m128d) __m128d {}
+pub inline fn _mm_movedup_pd(a: __m128d) __m128d {
+    return .{ a[0], a[0] };
+}
 
-// ## pub inline fn _mm_movehdup_ps (a: __m128) __m128 {}
+pub inline fn _mm_movehdup_ps(a: __m128) __m128 {
+    return .{ a[1], a[1], a[3], a[3] };
+}
 
-// ## pub inline fn _mm_moveldup_ps (a: __m128) __m128 {}
+pub inline fn _mm_moveldup_ps(a: __m128) __m128 {
+    return .{ a[0], a[0], a[2], a[2] };
+}
 
 // SSSE3 ===============================================================
 
