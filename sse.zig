@@ -1238,35 +1238,19 @@ pub inline fn _mm_addsub_ps(a: __m128, b: __m128) __m128 {
 }
 
 pub inline fn _mm_hadd_pd(a: __m128d, b: __m128d) __m128d {
-    const shuf_even = i32x2{ 0, -1 };
-    const shuf_odd = i32x2{ 1, -2 };
-    const even = @shuffle(f64, a, b, shuf_even);
-    const odd = @shuffle(f64, a, b, shuf_odd);
-    return even + odd;
+    return .{ a[0] + a[1], b[0] + b[1] };
 }
 
 pub inline fn _mm_hadd_ps(a: __m128, b: __m128) __m128 {
-    const shuf_even = i32x4{ 0, 2, -1, -3 };
-    const shuf_odd = i32x4{ 1, 3, -2, -4 };
-    const even = @shuffle(f32, a, b, shuf_even);
-    const odd = @shuffle(f32, a, b, shuf_odd);
-    return even + odd;
+    return .{ a[0] + a[1], a[2] + a[3], b[0] + b[1], b[2] + b[3] };
 }
 
 pub inline fn _mm_hsub_pd(a: __m128d, b: __m128d) __m128d {
-    const shuf_even = i32x2{ 0, -1 };
-    const shuf_odd = i32x2{ 1, -2 };
-    const even = @shuffle(f64, a, b, shuf_even);
-    const odd = @shuffle(f64, a, b, shuf_odd);
-    return even - odd;
+    return .{ a[0] - a[1], b[0] - b[1] };
 }
 
 pub inline fn _mm_hsub_ps(a: __m128, b: __m128) __m128 {
-    const shuf_even = i32x4{ 0, 2, -1, -3 };
-    const shuf_odd = i32x4{ 1, 3, -2, -4 };
-    const even = @shuffle(f32, a, b, shuf_even);
-    const odd = @shuffle(f32, a, b, shuf_odd);
-    return even - odd;
+    return .{ a[0] - a[1], a[2] - a[3], b[0] - b[1], b[2] - b[3] };
 }
 
 // lddqu is only useful on the P4
