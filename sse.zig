@@ -1193,12 +1193,29 @@ pub inline fn _mm_subs_epu8(a: __m128i, b: __m128i) __m128i {
     return @bitCast(bitCast_u8x16(a) -| bitCast_u8x16(b));
 }
 
-// ## pub inline fn _mm_ucomieq_sd (a: __m128d, b: __m128d) i32 {}
-// ## pub inline fn _mm_ucomige_sd (a: __m128d, b: __m128d) i32 {}
-// ## pub inline fn _mm_ucomigt_sd (a: __m128d, b: __m128d) i32 {}
-// ## pub inline fn _mm_ucomile_sd (a: __m128d, b: __m128d) i32 {}
-// ## pub inline fn _mm_ucomilt_sd (a: __m128d, b: __m128d) i32 {}
-// ## pub inline fn _mm_ucomineq_sd (a: __m128d, b: __m128d) i32 {}
+pub inline fn _mm_ucomieq_sd(a: __m128d, b: __m128d) i32 {
+    return @intFromBool(a[0] == b[0]);
+}
+
+pub inline fn _mm_ucomige_sd(a: __m128d, b: __m128d) i32 {
+    return @intFromBool(a[0] >= b[0]);
+}
+
+pub inline fn _mm_ucomigt_sd(a: __m128d, b: __m128d) i32 {
+    return @intFromBool(a[0] > b[0]);
+}
+
+pub inline fn _mm_ucomile_sd(a: __m128d, b: __m128d) i32 {
+    return @intFromBool(a[0] <= b[0]);
+}
+
+pub inline fn _mm_ucomilt_sd(a: __m128d, b: __m128d) i32 {
+    return @intFromBool(a[0] < b[0]);
+}
+
+pub inline fn _mm_ucomineq_sd(a: __m128d, b: __m128d) i32 {
+    return @intFromBool(a[0] != b[0]);
+}
 
 pub inline fn _mm_undefined_pd() __m128d {
     // zig `undefined` doesn't compare equal to itself ?
