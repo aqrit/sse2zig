@@ -823,7 +823,10 @@ pub inline fn _mm_shuffle_epi32(a: __m128i, comptime imm8: comptime_int) __m128i
     return @bitCast(@shuffle(i32, bitCast_i32x4(a), undefined, shuf));
 }
 
-// ## pub inline fn _mm_shuffle_pd (a: __m128d, b: __m128d, comptime imm8: comptime_int) __m128d {}
+// TODO: check what hardware does when `imm8 > 0x03`
+pub inline fn _mm_shuffle_pd(a: __m128d, b: __m128d, comptime imm8: comptime_int) __m128d {
+    return .{ if ((imm8 & 1) == 0) a[0] else a[1], if ((imm8 & 2) == 0) b[0] else b[1] };
+}
 
 pub inline fn _mm_shufflehi_epi16(a: __m128i, comptime imm8: comptime_int) __m128i {
     const shuf = i32x8{ 0, 1, 2, 3, 4 + (imm8 & 3), 4 + ((imm8 >> 2) & 3), 4 + ((imm8 >> 4) & 3), 4 + ((imm8 >> 6) & 3) };
@@ -850,7 +853,7 @@ pub inline fn _mm_sll_epi16(a: __m128i, count: __m128i) __m128i {
         );
         return res;
     } else {
-        var shift = bitCast_u64x2(count)[0];
+        const shift = bitCast_u64x2(count)[0];
         if (shift > 15) {
             return @splat(0);
         }
@@ -873,7 +876,7 @@ pub inline fn _mm_sll_epi32(a: __m128i, count: __m128i) __m128i {
         );
         return res;
     } else {
-        var shift = bitCast_u64x2(count)[0];
+        const shift = bitCast_u64x2(count)[0];
         if (shift > 31) {
             return @splat(0);
         }
@@ -896,7 +899,7 @@ pub inline fn _mm_sll_epi64(a: __m128i, count: __m128i) __m128i {
         );
         return res;
     } else {
-        var shift = bitCast_u64x2(count)[0];
+        const shift = bitCast_u64x2(count)[0];
         if (shift > 63) {
             return @splat(0);
         }
@@ -1009,7 +1012,7 @@ pub inline fn _mm_srl_epi16(a: __m128i, count: __m128i) __m128i {
         );
         return res;
     } else {
-        var shift = bitCast_u64x2(count)[0];
+        const shift = bitCast_u64x2(count)[0];
         if (shift > 15) {
             return @splat(0);
         }
@@ -1032,7 +1035,7 @@ pub inline fn _mm_srl_epi32(a: __m128i, count: __m128i) __m128i {
         );
         return res;
     } else {
-        var shift = bitCast_u64x2(count)[0];
+        const shift = bitCast_u64x2(count)[0];
         if (shift > 31) {
             return @splat(0);
         }
@@ -1055,7 +1058,7 @@ pub inline fn _mm_srl_epi64(a: __m128i, count: __m128i) __m128i {
         );
         return res;
     } else {
-        var shift = bitCast_u64x2(count)[0];
+        const shift = bitCast_u64x2(count)[0];
         if (shift > 63) {
             return @splat(0);
         }
