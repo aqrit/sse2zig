@@ -160,26 +160,106 @@ pub inline fn _mm_andnot_ps(a: __m128, b: __m128) __m128 {
     return @bitCast(~bitCast_u32x4(a) & bitCast_u32x4(b));
 }
 
-// ## pub inline fn _mm_cmpeq_ps (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_cmpeq_ss (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_cmpge_ps (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_cmpge_ss (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_cmpgt_ps (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_cmpgt_ss (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_cmple_ps (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_cmple_ss (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_cmplt_ps (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_cmplt_ss (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_cmpneq_ps (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_cmpneq_ss (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_cmpnge_ps (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_cmpnge_ss (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_cmpngt_ps (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_cmpngt_ss (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_cmpnle_ps (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_cmpnle_ss (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_cmpnlt_ps (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_cmpnlt_ss (a: __m128, b: __m128) __m128 {}
+pub inline fn _mm_cmpeq_ps(a: __m128, b: __m128) __m128 {
+    const cmpBool = (a == b);
+    const cmpInt: @Vector(4, i1) = @bitCast(@intFromBool(cmpBool));
+    return @bitCast(intCast_i32x4(cmpInt));
+}
+
+pub inline fn _mm_cmpeq_ss(a: __m128, b: __m128) __m128 {
+    // TODO: generated code uses an extra blend
+    const pred: i1 = @bitCast(@intFromBool(a[0] == b[0]));
+    const mask: f32 = @bitCast(@as(i32, @intCast(pred)));
+    return .{ mask, a[1], a[2], a[3] };
+}
+
+pub inline fn _mm_cmpge_ps(a: __m128, b: __m128) __m128 {
+    return _mm_cmple_ps(b, a);
+}
+
+pub inline fn _mm_cmpge_ss(a: __m128, b: __m128) __m128 {
+    return _mm_cmple_ss(b, a);
+}
+
+pub inline fn _mm_cmpgt_ps(a: __m128, b: __m128) __m128 {
+    return _mm_cmplt_ps(b, a);
+}
+
+pub inline fn _mm_cmpgt_ss(a: __m128, b: __m128) __m128 {
+    return _mm_cmplt_ss(b, a);
+}
+
+pub inline fn _mm_cmple_ps(a: __m128, b: __m128) __m128 {
+    const cmpBool = (a <= b);
+    const cmpInt: @Vector(4, i1) = @bitCast(@intFromBool(cmpBool));
+    return @bitCast(intCast_i32x4(cmpInt));
+}
+
+pub inline fn _mm_cmple_ss(a: __m128, b: __m128) __m128 {
+    // TODO: generated code is hot garbage
+    const pred: i1 = @bitCast(@intFromBool(a[0] <= b[0]));
+    const mask: f32 = @bitCast(@as(i32, @intCast(pred)));
+    return .{ mask, a[1], a[2], a[3] };
+}
+
+pub inline fn _mm_cmplt_ps(a: __m128, b: __m128) __m128 {
+    const cmpBool = (a < b);
+    const cmpInt: @Vector(4, i1) = @bitCast(@intFromBool(cmpBool));
+    return @bitCast(intCast_i32x4(cmpInt));
+}
+
+pub inline fn _mm_cmplt_ss(a: __m128, b: __m128) __m128 {
+    // TODO: generated code is hot garbage
+    const pred: i1 = @bitCast(@intFromBool(a[0] < b[0]));
+    const mask: f32 = @bitCast(@as(i32, @intCast(pred)));
+    return .{ mask, a[1], a[2], a[3] };
+}
+
+pub inline fn _mm_cmpneq_ps(a: __m128, b: __m128) __m128 {
+    const cmpBool = (a != b);
+    const cmpInt: @Vector(4, i1) = @bitCast(@intFromBool(cmpBool));
+    return @bitCast(intCast_i32x4(cmpInt));
+}
+
+pub inline fn _mm_cmpneq_ss(a: __m128, b: __m128) __m128 {
+    // TODO: generated code uses an extra blend
+    const pred: i1 = @bitCast(@intFromBool(a[0] != b[0]));
+    const mask: f32 = @bitCast(@as(i32, @intCast(pred)));
+    return .{ mask, a[1], a[2], a[3] };
+}
+
+pub inline fn _mm_cmpnge_ps(a: __m128, b: __m128) __m128 {
+    return _mm_cmplt_ps(a, b);
+}
+
+pub inline fn _mm_cmpnge_ss(a: __m128, b: __m128) __m128 {
+    return _mm_cmplt_ss(a, b);
+}
+
+pub inline fn _mm_cmpngt_ps(a: __m128, b: __m128) __m128 {
+    return _mm_cmple_ps(a, b);
+}
+
+pub inline fn _mm_cmpngt_ss(a: __m128, b: __m128) __m128 {
+    return _mm_cmple_ss(a, b);
+}
+
+pub inline fn _mm_cmpnle_ps(a: __m128, b: __m128) __m128 {
+    return _mm_cmplt_ps(b, a);
+}
+
+pub inline fn _mm_cmpnle_ss(a: __m128, b: __m128) __m128 {
+    return _mm_cmplt_ss(b, a);
+}
+
+pub inline fn _mm_cmpnlt_ps(a: __m128, b: __m128) __m128 {
+    return _mm_cmple_ps(b, a);
+}
+
+pub inline fn _mm_cmpnlt_ss(a: __m128, b: __m128) __m128 {
+    return _mm_cmple_ss(b, a);
+}
+
 // ## pub inline fn _mm_cmpord_ps (a: __m128, b: __m128) __m128 {}
 // ## pub inline fn _mm_cmpord_ss (a: __m128, b: __m128) __m128 {}
 // ## pub inline fn _mm_cmpunord_ps (a: __m128, b: __m128) __m128 {}
@@ -1193,12 +1273,29 @@ pub inline fn _mm_subs_epu8(a: __m128i, b: __m128i) __m128i {
     return @bitCast(bitCast_u8x16(a) -| bitCast_u8x16(b));
 }
 
-// ## pub inline fn _mm_ucomieq_sd (a: __m128d, b: __m128d) i32 {}
-// ## pub inline fn _mm_ucomige_sd (a: __m128d, b: __m128d) i32 {}
-// ## pub inline fn _mm_ucomigt_sd (a: __m128d, b: __m128d) i32 {}
-// ## pub inline fn _mm_ucomile_sd (a: __m128d, b: __m128d) i32 {}
-// ## pub inline fn _mm_ucomilt_sd (a: __m128d, b: __m128d) i32 {}
-// ## pub inline fn _mm_ucomineq_sd (a: __m128d, b: __m128d) i32 {}
+pub inline fn _mm_ucomieq_sd(a: __m128d, b: __m128d) i32 {
+    return @intFromBool(a[0] == b[0]);
+}
+
+pub inline fn _mm_ucomige_sd(a: __m128d, b: __m128d) i32 {
+    return @intFromBool(a[0] >= b[0]);
+}
+
+pub inline fn _mm_ucomigt_sd(a: __m128d, b: __m128d) i32 {
+    return @intFromBool(a[0] > b[0]);
+}
+
+pub inline fn _mm_ucomile_sd(a: __m128d, b: __m128d) i32 {
+    return @intFromBool(a[0] <= b[0]);
+}
+
+pub inline fn _mm_ucomilt_sd(a: __m128d, b: __m128d) i32 {
+    return @intFromBool(a[0] < b[0]);
+}
+
+pub inline fn _mm_ucomineq_sd(a: __m128d, b: __m128d) i32 {
+    return @intFromBool(a[0] != b[0]);
+}
 
 pub inline fn _mm_undefined_pd() __m128d {
     // zig `undefined` doesn't compare equal to itself ?
