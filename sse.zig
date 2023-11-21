@@ -390,12 +390,30 @@ pub inline fn _mm_bsrli_si128(a: __m128i, comptime imm8: comptime_int) __m128i {
     return _mm_srli_si128(a, imm8);
 }
 
-// ## pub inline fn  _mm_castpd_ps (a: __m128d) __m128 {}
-// ## pub inline fn  _mm_castpd_si128 (a: __m128d) __m128i {}
-// ## pub inline fn  _mm_castps_pd (a: __m128) __m128d {}
-// ## pub inline fn  _mm_castps_si128 (a: __m128) __m128i {}
-// ## pub inline fn  _mm_castsi128_pd (a: __m128i) __m128d {}
-// ## pub inline fn _mm_castsi128_ps (a: __m128i) __m128 {}
+pub inline fn _mm_castpd_ps(a: __m128d) __m128 {
+    return @bitCast(a);
+}
+
+pub inline fn _mm_castpd_si128(a: __m128d) __m128i {
+    return @bitCast(a);
+}
+
+pub inline fn _mm_castps_pd(a: __m128) __m128d {
+    return @bitCast(a);
+}
+
+pub inline fn _mm_castps_si128(a: __m128) __m128i {
+    return @bitCast(a);
+}
+
+pub inline fn _mm_castsi128_pd(a: __m128i) __m128d {
+    return @bitCast(a);
+}
+
+pub inline fn _mm_castsi128_ps(a: __m128i) __m128 {
+    return @bitCast(a);
+}
+
 // ## pub inline fn _mm_clflush (p: *const void) void {}
 
 pub inline fn _mm_cmpeq_epi16(a: __m128i, b: __m128i) __m128i {
@@ -1594,10 +1612,12 @@ pub inline fn _mm_blendv_ps(a: __m128, b: __m128, mask: __m128) __m128 {
     return @select(f32, cmp, b, a);
 }
 
+/// TODO: precision exception is not signaled by @ceil
 pub inline fn _mm_ceil_pd(a: __m128d) __m128d {
     return @ceil(a);
 }
 
+/// TODO: precision exception is not signaled by @ceil
 pub inline fn _mm_ceil_ps(a: __m128) __m128 {
     return @ceil(a);
 }
@@ -1712,10 +1732,12 @@ pub inline fn _mm_extract_ps(a: __m128, comptime imm8: comptime_int) i32 {
     return bitCast_i32x4(a)[imm8];
 }
 
+/// TODO: precision exception is not signaled by @floor
 pub inline fn _mm_floor_pd(a: __m128d) __m128d {
     return @floor(a);
 }
 
+/// TODO: precision exception is not signaled by @floor
 pub inline fn _mm_floor_ps(a: __m128) __m128 {
     return @floor(a);
 }
