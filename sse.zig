@@ -360,12 +360,30 @@ pub inline fn _mm_sub_ss(a: __m128, b: __m128) __m128 {
 }
 
 // ## ?? void _MM_TRANSPOSE4_PS (__m128 row0, __m128 row1, __m128 row2, __m128 row3) ??
-// ## pub inline fn _mm_ucomieq_ss (a: __m128, b: __m128) i32 {}
-// ## pub inline fn _mm_ucomige_ss (a: __m128, b: __m128) i32 {}
-// ## pub inline fn _mm_ucomigt_ss (a: __m128, b: __m128) i32 {}
-// ## pub inline fn _mm_ucomile_ss (a: __m128, b: __m128) i32 {}
-// ## pub inline fn _mm_ucomilt_ss (a: __m128, b: __m128) i32 {}
-// ## pub inline fn _mm_ucomineq_ss (a: __m128, b: __m128) i32 {}
+
+pub inline fn _mm_ucomieq_ss(a: __m128, b: __m128) i32 {
+    return @intFromBool(a[0] == b[0]);
+}
+
+pub inline fn _mm_ucomige_ss(a: __m128, b: __m128) i32 {
+    return @intFromBool(a[0] >= b[0]);
+}
+
+pub inline fn _mm_ucomigt_ss(a: __m128, b: __m128) i32 {
+    return @intFromBool(a[0] > b[0]);
+}
+
+pub inline fn _mm_ucomile_ss(a: __m128, b: __m128) i32 {
+    return @intFromBool(a[0] <= b[0]);
+}
+
+pub inline fn _mm_ucomilt_ss(a: __m128, b: __m128) i32 {
+    return @intFromBool(a[0] < b[0]);
+}
+
+pub inline fn _mm_ucomineq_ss(a: __m128, b: __m128) i32 {
+    return @intFromBool(a[0] != b[0]);
+}
 
 pub inline fn _mm_undefined_ps() __m128 {
     // zig `undefined` doesn't compare equal to itself ?
