@@ -810,24 +810,11 @@ pub inline fn _mm_packs_epi32(a: __m128i, b: __m128i) __m128i {
 }
 
 pub inline fn _mm_packus_epi16(a: __m128i, b: __m128i) __m128i {
-    if (has_avx) {
-        return asm ("vpackuswb %[b], %[a], %[ret]"
-            : [ret] "=x" (-> __m128i),
-            : [a] "x" (a),
-              [b] "x" (b),
-        );
-    } else if (has_sse2) {
-        var res = a;
-        asm ("packuswb %[b], %[a]"
-            : [a] "+x" (res),
-            : [b] "x" (b),
-        );
-        return res;
-    } else {
-        const shuf = i32x16{ 0, 1, 2, 3, 4, 5, 6, 7, -1, -2, -3, -4, -5, -6, -7, -8 };
-        const ab = @shuffle(u16, bitCast_u16x8(a), bitCast_u16x8(b), shuf);
-        return @bitCast(@min(ab, @as(u8x16, @splat(0xFF))));
-    }
+    const shuf = i32x16{ 0, 1, 2, 3, 4, 5, 6, 7, -1, -2, -3, -4, -5, -6, -7, -8 };
+    var ab = @shuffle(i16, bitCast_i16x8(a), bitCast_i16x8(b), shuf);
+    ab = @min(ab, @as(i16x16, @splat(255)));
+    ab = @max(ab, @as(i16x16, @splat(0)));
+    return @bitCast(@as(i8x16, @truncate(ab)));
 }
 
 // ## pub inline fn _mm_pause () void {}
@@ -1942,25 +1929,12 @@ pub inline fn _mm_mullo_epi32(a: __m128i, b: __m128i) __m128i {
     return @bitCast(bitCast_i32x4(a) *% bitCast_i32x4(b));
 }
 
-pub inline fn _mm_packus_epi32(a: __m128i, b: __m128i) __m128i {
-    if (has_avx) {
-        return asm ("vpackusdw %[b], %[a], %[ret]"
-            : [ret] "=x" (-> __m128i),
-            : [a] "x" (a),
-              [b] "x" (b),
-        );
-    } else if (has_sse41) {
-        var res = a;
-        asm ("packusdw %[b], %[a]"
-            : [a] "+x" (res),
-            : [b] "x" (b),
-        );
-        return res;
-    } else {
-        const shuf = i32x8{ 0, 1, 2, 3, -1, -2, -3, -4 };
-        const ab = @shuffle(u32, bitCast_u32x4(a), bitCast_u32x4(b), shuf);
-        return @bitCast(@min(ab, @as(u16x8, @splat(0xFFFF))));
-    }
+fn _mm_packus_epi32(a: __m128i, b: __m128i) __m128i {
+    const shuf = i32x8{ 0, 1, 2, 3, -1, -2, -3, -4 };
+    var ab = @shuffle(i32, bitCast_i32x4(a), bitCast_i32x4(b), shuf);
+    ab = @min(ab, @as(i32x8, @splat(65535)));
+    ab = @max(ab, @as(i32x8, @splat(0)));
+    return @bitCast(@as(i16x8, @truncate(ab)));
 }
 
 // ## pub inline fn _mm_round_pd (a: __m128d, rounding: i32) __m128d {}
