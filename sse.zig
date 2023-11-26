@@ -1929,7 +1929,7 @@ pub inline fn _mm_mullo_epi32(a: __m128i, b: __m128i) __m128i {
     return @bitCast(bitCast_i32x4(a) *% bitCast_i32x4(b));
 }
 
-fn _mm_packus_epi32(a: __m128i, b: __m128i) __m128i {
+pub inline fn _mm_packus_epi32(a: __m128i, b: __m128i) __m128i {
     const shuf = i32x8{ 0, 1, 2, 3, -1, -2, -3, -4 };
     var ab = @shuffle(i32, bitCast_i32x4(a), bitCast_i32x4(b), shuf);
     ab = @min(ab, @as(i32x8, @splat(65535)));
