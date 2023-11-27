@@ -1,3 +1,5 @@
+const std = @import("std"); // for std.testing.expectEqual
+
 pub const has_avx2 = false;
 pub const has_avx = false;
 pub const has_sse42 = false;
@@ -408,16 +410,44 @@ pub inline fn _mm_add_epi16(a: __m128i, b: __m128i) __m128i {
     return @bitCast(bitCast_u16x8(a) +% bitCast_u16x8(b));
 }
 
+test _mm_add_epi16 {
+    const a = _mm_set_epi16(0, 7, 6, -32768, -1, 3, 2, 1);
+    const b = _mm_set_epi16(0, 249, 5, -32768, 4, -16, 32767, -1);
+    const ref = _mm_set_epi16(0, 256, 11, 0, 3, -13, -32767, 0);
+    try std.testing.expectEqual(_mm_add_epi16(a, b), ref);
+}
+
 pub inline fn _mm_add_epi32(a: __m128i, b: __m128i) __m128i {
     return @bitCast(bitCast_u32x4(a) +% bitCast_u32x4(b));
+}
+
+test _mm_add_epi32 {
+    const a = _mm_set_epi32(4, -2147483648, 2, 1);
+    const b = _mm_set_epi32(2147483647, 3, -1, 65535);
+    const ref = _mm_set_epi32(-2147483645, -2147483645, 1, 65536);
+    try std.testing.expectEqual(_mm_add_epi32(a, b), ref);
 }
 
 pub inline fn _mm_add_epi64(a: __m128i, b: __m128i) __m128i {
     return @bitCast(bitCast_u64x2(a) +% bitCast_u64x2(b));
 }
 
+test _mm_add_epi64 {
+    const a = _mm_set_epi64x(9223372036854775807, 1);
+    const b = _mm_set_epi64x(2, -1);
+    const ref = _mm_set_epi64x(-9223372036854775807, 0);
+    try std.testing.expectEqual(_mm_add_epi64(a, b), ref);
+}
+
 pub inline fn _mm_add_epi8(a: __m128i, b: __m128i) __m128i {
     return @bitCast(bitCast_u8x16(a) +% bitCast_u8x16(b));
+}
+
+test _mm_add_epi8 {
+    const a = _mm_set_epi8(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
+    const b = _mm_set_epi8(1, 2, 3, -4, 0, 1, 127, -1, -1, -1, -1, -128, -128, 0, 0, 0);
+    const ref = _mm_set_epi8(16, 16, 16, 8, 11, 11, -120, 7, 6, 5, 4, -124, -125, 2, 1, 0);
+    try std.testing.expectEqual(_mm_add_epi8(a, b), ref);
 }
 
 pub inline fn _mm_add_pd(a: __m128d, b: __m128d) __m128d {
@@ -1929,12 +1959,26 @@ pub inline fn _mm_mullo_epi32(a: __m128i, b: __m128i) __m128i {
     return @bitCast(bitCast_i32x4(a) *% bitCast_i32x4(b));
 }
 
+test _mm_mullo_epi32 {
+    const a = _mm_set_epi32(3, 2, 1, -2);
+    const b = _mm_set_epi32(715827883, -2147483646, -2147483647, -2147483648);
+    const ref = _mm_set_epi32(-2147483647, 4, -2147483647, 0);
+    try std.testing.expectEqual(_mm_mullo_epi32(a, b), ref);
+}
+
 pub inline fn _mm_packus_epi32(a: __m128i, b: __m128i) __m128i {
     const shuf = i32x8{ 0, 1, 2, 3, -1, -2, -3, -4 };
     var ab = @shuffle(i32, bitCast_i32x4(a), bitCast_i32x4(b), shuf);
     ab = @min(ab, @as(i32x8, @splat(65535)));
     ab = @max(ab, @as(i32x8, @splat(0)));
     return @bitCast(@as(i16x8, @truncate(ab)));
+}
+
+test _mm_packus_epi32 {
+    const a = _mm_set_epi32(1, 65535, 32768, 0);
+    const b = _mm_set_epi32(2147483647, -2147483648, -1, 131071);
+    const ref = _mm_set_epi16(-1, 0, 0, -1, 1, -1, -32768, 0);
+    try std.testing.expectEqual(_mm_packus_epi32(a, b), ref);
 }
 
 // ## pub inline fn _mm_round_pd (a: __m128d, rounding: i32) __m128d {}
@@ -1951,16 +1995,50 @@ pub inline fn _mm_test_all_ones(a: __m128i) i32 {
     return _mm_testc_si128(a, @bitCast(@as(i32x4, @splat(-1))));
 }
 
+test _mm_test_all_ones {
+    const a = _mm_set_epi32(-1, -1, -1, -1);
+    const b = _mm_set_epi32(1, 1, 1, 1);
+    const c = _mm_set_epi32(0, 0, 0, 0);
+    try std.testing.expectEqual(_mm_test_all_ones(a), 1);
+    try std.testing.expectEqual(_mm_test_all_ones(b), 0);
+    try std.testing.expectEqual(_mm_test_all_ones(c), 0);
+}
+
 pub inline fn _mm_test_all_zeros(mask: __m128i, a: __m128i) i32 {
     return _mm_testz_si128(mask, a);
+}
+
+test _mm_test_all_zeros {
+    const a = _mm_set_epi32(0, 8, 0, 0);
+    const b = _mm_set_epi32(0, 7, 0, 0);
+    const c = _mm_set_epi32(0, 9, 0, 0);
+    try std.testing.expectEqual(_mm_test_all_zeros(a, b), 1);
+    try std.testing.expectEqual(_mm_test_all_zeros(a, c), 0);
 }
 
 pub inline fn _mm_test_mix_ones_zeros(mask: __m128i, a: __m128i) i32 {
     return _mm_testnzc_si128(mask, a);
 }
 
+test _mm_test_mix_ones_zeros {
+    const a = _mm_set_epi32(0, 1, 0, 0);
+    const b = _mm_set_epi32(0, 3, 0, 0);
+    const c = _mm_set_epi32(0, 2, 0, 0);
+    try std.testing.expectEqual(_mm_test_mix_ones_zeros(a, b), 1);
+    try std.testing.expectEqual(_mm_test_mix_ones_zeros(a, c), 0);
+    try std.testing.expectEqual(_mm_test_mix_ones_zeros(b, a), 0);
+}
+
 pub inline fn _mm_testc_si128(a: __m128i, b: __m128i) i32 {
     return _mm_testz_si128(~a, b);
+}
+
+test _mm_testc_si128 {
+    const a = _mm_set_epi32(0, 3, 0, 0);
+    const b = _mm_set_epi32(0, 4, 0, 0);
+    const c = _mm_set_epi32(0, 1, 0, 0);
+    try std.testing.expectEqual(_mm_testc_si128(a, b), 0);
+    try std.testing.expectEqual(_mm_testc_si128(a, c), 1);
 }
 
 pub inline fn _mm_testnzc_si128(a: __m128i, b: __m128i) i32 {
@@ -1981,8 +2059,25 @@ pub inline fn _mm_testnzc_si128(a: __m128i, b: __m128i) i32 {
     }
 }
 
+test _mm_testnzc_si128 {
+    const a = _mm_set_epi32(0, 1, 0, 0);
+    const b = _mm_set_epi32(0, 3, 0, 0);
+    const c = _mm_set_epi32(0, 2, 0, 0);
+    try std.testing.expectEqual(_mm_testnzc_si128(a, b), 1);
+    try std.testing.expectEqual(_mm_testnzc_si128(a, c), 0);
+    try std.testing.expectEqual(_mm_testnzc_si128(b, a), 0);
+}
+
 pub inline fn _mm_testz_si128(a: __m128i, b: __m128i) i32 {
     return @intFromBool(@reduce(.Or, (a & b)) == 0);
+}
+
+test _mm_testz_si128 {
+    const a = _mm_set_epi32(0, 8, 0, 0);
+    const b = _mm_set_epi32(0, 7, 0, 0);
+    const c = _mm_set_epi32(0, 9, 0, 0);
+    try std.testing.expectEqual(_mm_testz_si128(a, b), 1);
+    try std.testing.expectEqual(_mm_testz_si128(a, c), 0);
 }
 
 // SSE4.2 ==============================================================
@@ -1991,4 +2086,11 @@ pub inline fn _mm_cmpgt_epi64(a: __m128i, b: __m128i) __m128i {
     const cmpBool = (bitCast_i64x2(a) > bitCast_i64x2(b));
     const cmpInt: @Vector(2, i1) = @bitCast(@intFromBool(cmpBool));
     return @bitCast(intCast_i64x2(cmpInt));
+}
+
+test _mm_cmpeq_epi64 {
+    const a = _mm_set_epi64x(9223372036854775807, 1);
+    const b = _mm_set_epi64x(8070450532247928831, 1);
+    const ref = _mm_set_epi64x(0, -1);
+    try std.testing.expectEqual(_mm_cmpeq_epi64(a, b), ref);
 }
