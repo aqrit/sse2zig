@@ -1916,32 +1916,88 @@ pub inline fn _mm_max_epi32(a: __m128i, b: __m128i) __m128i {
     return @bitCast(@max(bitCast_i32x4(a), bitCast_i32x4(b)));
 }
 
+test "_mm_max_epi32" {
+    const a = _mm_set_epi32(2147418112, -1, -2147483648, 0);
+    const b = _mm_set_epi32(-2147483647, 2147483647, 0, -2147483648);
+    const ref = _mm_set_epi32(2147418112, 2147483647, 0, 0);
+    try std.testing.expectEqual(_mm_max_epi32(a, b), ref);
+}
+
 pub inline fn _mm_max_epi8(a: __m128i, b: __m128i) __m128i {
     return @bitCast(@max(bitCast_i8x16(a), bitCast_i8x16(b)));
+}
+
+test "_mm_max_epi8" {
+    const a = _mm_set_epi8(-128, 0, 0, 0, 0, 0, 0, 0, -1, -2, -128, -128, 127, 2, 1, 1);
+    const b = _mm_set_epi8(0, 0, 0, 0, -128, 0, 0, 0, -2, -1, 127, -127, -128, 2, 2, 0);
+    const ref = _mm_set_epi8(0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 127, -127, 127, 2, 2, 1);
+    try std.testing.expectEqual(_mm_max_epi8(a, b), ref);
 }
 
 pub inline fn _mm_max_epu16(a: __m128i, b: __m128i) __m128i {
     return @bitCast(@max(bitCast_u16x8(a), bitCast_u16x8(b)));
 }
 
+test "_mm_max_epu16" {
+    const a = _mm_set_epi16(32767, 1, -1, -257, -32768, 0, 2, 258);
+    const b = _mm_set_epi16(-32768, 0, 32767, -2, 0, -32768, 3, 257);
+    const ref = _mm_set_epi16(-32768, 1, -1, -2, -32768, -32768, 3, 258);
+    try std.testing.expectEqual(_mm_max_epu16(a, b), ref);
+}
+
 pub inline fn _mm_max_epu32(a: __m128i, b: __m128i) __m128i {
     return @bitCast(@max(bitCast_u32x4(a), bitCast_u32x4(b)));
+}
+
+test "_mm_max_epu32" {
+    const a = _mm_set_epi32(2147418112, -1, -2147483648, 0);
+    const b = _mm_set_epi32(-2147483647, 2147483647, 0, -2147483648);
+    const ref = _mm_set_epi32(-2147483647, -1, -2147483648, -2147483648);
+    try std.testing.expectEqual(_mm_max_epu32(a, b), ref);
 }
 
 pub inline fn _mm_min_epi32(a: __m128i, b: __m128i) __m128i {
     return @bitCast(@min(bitCast_i32x4(a), bitCast_i32x4(b)));
 }
 
+test "_mm_min_epi32" {
+    const a = _mm_set_epi32(2147418112, -1, -2147483648, 0);
+    const b = _mm_set_epi32(-2147483647, 2147483647, 0, -2147483648);
+    const ref = _mm_set_epi32(-2147483647, -1, -2147483648, -2147483648);
+    try std.testing.expectEqual(_mm_min_epi32(a, b), ref);
+}
+
 pub inline fn _mm_min_epi8(a: __m128i, b: __m128i) __m128i {
     return @bitCast(@min(bitCast_i8x16(a), bitCast_i8x16(b)));
+}
+
+test "_mm_min_epi8" {
+    const a = _mm_set_epi8(-128, 0, 0, 0, 0, 0, 0, 0, -1, -2, -128, -128, 127, 2, 1, 1);
+    const b = _mm_set_epi8(0, 0, 0, 0, -128, 0, 0, 0, -2, -1, 127, -127, -128, 2, 2, 0);
+    const ref = _mm_set_epi8(-128, 0, 0, 0, -128, 0, 0, 0, -2, -2, -128, -128, -128, 2, 1, 0);
+    try std.testing.expectEqual(_mm_min_epi8(a, b), ref);
 }
 
 pub inline fn _mm_min_epu16(a: __m128i, b: __m128i) __m128i {
     return @bitCast(@min(bitCast_u16x8(a), bitCast_u16x8(b)));
 }
 
+test "_mm_min_epu16" {
+    const a = _mm_set_epi16(32767, 1, -1, -257, -32768, 0, 2, 258);
+    const b = _mm_set_epi16(-32768, 0, 32767, -2, 0, -32768, 3, 257);
+    const ref = _mm_set_epi16(32767, 0, 32767, -257, 0, 0, 2, 257);
+    try std.testing.expectEqual(_mm_min_epu16(a, b), ref);
+}
+
 pub inline fn _mm_min_epu32(a: __m128i, b: __m128i) __m128i {
     return @bitCast(@min(bitCast_u32x4(a), bitCast_u32x4(b)));
+}
+
+test "_mm_min_epu32" {
+    const a = _mm_set_epi32(2147418112, -1, -2147483648, 0);
+    const b = _mm_set_epi32(-2147483647, 2147483647, 0, -2147483648);
+    const ref = _mm_set_epi32(2147418112, 2147483647, 0, 0);
+    try std.testing.expectEqual(_mm_min_epu32(a, b), ref);
 }
 
 // ## pub inline fn _mm_minpos_epu16 (a: __m128i) __m128i {}
@@ -1955,11 +2011,18 @@ pub inline fn _mm_mul_epi32(a: __m128i, b: __m128i) __m128i {
     return @bitCast(x *% y);
 }
 
+test "_mm_mul_epi32" {
+    const a = _mm_set_epi32(3, 2, 1, -2);
+    const b = _mm_set_epi32(5, -2147483646, 9, -2147483647);
+    const ref = _mm_set_epi64x(-4294967292, 4294967294);
+    try std.testing.expectEqual(_mm_mul_epi32(a, b), ref);
+}
+
 pub inline fn _mm_mullo_epi32(a: __m128i, b: __m128i) __m128i {
     return @bitCast(bitCast_i32x4(a) *% bitCast_i32x4(b));
 }
 
-test _mm_mullo_epi32 {
+test "_mm_mullo_epi32" {
     const a = _mm_set_epi32(3, 2, 1, -2);
     const b = _mm_set_epi32(715827883, -2147483646, -2147483647, -2147483648);
     const ref = _mm_set_epi32(-2147483647, 4, -2147483647, 0);
@@ -1974,7 +2037,7 @@ pub inline fn _mm_packus_epi32(a: __m128i, b: __m128i) __m128i {
     return @bitCast(@as(i16x8, @truncate(ab)));
 }
 
-test _mm_packus_epi32 {
+test "_mm_packus_epi32" {
     const a = _mm_set_epi32(1, 65535, 32768, 0);
     const b = _mm_set_epi32(2147483647, -2147483648, -1, 131071);
     const ref = _mm_set_epi16(-1, 0, 0, -1, 1, -1, -32768, 0);
@@ -1995,7 +2058,7 @@ pub inline fn _mm_test_all_ones(a: __m128i) i32 {
     return _mm_testc_si128(a, @bitCast(@as(i32x4, @splat(-1))));
 }
 
-test _mm_test_all_ones {
+test "_mm_test_all_ones" {
     const a = _mm_set_epi32(-1, -1, -1, -1);
     const b = _mm_set_epi32(1, 1, 1, 1);
     const c = _mm_set_epi32(0, 0, 0, 0);
@@ -2008,7 +2071,7 @@ pub inline fn _mm_test_all_zeros(mask: __m128i, a: __m128i) i32 {
     return _mm_testz_si128(mask, a);
 }
 
-test _mm_test_all_zeros {
+test "_mm_test_all_zeros" {
     const a = _mm_set_epi32(0, 8, 0, 0);
     const b = _mm_set_epi32(0, 7, 0, 0);
     const c = _mm_set_epi32(0, 9, 0, 0);
@@ -2020,7 +2083,7 @@ pub inline fn _mm_test_mix_ones_zeros(mask: __m128i, a: __m128i) i32 {
     return _mm_testnzc_si128(mask, a);
 }
 
-test _mm_test_mix_ones_zeros {
+test "_mm_test_mix_ones_zeros" {
     const a = _mm_set_epi32(0, 1, 0, 0);
     const b = _mm_set_epi32(0, 3, 0, 0);
     const c = _mm_set_epi32(0, 2, 0, 0);
@@ -2033,7 +2096,7 @@ pub inline fn _mm_testc_si128(a: __m128i, b: __m128i) i32 {
     return _mm_testz_si128(~a, b);
 }
 
-test _mm_testc_si128 {
+test "_mm_testc_si128" {
     const a = _mm_set_epi32(0, 3, 0, 0);
     const b = _mm_set_epi32(0, 4, 0, 0);
     const c = _mm_set_epi32(0, 1, 0, 0);
@@ -2059,7 +2122,7 @@ pub inline fn _mm_testnzc_si128(a: __m128i, b: __m128i) i32 {
     }
 }
 
-test _mm_testnzc_si128 {
+test "_mm_testnzc_si128" {
     const a = _mm_set_epi32(0, 1, 0, 0);
     const b = _mm_set_epi32(0, 3, 0, 0);
     const c = _mm_set_epi32(0, 2, 0, 0);
@@ -2072,7 +2135,7 @@ pub inline fn _mm_testz_si128(a: __m128i, b: __m128i) i32 {
     return @intFromBool(@reduce(.Or, (a & b)) == 0);
 }
 
-test _mm_testz_si128 {
+test "_mm_testz_si128" {
     const a = _mm_set_epi32(0, 8, 0, 0);
     const b = _mm_set_epi32(0, 7, 0, 0);
     const c = _mm_set_epi32(0, 9, 0, 0);
@@ -2088,7 +2151,7 @@ pub inline fn _mm_cmpgt_epi64(a: __m128i, b: __m128i) __m128i {
     return @bitCast(intCast_i64x2(cmpInt));
 }
 
-test _mm_cmpeq_epi64 {
+test "_mm_cmpeq_epi64" {
     const a = _mm_set_epi64x(9223372036854775807, 1);
     const b = _mm_set_epi64x(8070450532247928831, 1);
     const ref = _mm_set_epi64x(0, -1);
