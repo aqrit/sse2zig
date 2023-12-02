@@ -2067,8 +2067,8 @@ test "_mm_test_all_ones" {
     try std.testing.expectEqual(_mm_test_all_ones(c), 0);
 }
 
-pub inline fn _mm_test_all_zeros(mask: __m128i, a: __m128i) i32 {
-    return _mm_testz_si128(mask, a);
+pub inline fn _mm_test_all_zeros(a: __m128i, mask: __m128i) i32 {
+    return _mm_testz_si128(a, mask);
 }
 
 test "_mm_test_all_zeros" {
@@ -2079,8 +2079,8 @@ test "_mm_test_all_zeros" {
     try std.testing.expectEqual(_mm_test_all_zeros(a, c), 0);
 }
 
-pub inline fn _mm_test_mix_ones_zeros(mask: __m128i, a: __m128i) i32 {
-    return _mm_testnzc_si128(mask, a);
+pub inline fn _mm_test_mix_ones_zeros(a: __m128i, mask: __m128i) i32 {
+    return _mm_testnzc_si128(a, mask);
 }
 
 test "_mm_test_mix_ones_zeros" {
