@@ -333,14 +333,35 @@ pub inline fn _mm_or_ps(a: __m128, b: __m128) __m128 {
 // ## pub inline fn _MM_SET_EXCEPTION_MASK (a: u32) void {}
 // ## pub inline fn _MM_SET_EXCEPTION_STATE (a: u32) void {}
 // ## pub inline fn _MM_SET_FLUSH_ZERO_MODE (a: u32) void {}
-// ## pub inline fn _mm_set_ps (e3: f32, e2: f32, e1: f32, e0: f32) __m128 {}
-// ## pub inline fn _mm_set_ps1 (a: f32) __m128 {}
+
+pub inline fn _mm_set_ps(e3: f32, e2: f32, e1: f32, e0: f32) __m128 {
+    return .{ e0, e1, e2, e3 };
+}
+
+pub inline fn _mm_set_ps1(a: f32) __m128 {
+    return _mm_set1_ps(a);
+}
+
 // ## pub inline fn _MM_SET_ROUNDING_MODE (a: u32) void {}
-// ## pub inline fn _mm_set_ss (a: f32) __m128 {}
-// ## pub inline fn _mm_set1_ps (a: f32) __m128 {}
+
+pub inline fn _mm_set_ss(a: f32) __m128 {
+    return .{ a, 0, 0, 0 };
+}
+
+pub inline fn _mm_set1_ps(a: f32) __m128 {
+    return @splat(a);
+}
+
 // ## pub inline fn _mm_setcsr (a: u32) void {}
-// ## pub inline fn _mm_setr_ps (e3: f32, e2: f32, e1: f32, e0: f32) __m128 {}
-// ## pub inline fn _mm_setzero_ps () __m128 {}
+
+pub inline fn _mm_setr_ps(e3: f32, e2: f32, e1: f32, e0: f32) __m128 {
+    return .{ e3, e2, e1, e0 };
+}
+
+pub inline fn _mm_setzero_ps() __m128 {
+    return @splat(0);
+}
+
 // ## pub inline fn _mm_sfence () void {}
 // ## pub inline fn _mm_shuffle_ps (a: __m128, b: __m128, comptime imm8: comptime_int) __m128 {}
 // ## pub inline fn _mm_sqrt_ps (a: __m128) __m128 {}
@@ -414,7 +435,7 @@ test _mm_add_epi16 {
     const a = _mm_set_epi16(0, 7, 6, -32768, -1, 3, 2, 1);
     const b = _mm_set_epi16(0, 249, 5, -32768, 4, -16, 32767, -1);
     const ref = _mm_set_epi16(0, 256, 11, 0, 3, -13, -32767, 0);
-    try std.testing.expectEqual(_mm_add_epi16(a, b), ref);
+    try std.testing.expectEqual(ref, _mm_add_epi16(a, b));
 }
 
 pub inline fn _mm_add_epi32(a: __m128i, b: __m128i) __m128i {
@@ -425,7 +446,7 @@ test _mm_add_epi32 {
     const a = _mm_set_epi32(4, -2147483648, 2, 1);
     const b = _mm_set_epi32(2147483647, 3, -1, 65535);
     const ref = _mm_set_epi32(-2147483645, -2147483645, 1, 65536);
-    try std.testing.expectEqual(_mm_add_epi32(a, b), ref);
+    try std.testing.expectEqual(ref, _mm_add_epi32(a, b));
 }
 
 pub inline fn _mm_add_epi64(a: __m128i, b: __m128i) __m128i {
@@ -436,7 +457,7 @@ test _mm_add_epi64 {
     const a = _mm_set_epi64x(9223372036854775807, 1);
     const b = _mm_set_epi64x(2, -1);
     const ref = _mm_set_epi64x(-9223372036854775807, 0);
-    try std.testing.expectEqual(_mm_add_epi64(a, b), ref);
+    try std.testing.expectEqual(ref, _mm_add_epi64(a, b));
 }
 
 pub inline fn _mm_add_epi8(a: __m128i, b: __m128i) __m128i {
@@ -447,7 +468,7 @@ test _mm_add_epi8 {
     const a = _mm_set_epi8(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
     const b = _mm_set_epi8(1, 2, 3, -4, 0, 1, 127, -1, -1, -1, -1, -128, -128, 0, 0, 0);
     const ref = _mm_set_epi8(16, 16, 16, 8, 11, 11, -120, 7, 6, 5, 4, -124, -125, 2, 1, 0);
-    try std.testing.expectEqual(_mm_add_epi8(a, b), ref);
+    try std.testing.expectEqual(ref, _mm_add_epi8(a, b));
 }
 
 pub inline fn _mm_add_pd(a: __m128d, b: __m128d) __m128d {
@@ -1698,6 +1719,20 @@ pub inline fn _mm_sign_epi8(a: __m128i, b: __m128i) __m128i {
 
 // SSE4.1 ==============================================================
 
+pub const _MM_FROUND_TO_NEAREST_INT = 0x00;
+pub const _MM_FROUND_TO_NEG_INF = 0x01;
+pub const _MM_FROUND_TO_POS_INF = 0x02;
+pub const _MM_FROUND_TO_ZERO = 0x03;
+pub const _MM_FROUND_CUR_DIRECTION = 0x04;
+pub const _MM_FROUND_RAISE_EXC = 0x00;
+pub const _MM_FROUND_NO_EXC = 0x08;
+pub const _MM_FROUND_NINT = _MM_FROUND_RAISE_EXC | _MM_FROUND_TO_NEAREST_INT;
+pub const _MM_FROUND_FLOOR = _MM_FROUND_RAISE_EXC | _MM_FROUND_TO_NEG_INF;
+pub const _MM_FROUND_CEIL = _MM_FROUND_RAISE_EXC | _MM_FROUND_TO_POS_INF;
+pub const _MM_FROUND_TRUNC = _MM_FROUND_RAISE_EXC | _MM_FROUND_TO_ZERO;
+pub const _MM_FROUND_RINT = _MM_FROUND_RAISE_EXC | _MM_FROUND_CUR_DIRECTION;
+pub const _MM_FROUND_NEARBYINT = _MM_FROUND_NO_EXC | _MM_FROUND_CUR_DIRECTION;
+
 pub inline fn _mm_blend_epi16(a: __m128i, b: __m128i, comptime imm8: comptime_int) __m128i {
     const mask = comptime blk: { // convert imm8 to vector of bools
         var m: @Vector(8, bool) = undefined;
@@ -1744,24 +1779,20 @@ pub inline fn _mm_blendv_ps(a: __m128, b: __m128, mask: __m128) __m128 {
     return @select(f32, cmp, b, a);
 }
 
-/// TODO: precision exception is not signaled by @ceil
 pub inline fn _mm_ceil_pd(a: __m128d) __m128d {
-    return @ceil(a);
+    return _mm_round_pd(a, _MM_FROUND_CEIL);
 }
 
-/// TODO: precision exception is not signaled by @ceil
 pub inline fn _mm_ceil_ps(a: __m128) __m128 {
-    return @ceil(a);
+    return _mm_round_ps(a, _MM_FROUND_CEIL);
 }
 
 pub inline fn _mm_ceil_sd(a: __m128d, b: __m128d) __m128d {
-    // TODO: generated code uses an extra blend
-    return .{ @ceil(b[0]), a[1] };
+    return _mm_round_sd(a, b, _MM_FROUND_CEIL);
 }
 
 pub inline fn _mm_ceil_ss(a: __m128, b: __m128) __m128 {
-    // TODO: generated code uses an extra blend
-    return .{ @ceil(b[0]), a[1], a[2], a[3] };
+    return _mm_round_ss(a, b, _MM_FROUND_CEIL);
 }
 
 pub inline fn _mm_cmpeq_epi64(a: __m128i, b: __m128i) __m128i {
@@ -1854,52 +1885,66 @@ pub inline fn _mm_extract_epi64(a: __m128i, comptime imm8: comptime_int) i64 {
     return bitCast_i64x2(a)[imm8];
 }
 
-/// zero-extends u8 to i32, as per C intrinsic
+/// extract u8 then zero-extends it to i32
 pub inline fn _mm_extract_epi8(a: __m128i, comptime imm8: comptime_int) i32 {
     return bitCast_u8x16(a)[imm8];
 }
 
-// returns i32 because it places the f32 into a general purpose register
+/// extract f32 then bitCast it to i32
 pub inline fn _mm_extract_ps(a: __m128, comptime imm8: comptime_int) i32 {
     return bitCast_i32x4(a)[imm8];
 }
 
-/// TODO: precision exception is not signaled by @floor
 pub inline fn _mm_floor_pd(a: __m128d) __m128d {
-    return @floor(a);
+    return _mm_round_pd(a, _MM_FROUND_FLOOR);
 }
 
-/// TODO: precision exception is not signaled by @floor
 pub inline fn _mm_floor_ps(a: __m128) __m128 {
-    return @floor(a);
+    return _mm_round_ps(a, _MM_FROUND_FLOOR);
 }
 
 pub inline fn _mm_floor_sd(a: __m128d, b: __m128d) __m128d {
-    // TODO: generated code uses an extra blend
-    return .{ @floor(b[0]), a[1] };
+    return _mm_round_sd(a, b, _MM_FROUND_FLOOR);
 }
 
 pub inline fn _mm_floor_ss(a: __m128, b: __m128) __m128 {
-    // TODO: generated code uses an extra blend
-    return .{ @floor(b[0]), a[1], a[2], a[3] };
+    return _mm_round_ss(a, b, _MM_FROUND_FLOOR);
 }
 
 pub inline fn _mm_insert_epi32(a: __m128i, i: i32, comptime imm8: comptime_int) __m128i {
     var r = bitCast_i32x4(a);
-    r[imm8] = i;
+    r[imm8 & 0x03] = i;
     return @bitCast(r);
+}
+
+test "_mm_insert_epi32" {
+    const a = _mm_set_epi32(0x44444444, 0x33333333, 0x22222222, 0x11111111);
+    const ref = _mm_set_epi32(0x44444444, 0x33333333, 0x55555555, 0x11111111);
+    try std.testing.expectEqual(ref, _mm_insert_epi32(a, 0x55555555, 1));
 }
 
 pub inline fn _mm_insert_epi64(a: __m128i, i: i64, comptime imm8: comptime_int) __m128i {
     var r = bitCast_i64x2(a);
-    r[imm8] = i;
+    r[imm8 & 0x01] = i;
     return @bitCast(r);
 }
 
-pub inline fn _mm_insert_epi8(a: __m128i, i: i8, comptime imm8: comptime_int) __m128i {
+test "_mm_insert_epi64" {
+    const a = _mm_set_epi64x(0x2222222222222222, 0x1111111111111111);
+    const ref = _mm_set_epi64x(0x3333333333333333, 0x1111111111111111);
+    try std.testing.expectEqual(ref, _mm_insert_epi64(a, 0x3333333333333333, 1));
+}
+
+pub inline fn _mm_insert_epi8(a: __m128i, i: i32, comptime imm8: comptime_int) __m128i {
     var r = bitCast_i8x16(a);
-    r[imm8] = i;
+    r[imm8 & 0x0F] = @truncate(i);
     return @bitCast(r);
+}
+
+test "_mm_insert_epi8" {
+    const a = _mm_set_epi8(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
+    const ref = _mm_set_epi8(15, 14, 13, 12, 11, 10, 9, 8, 7, 16, 5, 4, 3, 2, 1, 0);
+    try std.testing.expectEqual(ref, _mm_insert_epi8(a, 272, 6));
 }
 
 pub inline fn _mm_insert_ps(a: __m128, b: __m128, comptime imm8: comptime_int) __m128 {
@@ -1912,6 +1957,15 @@ pub inline fn _mm_insert_ps(a: __m128, b: __m128, comptime imm8: comptime_int) _
     return r;
 }
 
+test "_mm_insert_ps" {
+    const a = _mm_set_ps(1.7, 1.5, 1.3, 1.1);
+    const b = _mm_set_ps(2.7, 2.5, 2.3, 2.1);
+    const ref1 = _mm_set_ps(0.0, 2.3, 1.3, 1.1);
+    const ref2 = _mm_set_ps(1.7, 0.0, 1.3, 0.0);
+    try std.testing.expectEqual(ref1, _mm_insert_ps(a, b, 0x68));
+    try std.testing.expectEqual(ref2, _mm_insert_ps(a, b, 0x65));
+}
+
 pub inline fn _mm_max_epi32(a: __m128i, b: __m128i) __m128i {
     return @bitCast(@max(bitCast_i32x4(a), bitCast_i32x4(b)));
 }
@@ -1920,7 +1974,7 @@ test "_mm_max_epi32" {
     const a = _mm_set_epi32(2147418112, -1, -2147483648, 0);
     const b = _mm_set_epi32(-2147483647, 2147483647, 0, -2147483648);
     const ref = _mm_set_epi32(2147418112, 2147483647, 0, 0);
-    try std.testing.expectEqual(_mm_max_epi32(a, b), ref);
+    try std.testing.expectEqual(ref, _mm_max_epi32(a, b));
 }
 
 pub inline fn _mm_max_epi8(a: __m128i, b: __m128i) __m128i {
@@ -1931,7 +1985,7 @@ test "_mm_max_epi8" {
     const a = _mm_set_epi8(-128, 0, 0, 0, 0, 0, 0, 0, -1, -2, -128, -128, 127, 2, 1, 1);
     const b = _mm_set_epi8(0, 0, 0, 0, -128, 0, 0, 0, -2, -1, 127, -127, -128, 2, 2, 0);
     const ref = _mm_set_epi8(0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 127, -127, 127, 2, 2, 1);
-    try std.testing.expectEqual(_mm_max_epi8(a, b), ref);
+    try std.testing.expectEqual(ref, _mm_max_epi8(a, b));
 }
 
 pub inline fn _mm_max_epu16(a: __m128i, b: __m128i) __m128i {
@@ -1942,7 +1996,7 @@ test "_mm_max_epu16" {
     const a = _mm_set_epi16(32767, 1, -1, -257, -32768, 0, 2, 258);
     const b = _mm_set_epi16(-32768, 0, 32767, -2, 0, -32768, 3, 257);
     const ref = _mm_set_epi16(-32768, 1, -1, -2, -32768, -32768, 3, 258);
-    try std.testing.expectEqual(_mm_max_epu16(a, b), ref);
+    try std.testing.expectEqual(ref, _mm_max_epu16(a, b));
 }
 
 pub inline fn _mm_max_epu32(a: __m128i, b: __m128i) __m128i {
@@ -1953,7 +2007,7 @@ test "_mm_max_epu32" {
     const a = _mm_set_epi32(2147418112, -1, -2147483648, 0);
     const b = _mm_set_epi32(-2147483647, 2147483647, 0, -2147483648);
     const ref = _mm_set_epi32(-2147483647, -1, -2147483648, -2147483648);
-    try std.testing.expectEqual(_mm_max_epu32(a, b), ref);
+    try std.testing.expectEqual(ref, _mm_max_epu32(a, b));
 }
 
 pub inline fn _mm_min_epi32(a: __m128i, b: __m128i) __m128i {
@@ -1964,7 +2018,7 @@ test "_mm_min_epi32" {
     const a = _mm_set_epi32(2147418112, -1, -2147483648, 0);
     const b = _mm_set_epi32(-2147483647, 2147483647, 0, -2147483648);
     const ref = _mm_set_epi32(-2147483647, -1, -2147483648, -2147483648);
-    try std.testing.expectEqual(_mm_min_epi32(a, b), ref);
+    try std.testing.expectEqual(ref, _mm_min_epi32(a, b));
 }
 
 pub inline fn _mm_min_epi8(a: __m128i, b: __m128i) __m128i {
@@ -1975,7 +2029,7 @@ test "_mm_min_epi8" {
     const a = _mm_set_epi8(-128, 0, 0, 0, 0, 0, 0, 0, -1, -2, -128, -128, 127, 2, 1, 1);
     const b = _mm_set_epi8(0, 0, 0, 0, -128, 0, 0, 0, -2, -1, 127, -127, -128, 2, 2, 0);
     const ref = _mm_set_epi8(-128, 0, 0, 0, -128, 0, 0, 0, -2, -2, -128, -128, -128, 2, 1, 0);
-    try std.testing.expectEqual(_mm_min_epi8(a, b), ref);
+    try std.testing.expectEqual(ref, _mm_min_epi8(a, b));
 }
 
 pub inline fn _mm_min_epu16(a: __m128i, b: __m128i) __m128i {
@@ -1986,7 +2040,7 @@ test "_mm_min_epu16" {
     const a = _mm_set_epi16(32767, 1, -1, -257, -32768, 0, 2, 258);
     const b = _mm_set_epi16(-32768, 0, 32767, -2, 0, -32768, 3, 257);
     const ref = _mm_set_epi16(32767, 0, 32767, -257, 0, 0, 2, 257);
-    try std.testing.expectEqual(_mm_min_epu16(a, b), ref);
+    try std.testing.expectEqual(ref, _mm_min_epu16(a, b));
 }
 
 pub inline fn _mm_min_epu32(a: __m128i, b: __m128i) __m128i {
@@ -1997,7 +2051,7 @@ test "_mm_min_epu32" {
     const a = _mm_set_epi32(2147418112, -1, -2147483648, 0);
     const b = _mm_set_epi32(-2147483647, 2147483647, 0, -2147483648);
     const ref = _mm_set_epi32(2147418112, 2147483647, 0, 0);
-    try std.testing.expectEqual(_mm_min_epu32(a, b), ref);
+    try std.testing.expectEqual(ref, _mm_min_epu32(a, b));
 }
 
 // ## pub inline fn _mm_minpos_epu16 (a: __m128i) __m128i {}
@@ -2015,7 +2069,7 @@ test "_mm_mul_epi32" {
     const a = _mm_set_epi32(3, 2, 1, -2);
     const b = _mm_set_epi32(5, -2147483646, 9, -2147483647);
     const ref = _mm_set_epi64x(-4294967292, 4294967294);
-    try std.testing.expectEqual(_mm_mul_epi32(a, b), ref);
+    try std.testing.expectEqual(ref, _mm_mul_epi32(a, b));
 }
 
 pub inline fn _mm_mullo_epi32(a: __m128i, b: __m128i) __m128i {
@@ -2026,7 +2080,7 @@ test "_mm_mullo_epi32" {
     const a = _mm_set_epi32(3, 2, 1, -2);
     const b = _mm_set_epi32(715827883, -2147483646, -2147483647, -2147483648);
     const ref = _mm_set_epi32(-2147483647, 4, -2147483647, 0);
-    try std.testing.expectEqual(_mm_mullo_epi32(a, b), ref);
+    try std.testing.expectEqual(ref, _mm_mullo_epi32(a, b));
 }
 
 pub inline fn _mm_packus_epi32(a: __m128i, b: __m128i) __m128i {
@@ -2041,16 +2095,86 @@ test "_mm_packus_epi32" {
     const a = _mm_set_epi32(1, 65535, 32768, 0);
     const b = _mm_set_epi32(2147483647, -2147483648, -1, 131071);
     const ref = _mm_set_epi16(-1, 0, 0, -1, 1, -1, -32768, 0);
-    try std.testing.expectEqual(_mm_packus_epi32(a, b), ref);
+    try std.testing.expectEqual(ref, _mm_packus_epi32(a, b));
 }
 
-// ## pub inline fn _mm_round_pd (a: __m128d, rounding: i32) __m128d {}
+pub inline fn _mm_round_pd(a: __m128d, comptime imm8: comptime_int) __m128d {
+    if (has_avx) {
+        return asm ("vroundpd %[c], %[a], %[ret]"
+            : [ret] "=x" (-> __m128d),
+            : [a] "x" (a),
+              [c] "N" (imm8),
+        );
+    } else if (has_sse41) {
+        return asm ("roundpd %[c], %[a], %[ret]"
+            : [ret] "=x" (-> __m128d),
+            : [a] "x" (a),
+              [c] "N" (imm8),
+        );
+    } else {
+        @compileError("Error: _mm_round_pd requires SSE4.1");
+    }
+}
 
-// ## pub inline fn _mm_round_ps (a: __m128, rounding: i32) __m128 {}
+pub inline fn _mm_round_ps(a: __m128, comptime imm8: comptime_int) __m128 {
+    if (has_avx) {
+        return asm ("vroundps %[c], %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+              [c] "N" (imm8),
+        );
+    } else if (has_sse41) {
+        return asm ("roundps %[c], %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+              [c] "N" (imm8),
+        );
+    } else {
+        @compileError("Error: _mm_round_ps requires SSE4.1");
+    }
+}
 
-// ## pub inline fn _mm_round_sd (a: __m128d, b: __m128d, rounding: i32) __m128d {}
+pub inline fn _mm_round_sd(a: __m128d, b: __m128d, comptime imm8: comptime_int) __m128d {
+    if (has_avx) {
+        return asm ("vroundsd %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128d),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (imm8),
+        );
+    } else if (has_sse41) {
+        var res = a;
+        asm ("roundsd %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (imm8),
+        );
+        return res;
+    } else {
+        @compileError("Error: _mm_round_sd requires SSE4.1");
+    }
+}
 
-// ## pub inline fn _mm_round_ss (a: __m128, b: __m128, rounding: i32) __m128 {}
+pub inline fn _mm_round_ss(a: __m128, b: __m128, comptime imm8: comptime_int) __m128 {
+    if (has_avx) {
+        return asm ("vroundss %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (imm8),
+        );
+    } else if (has_sse41) {
+        var res = a;
+        asm ("roundss %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (imm8),
+        );
+        return res;
+    } else {
+        @compileError("Error: _mm_round_ss requires SSE4.1");
+    }
+}
 
 // ## pub inline fn _mm_stream_load_si128 (mem_addr: *const __m128i) __m128i {}
 
@@ -2062,9 +2186,9 @@ test "_mm_test_all_ones" {
     const a = _mm_set_epi32(-1, -1, -1, -1);
     const b = _mm_set_epi32(1, 1, 1, 1);
     const c = _mm_set_epi32(0, 0, 0, 0);
-    try std.testing.expectEqual(_mm_test_all_ones(a), 1);
-    try std.testing.expectEqual(_mm_test_all_ones(b), 0);
-    try std.testing.expectEqual(_mm_test_all_ones(c), 0);
+    try std.testing.expectEqual(1, _mm_test_all_ones(a));
+    try std.testing.expectEqual(0, _mm_test_all_ones(b));
+    try std.testing.expectEqual(0, _mm_test_all_ones(c));
 }
 
 pub inline fn _mm_test_all_zeros(a: __m128i, mask: __m128i) i32 {
@@ -2075,8 +2199,8 @@ test "_mm_test_all_zeros" {
     const a = _mm_set_epi32(0, 8, 0, 0);
     const b = _mm_set_epi32(0, 7, 0, 0);
     const c = _mm_set_epi32(0, 9, 0, 0);
-    try std.testing.expectEqual(_mm_test_all_zeros(a, b), 1);
-    try std.testing.expectEqual(_mm_test_all_zeros(a, c), 0);
+    try std.testing.expectEqual(1, _mm_test_all_zeros(a, b));
+    try std.testing.expectEqual(0, _mm_test_all_zeros(a, c));
 }
 
 pub inline fn _mm_test_mix_ones_zeros(a: __m128i, mask: __m128i) i32 {
@@ -2087,9 +2211,9 @@ test "_mm_test_mix_ones_zeros" {
     const a = _mm_set_epi32(0, 1, 0, 0);
     const b = _mm_set_epi32(0, 3, 0, 0);
     const c = _mm_set_epi32(0, 2, 0, 0);
-    try std.testing.expectEqual(_mm_test_mix_ones_zeros(a, b), 1);
-    try std.testing.expectEqual(_mm_test_mix_ones_zeros(a, c), 0);
-    try std.testing.expectEqual(_mm_test_mix_ones_zeros(b, a), 0);
+    try std.testing.expectEqual(1, _mm_test_mix_ones_zeros(a, b));
+    try std.testing.expectEqual(0, _mm_test_mix_ones_zeros(a, c));
+    try std.testing.expectEqual(0, _mm_test_mix_ones_zeros(b, a));
 }
 
 pub inline fn _mm_testc_si128(a: __m128i, b: __m128i) i32 {
@@ -2100,8 +2224,8 @@ test "_mm_testc_si128" {
     const a = _mm_set_epi32(0, 3, 0, 0);
     const b = _mm_set_epi32(0, 4, 0, 0);
     const c = _mm_set_epi32(0, 1, 0, 0);
-    try std.testing.expectEqual(_mm_testc_si128(a, b), 0);
-    try std.testing.expectEqual(_mm_testc_si128(a, c), 1);
+    try std.testing.expectEqual(0, _mm_testc_si128(a, b));
+    try std.testing.expectEqual(1, _mm_testc_si128(a, c));
 }
 
 pub inline fn _mm_testnzc_si128(a: __m128i, b: __m128i) i32 {
@@ -2126,9 +2250,9 @@ test "_mm_testnzc_si128" {
     const a = _mm_set_epi32(0, 1, 0, 0);
     const b = _mm_set_epi32(0, 3, 0, 0);
     const c = _mm_set_epi32(0, 2, 0, 0);
-    try std.testing.expectEqual(_mm_testnzc_si128(a, b), 1);
-    try std.testing.expectEqual(_mm_testnzc_si128(a, c), 0);
-    try std.testing.expectEqual(_mm_testnzc_si128(b, a), 0);
+    try std.testing.expectEqual(1, _mm_testnzc_si128(a, b));
+    try std.testing.expectEqual(0, _mm_testnzc_si128(a, c));
+    try std.testing.expectEqual(0, _mm_testnzc_si128(b, a));
 }
 
 pub inline fn _mm_testz_si128(a: __m128i, b: __m128i) i32 {
@@ -2139,8 +2263,8 @@ test "_mm_testz_si128" {
     const a = _mm_set_epi32(0, 8, 0, 0);
     const b = _mm_set_epi32(0, 7, 0, 0);
     const c = _mm_set_epi32(0, 9, 0, 0);
-    try std.testing.expectEqual(_mm_testz_si128(a, b), 1);
-    try std.testing.expectEqual(_mm_testz_si128(a, c), 0);
+    try std.testing.expectEqual(1, _mm_testz_si128(a, b));
+    try std.testing.expectEqual(0, _mm_testz_si128(a, c));
 }
 
 // SSE4.2 ==============================================================
@@ -2155,5 +2279,5 @@ test "_mm_cmpeq_epi64" {
     const a = _mm_set_epi64x(9223372036854775807, 1);
     const b = _mm_set_epi64x(8070450532247928831, 1);
     const ref = _mm_set_epi64x(0, -1);
-    try std.testing.expectEqual(_mm_cmpeq_epi64(a, b), ref);
+    try std.testing.expectEqual(ref, _mm_cmpeq_epi64(a, b));
 }
