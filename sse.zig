@@ -2054,7 +2054,32 @@ test "_mm_min_epu32" {
     try std.testing.expectEqual(ref, _mm_min_epu32(a, b));
 }
 
-// ## pub inline fn _mm_minpos_epu16 (a: __m128i) __m128i {}
+pub inline fn _mm_minpos_epu16(a: __m128i) __m128i {
+    if (has_avx) {
+        return asm ("vphminposuw %[a], %[ret]"
+            : [ret] "=x" (-> __m128i),
+            : [a] "x" (a),
+        );
+    } else if (has_sse41) {
+        return asm ("phminposuw %[a], %[ret]"
+            : [ret] "=x" (-> __m128i),
+            : [a] "x" (a),
+        );
+    } else {
+        const idx = u16x8{ 0, 1, 2, 3, 4, 5, 6, 7 };
+        const shuf = [16]i32{ -1, 0, -2, 1, -3, 2, -4, 3, -5, 4, -6, 5, -7, 6, -8, 7 };
+        const unpacked = @shuffle(u16, bitCast_u16x8(a), idx, shuf);
+        const r = @reduce(.Min, bitCast_u32x8(unpacked));
+        const res = u32x4{ (r << 16) | (r >> 16), 0, 0, 0 };
+        return @bitCast(res);
+    }
+}
+
+test "_mm_minpos_epu16" {
+    const a = _mm_set_epi16(-1, 2, 1, 2, 1, 32767, -32768, -1);
+    const ref = _mm_set_epi16(0, 0, 0, 0, 0, 0, 3, 1);
+    try std.testing.expectEqual(ref, _mm_minpos_epu16(a));
+}
 
 // ## pub inline fn _mm_mpsadbw_epu8 (a: __m128i, b: __m128i, comptime imm8: comptime_int) __m128i {}
 
