@@ -294,9 +294,48 @@ pub inline fn _mm_cvtss_f32(a: __m128) f32 {
 
 // ## pub inline fn _mm_cvtss_si32 (a: __m128) i32 {}
 // ## pub inline fn _mm_cvtss_si64 (a: __m128) i64 {}
-// ## pub inline fn _mm_cvtt_ss2si (a: __m128) i32 {}
-// ## pub inline fn _mm_cvttss_si32 (a: __m128) i32 {}
-// ## pub inline fn _mm_cvttss_si64 (a: __m128) i64 {}
+
+pub inline fn _mm_cvtt_ss2si(a: __m128) i32 {
+    return _mm_cvttss_si32(a);
+}
+
+pub inline fn _mm_cvttss_si32(a: __m128) i32 {
+    if (has_avx) {
+        return asm ("vcvttss2si %[a], %[ret]"
+            : [ret] "=r" (-> i32),
+            : [a] "x" (a),
+        );
+    } else if (has_sse) {
+        return asm ("cvttss2si %[a], %[ret]"
+            : [ret] "=r" (-> i32),
+            : [a] "x" (a),
+        );
+    } else {
+        if ((@as(u32, @bitCast(a[0])) & 0x7F800000) >= 0x4F000000) {
+            return -2147483648; // Don't Panic: exponent too large
+        }
+        return @intFromFloat(a[0]); // @trunc seems to be implied
+    }
+}
+
+pub inline fn _mm_cvttss_si64(a: __m128) i64 {
+    if (has_avx) {
+        return asm ("vcvttss2si %[a], %[ret]"
+            : [ret] "=r" (-> i64),
+            : [a] "x" (a),
+        );
+    } else if (has_sse) {
+        return asm ("cvttss2si %[a], %[ret]"
+            : [ret] "=r" (-> i64),
+            : [a] "x" (a),
+        );
+    } else {
+        if ((@as(u32, @bitCast(a[0])) & 0x7F800000) >= 0x5F000000) {
+            return -9223372036854775808; // Don't Panic: too large
+        }
+        return @intFromFloat(a[0]); // @trunc seems to be implied
+    }
+}
 
 pub inline fn _mm_div_ps(a: __m128, b: __m128) __m128 {
     return a / b;
@@ -789,7 +828,28 @@ pub inline fn _mm_cvtss_sd(a: __m128d, b: __m128) __m128d {
 }
 
 // ## pub inline fn _mm_cvttpd_epi32 (a: __m128d) __m128i {}
-// ## pub inline fn _mm_cvttps_epi32 (a: __m128) __m128i {}
+
+pub inline fn _mm_cvttps_epi32(a: __m128) __m128i {
+    if (has_avx) {
+        return asm ("vcvttps2dq %[a], %[ret]"
+            : [ret] "=x" (-> __m128i),
+            : [a] "x" (a),
+        );
+    } else if (has_sse) {
+        return asm ("cvttps2dq %[a], %[ret]"
+            : [ret] "=x" (-> __m128i),
+            : [a] "x" (a),
+        );
+    } else {
+        const mask: u32x4 = @splat(0x7F800000);
+        const limit: u32x4 = @splat(0x4F000000);
+        const indefinite: __m128 = @bitCast(@as(u32x4, @splat(0xCF000000)));
+        const predicate = (bitCast_u32x4(a) & mask) >= limit;
+        const r: i32x4 = @intFromFloat(@select(f32, predicate, indefinite, a));
+        return @bitCast(r);
+    }
+}
+
 // ## pub inline fn _mm_cvttsd_si32 (a: __m128d) i32 {}
 // ## pub inline fn _mm_cvttsd_si64 (a: __m128d) i64 {}
 // ## pub inline fn _mm_cvttsd_si64x (a: __m128d) i64 {}
