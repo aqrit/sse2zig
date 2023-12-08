@@ -264,8 +264,19 @@ pub inline fn _mm_cmpnlt_ss(a: __m128, b: __m128) __m128 {
 
 // ## pub inline fn _mm_cmpord_ps (a: __m128, b: __m128) __m128 {}
 // ## pub inline fn _mm_cmpord_ss (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_cmpunord_ps (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_cmpunord_ss (a: __m128, b: __m128) __m128 {}
+
+pub inline fn _mm_cmpunord_ps(a: __m128, b: __m128) __m128 {
+    const isNan_a: @Vector(4, i1) = @bitCast(@intFromBool(a != a));
+    const isNan_b: @Vector(4, i1) = @bitCast(@intFromBool(b != b));
+    return @bitCast(intCast_i32x4(isNan_a | isNan_b));
+}
+
+pub inline fn _mm_cmpunord_ss(a: __m128, b: __m128) __m128 {
+    // TODO: code gen is not great
+    const m: i32 = if ((a[0] != a[0]) or (b[0] != b[0])) -1 else 0;
+    return .{ @bitCast(m), a[1], a[2], a[3] };
+}
+
 // ## pub inline fn _mm_comieq_ss (a: __m128, b: __m128) i32 {}
 // ## pub inline fn _mm_comige_ss (a: __m128, b: __m128) i32 {}
 // ## pub inline fn _mm_comigt_ss (a: __m128, b: __m128) i32 {}
@@ -747,8 +758,19 @@ pub inline fn _mm_cmplt_epi8(a: __m128i, b: __m128i) __m128i {
 // ## pub inline fn _mm_cmpnlt_sd (a: __m128d, b: __m128d) __m128d {}
 // ## pub inline fn _mm_cmpord_pd (a: __m128d, b: __m128d) __m128d {}
 // ## pub inline fn _mm_cmpord_sd (a: __m128d, b: __m128d) __m128d {}
-// ## pub inline fn _mm_cmpunord_pd (a: __m128d, b: __m128d) __m128d {}
-// ## pub inline fn _mm_cmpunord_sd (a: __m128d, b: __m128d) __m128d {}
+
+pub inline fn _mm_cmpunord_pd(a: __m128d, b: __m128d) __m128d {
+    const isNan_a: @Vector(2, i1) = @bitCast(@intFromBool(a != a));
+    const isNan_b: @Vector(2, i1) = @bitCast(@intFromBool(b != b));
+    return @bitCast(intCast_i64x2(isNan_a | isNan_b));
+}
+
+pub inline fn _mm_cmpunord_sd(a: __m128d, b: __m128d) __m128d {
+    // TODO: code gen is not great
+    const m: i64 = if ((a[0] != a[0]) or (b[0] != b[0])) -1 else 0;
+    return .{ @bitCast(m), a[1] };
+}
+
 // ## pub inline fn _mm_comieq_sd (a: __m128d, b: __m128d) i32 {}
 // ## pub inline fn _mm_comige_sd (a: __m128d, b: __m128d) i32 {}
 // ## pub inline fn _mm_comigt_sd (a: __m128d, b: __m128d) i32 {}
