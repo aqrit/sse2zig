@@ -266,15 +266,45 @@ pub inline fn _mm_cmpnlt_ss(a: __m128, b: __m128) __m128 {
 // ## pub inline fn _mm_cmpord_ss (a: __m128, b: __m128) __m128 {}
 
 pub inline fn _mm_cmpunord_ps(a: __m128, b: __m128) __m128 {
-    const isNan_a: @Vector(4, i1) = @bitCast(@intFromBool(a != a));
-    const isNan_b: @Vector(4, i1) = @bitCast(@intFromBool(b != b));
-    return @bitCast(intCast_i32x4(isNan_a | isNan_b));
+    if (has_avx) {
+        return asm ("vcmpps %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (3),
+        );
+    } else if (has_sse) {
+        var res = a;
+        asm ("cmpps %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (3),
+        );
+        return res;
+    } else {
+        const isNan_a = (bitCast_u32x4(a) << @splat(1)) > @as(u32x4, @splat(0xFF000000));
+        const isNan_b = (bitCast_u32x4(b) << @splat(1)) > @as(u32x4, @splat(0xFF000000));
+        const hasNan = @intFromBool(isNan_a) | @intFromBool(isNan_b);
+        const mask = intCast_i32x4(@as(@Vector(4, i1), @bitCast(hasNan)));
+        return @bitCast(mask);
+    }
+}
+
+test "_mm_cmpunord_ps" {
+    const a = _mm_set_epi32(-2147483648, 2139095040, 2139095041, -1);
+    const b = _mm_set_epi32(4, 3, 2, 1);
+    const ref0 = _mm_set_epi32(0, 0, -1, -1);
+    const ref1 = _mm_set_epi32(0, 0, -1, -1);
+    const res0: __m128i = @bitCast(_mm_cmpunord_ps(@bitCast(a), @bitCast(b)));
+    const res1: __m128i = @bitCast(_mm_cmpunord_ps(@bitCast(b), @bitCast(a)));
+    try std.testing.expectEqual(ref0, res0);
+    try std.testing.expectEqual(ref1, res1);
 }
 
 pub inline fn _mm_cmpunord_ss(a: __m128, b: __m128) __m128 {
-    // TODO: code gen is not great
-    const m: i32 = if ((a[0] != a[0]) or (b[0] != b[0])) -1 else 0;
-    return .{ @bitCast(m), a[1], a[2], a[3] };
+    const isNan_a: i32 = if ((@as(u32, @bitCast(a[0])) << 1) > 0xFF000000) -1 else 0;
+    const isNan_b: i32 = if ((@as(u32, @bitCast(b[0])) << 1) > 0xFF000000) -1 else 0;
+    return .{ @bitCast(isNan_a | isNan_b), a[1], a[2], a[3] };
 }
 
 // ## pub inline fn _mm_comieq_ss (a: __m128, b: __m128) i32 {}
@@ -760,15 +790,49 @@ pub inline fn _mm_cmplt_epi8(a: __m128i, b: __m128i) __m128i {
 // ## pub inline fn _mm_cmpord_sd (a: __m128d, b: __m128d) __m128d {}
 
 pub inline fn _mm_cmpunord_pd(a: __m128d, b: __m128d) __m128d {
-    const isNan_a: @Vector(2, i1) = @bitCast(@intFromBool(a != a));
-    const isNan_b: @Vector(2, i1) = @bitCast(@intFromBool(b != b));
-    return @bitCast(intCast_i64x2(isNan_a | isNan_b));
+    if (has_avx) {
+        return asm ("vcmppd %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128d),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (3),
+        );
+    } else if (has_sse2) {
+        var res = a;
+        asm ("cmppd %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (3),
+        );
+        return res;
+    } else {
+        const isNan_a = (bitCast_u64x2(a) << @splat(1)) > @as(u64x2, @splat(0xFFE0000000000000));
+        const isNan_b = (bitCast_u64x2(b) << @splat(1)) > @as(u64x2, @splat(0xFFE0000000000000));
+        const hasNan = @intFromBool(isNan_a) | @intFromBool(isNan_b);
+        const mask = intCast_i64x2(@as(@Vector(2, i1), @bitCast(hasNan)));
+        return @bitCast(mask);
+    }
+}
+
+test "_mm_cmpunord_pd" {
+    const a = _mm_set_epi64x(-9223372036854775808, 9218868437227405312);
+    const b = _mm_set_epi64x(9218868437227405313, -1);
+    const c = _mm_set_epi64x(2, 1);
+    const ref0 = _mm_set_epi64x(0, 0);
+    const ref1 = _mm_set_epi64x(-1, -1);
+    const ref2 = _mm_set_epi64x(-1, -1);
+    const res0: __m128i = @bitCast(_mm_cmpunord_pd(@bitCast(a), @bitCast(c)));
+    const res1: __m128i = @bitCast(_mm_cmpunord_pd(@bitCast(b), @bitCast(c)));
+    const res2: __m128i = @bitCast(_mm_cmpunord_pd(@bitCast(c), @bitCast(b)));
+    try std.testing.expectEqual(ref0, res0);
+    try std.testing.expectEqual(ref1, res1);
+    try std.testing.expectEqual(ref2, res2);
 }
 
 pub inline fn _mm_cmpunord_sd(a: __m128d, b: __m128d) __m128d {
-    // TODO: code gen is not great
-    const m: i64 = if ((a[0] != a[0]) or (b[0] != b[0])) -1 else 0;
-    return .{ @bitCast(m), a[1] };
+    const isNan_a: i64 = if ((@as(u64, @bitCast(a[0])) << 1) > 0xFFE0000000000000) -1 else 0;
+    const isNan_b: i64 = if ((@as(u64, @bitCast(b[0])) << 1) > 0xFFE0000000000000) -1 else 0;
+    return .{ @bitCast(isNan_a | isNan_b), a[1] };
 }
 
 // ## pub inline fn _mm_comieq_sd (a: __m128d, b: __m128d) i32 {}
