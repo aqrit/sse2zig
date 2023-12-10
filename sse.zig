@@ -146,8 +146,9 @@ inline fn intCast_i8x32(a: anytype) i8x32 {
     return @intCast(a);
 }
 // =====================================================================
+// Note: `nan = (x != x)` code gen seems good.
+// However, it somehow fails under test. comptimeFloat?
 
-// Note: (x != x) code gen seems good. However, it somehow fails under test.
 inline fn isNan_ss(a: __m128) u1 {
     const pred = ((@as(u32, @bitCast(a[0])) << 1) > 0xFF000000);
     return @intFromBool(pred);
@@ -848,25 +849,26 @@ test "_mm_max_ps" {
 
 pub inline fn _mm_max_ss(a: __m128, b: __m128) __m128 {
     if (has_avx) {
-        return asm ("vmaxps %[b], %[a], %[ret]"
+        return asm ("vmaxss %[b], %[a], %[ret]"
             : [ret] "=x" (-> __m128),
             : [a] "x" (a),
               [b] "x" (b),
         );
     } else if (has_sse) {
         var res = a;
-        asm ("maxps %[b], %[a]"
+        asm ("maxss %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
         );
         return res;
     } else {
-        const isNan = isNan_ps(a) | isNan_ps(b);
-        const negZero: u32x4 = @splat(0x80000000);
-        const bothZero = @intFromBool((bitCast_u32x4(a) | bitCast_u32x4(b) | negZero) == negZero);
-        const cmplt = @intFromBool(a < b);
-        const mask = laneMask_u32x4(cmplt | bothZero | isNan);
-        return @bitCast((bitCast_u32x4(a) & ~mask) | (bitCast_u32x4(b) & mask));
+        const isNan = isNan_ss(a) | isNan_ss(b);
+        const a0: u32 = @bitCast(a[0]);
+        const b0: u32 = @bitCast(b[0]);
+        const bothZero = @intFromBool((a0 | b0 | 0x80000000) == 0x80000000);
+        const cmplt = @intFromBool(a0 < b0);
+        const mask = laneMask_u32x1(cmplt | bothZero | isNan);
+        return .{ @bitCast((a0 & ~mask) | (b0 & mask)), a[1], a[2], a[3] };
     }
 }
 
@@ -1780,7 +1782,6 @@ pub inline fn _mm_cvtsi128_si64(a: __m128i) i64 {
     return bitCast_i64x2(a)[0];
 }
 
-/// this alternative name is missing from clang headers
 pub inline fn _mm_cvtsi128_si64x(a: __m128i) i64 {
     return _mm_cvtsi128_si64(a);
 }
@@ -1803,12 +1804,10 @@ pub inline fn _mm_cvtsi64_si128(a: i64) __m128i {
     return @bitCast(r);
 }
 
-/// alternative name
 pub inline fn _mm_cvtsi64x_sd(a: __m128d, b: i64) __m128d {
     return _mm_cvtsi64_sd(a, b);
 }
 
-/// this alternative name is missing from clang headers
 pub inline fn _mm_cvtsi64x_si128(a: i64) __m128i {
     return _mm_cvtsi64_si128(a);
 }
@@ -1947,8 +1946,55 @@ pub inline fn _mm_max_epu8(a: __m128i, b: __m128i) __m128i {
     return @bitCast(@max(bitCast_u8x16(a), bitCast_u8x16(b)));
 }
 
-// ## pub inline fn _mm_max_pd (a: __m128d, b: __m128d) __m128d {}
-// ## pub inline fn _mm_max_sd (a: __m128d, b: __m128d) __m128d {}
+pub inline fn _mm_max_pd(a: __m128d, b: __m128d) __m128d {
+    if (has_avx) {
+        return asm ("vmaxpd %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128d),
+            : [a] "x" (a),
+              [b] "x" (b),
+        );
+    } else if (has_sse2) {
+        var res = a;
+        asm ("maxpd %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+        );
+        return res;
+    } else {
+        const isNan = isNan_pd(a) | isNan_pd(b);
+        const negZero: u64x2 = @splat(0x8000000000000000);
+        const bothZero = @intFromBool((bitCast_u64x2(a) | bitCast_u64x2(b) | negZero) == negZero);
+        const cmplt = @intFromBool(a < b);
+        const mask = laneMask_u64x2(cmplt | bothZero | isNan);
+        return @bitCast((bitCast_u64x2(a) & ~mask) | (bitCast_u64x2(b) & mask));
+    }
+}
+
+pub inline fn _mm_max_sd(a: __m128d, b: __m128d) __m128d {
+    if (has_avx) {
+        return asm ("vmaxsd %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128d),
+            : [a] "x" (a),
+              [b] "x" (b),
+        );
+    } else if (has_sse2) {
+        var res = a;
+        asm ("maxsd %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+        );
+        return res;
+    } else {
+        const isNan = isNan_sd(a) | isNan_sd(b);
+        const a0: u64 = @bitCast(a[0]);
+        const b0: u64 = @bitCast(b[0]);
+        const bothZero = @intFromBool((a0 | b0 | 0x80000000) == 0x80000000);
+        const cmplt = @intFromBool(a0 < b0);
+        const mask = laneMask_u64x1(cmplt | bothZero | isNan);
+        return .{ @bitCast((a0 & ~mask) | (b0 & mask)), a[1] };
+    }
+}
+
 // ## pub inline fn _mm_mfence () void {}
 
 pub inline fn _mm_min_epi16(a: __m128i, b: __m128i) __m128i {
@@ -1959,8 +2005,54 @@ pub inline fn _mm_min_epu8(a: __m128i, b: __m128i) __m128i {
     return @bitCast(@min(bitCast_u8x16(a), bitCast_u8x16(b)));
 }
 
-// ## pub inline fn _mm_min_pd (a: __m128d, b: __m128d) __m128d {}
-// ## pub inline fn _mm_min_sd (a: __m128d, b: __m128d) __m128d {}
+pub inline fn _mm_min_pd(a: __m128d, b: __m128d) __m128d {
+    if (has_avx) {
+        return asm ("vminpd %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128d),
+            : [a] "x" (a),
+              [b] "x" (b),
+        );
+    } else if (has_sse2) {
+        var res = a;
+        asm ("minpd %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+        );
+        return res;
+    } else {
+        const isNan = isNan_pd(a) | isNan_pd(b);
+        const negZero: u64x2 = @splat(0x8000000000000000);
+        const bothZero = @intFromBool((bitCast_u64x2(a) | bitCast_u64x2(b) | negZero) == negZero);
+        const cmpgt = @intFromBool(a > b);
+        const mask = laneMask_u64x2(cmpgt | bothZero | isNan);
+        return @bitCast((bitCast_u64x2(a) & ~mask) | (bitCast_u64x2(b) & mask));
+    }
+}
+
+pub inline fn _mm_min_sd(a: __m128d, b: __m128d) __m128d {
+    if (has_avx) {
+        return asm ("vminsd %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128d),
+            : [a] "x" (a),
+              [b] "x" (b),
+        );
+    } else if (has_sse2) {
+        var res = a;
+        asm ("minsd %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+        );
+        return res;
+    } else {
+        const isNan = isNan_sd(a) | isNan_sd(b);
+        const a0: u64 = @bitCast(a[0]);
+        const b0: u64 = @bitCast(b[0]);
+        const bothZero = @intFromBool((a0 | b0 | 0x80000000) == 0x80000000);
+        const cmpgt = @intFromBool(a0 > b0);
+        const mask = laneMask_u64x1(cmpgt | bothZero | isNan);
+        return .{ @bitCast((a0 & ~mask) | (b0 & mask)), a[1] };
+    }
+}
 
 pub inline fn _mm_move_epi64(a: __m128i) __m128i {
     const r = i64x2{ bitCast_i64x2(a)[0], 0 };
