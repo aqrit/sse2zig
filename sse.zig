@@ -43,7 +43,8 @@ const i16x16 = @Vector(16, i16);
 const i8x32 = @Vector(32, i8);
 //
 const i32x16 = @Vector(16, i32);
-//
+// =====================================================================
+
 inline fn bitCast_u64x2(a: anytype) u64x2 {
     return @bitCast(a);
 }
@@ -93,7 +94,8 @@ inline fn bitCast_i16x16(a: anytype) i16x16 {
 inline fn bitCast_i8x32(a: anytype) i8x32 {
     return @bitCast(a);
 }
-//
+// =====================================================================
+
 inline fn intCast_u64x2(a: anytype) u64x2 {
     return @intCast(a);
 }
@@ -143,6 +145,45 @@ inline fn intCast_i16x16(a: anytype) i16x16 {
 inline fn intCast_i8x32(a: anytype) i8x32 {
     return @intCast(a);
 }
+// =====================================================================
+
+/// Note: (x != x) code gen seems good. However, it somehow fails under test.
+inline fn isNan_ss(a: __m128) u1 {
+    const pred = ((@as(u32, @bitCast(a[0])) << 1) > 0xFF000000);
+    return @intFromBool(pred);
+}
+inline fn isNan_ps(a: __m128) @Vector(4, u1) {
+    const pred = (bitCast_u32x4(a) << @splat(1)) > @as(u32x4, @splat(0xFF000000));
+    return @intFromBool(pred);
+}
+inline fn isNan_pd(a: __m128d) @Vector(2, u1) {
+    const pred = (bitCast_u64x2(a) << @splat(1)) > @as(u64x2, @splat(0xFFE0000000000000));
+    return @intFromBool(pred);
+}
+inline fn isNan_sd(a: __m128d) u1 {
+    const pred = ((@as(u32, @bitCast(a[0])) << 1) > 0xFFE0000000000000);
+    return @intFromBool(pred);
+}
+// =====================================================================
+
+inline fn laneMask_u32x1(pred: u1) u32 {
+    return @bitCast(@as(i32, @intCast(@as(i1, @bitCast(pred)))));
+}
+inline fn laneMask_u64x1(pred: u1) u64 {
+    return @bitCast(@as(i64, @intCast(@as(i1, @bitCast(pred)))));
+}
+inline fn laneMask_u8x16(pred: @Vector(16, u1)) u8x16 {
+    return @bitCast(intCast_i8x16(@as(@Vector(16, i1), @bitCast(pred))));
+}
+inline fn laneMask_u16x8(pred: @Vector(8, u1)) u16x8 {
+    return @bitCast(intCast_i16x8(@as(@Vector(8, i1), @bitCast(pred))));
+}
+inline fn laneMask_u32x4(pred: @Vector(4, u1)) u32x4 {
+    return @bitCast(intCast_i32x4(@as(@Vector(4, i1), @bitCast(pred))));
+}
+inline fn laneMask_u64x2(pred: @Vector(2, u1)) u64x2 {
+    return @bitCast(intCast_i64x2(@as(@Vector(2, i1), @bitCast(pred))));
+}
 
 // SSE =================================================================
 
@@ -162,17 +203,52 @@ pub inline fn _mm_andnot_ps(a: __m128, b: __m128) __m128 {
     return @bitCast(~bitCast_u32x4(a) & bitCast_u32x4(b));
 }
 
+/// dst[n] = if ((a[n] == b[n]) and (a[n] != NaN) and b[n] != NaN) -1 else 0;
 pub inline fn _mm_cmpeq_ps(a: __m128, b: __m128) __m128 {
-    const cmpBool = (a == b);
-    const cmpInt: @Vector(4, i1) = @bitCast(@intFromBool(cmpBool));
-    return @bitCast(intCast_i32x4(cmpInt));
+    if (has_avx) {
+        return asm ("vcmpps %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (0),
+        );
+    } else if (has_sse) {
+        var res = a;
+        asm ("cmpps %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (0),
+        );
+        return res;
+    } else {
+        const notNan = ~(isNan_ps(a) | isNan_ps(b));
+        const cmpeq = @intFromBool(a == b);
+        return @bitCast(laneMask_u32x4(notNan & cmpeq));
+    }
 }
 
+/// dst = a; dst[0] = if ((a[0] == b[0]) and (a[0] != NaN) and b[0] != NaN) -1 else 0;
 pub inline fn _mm_cmpeq_ss(a: __m128, b: __m128) __m128 {
-    // TODO: generated code uses an extra blend
-    const pred: i1 = @bitCast(@intFromBool(a[0] == b[0]));
-    const mask: f32 = @bitCast(@as(i32, @intCast(pred)));
-    return .{ mask, a[1], a[2], a[3] };
+    if (has_avx) {
+        return asm ("vcmpss %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (0),
+        );
+    } else if (has_sse) {
+        var res = a;
+        asm ("cmpss %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (0),
+        );
+        return res;
+    } else {
+        const notNan = ~(isNan_ss(a) | isNan_ss(b));
+        const cmpeq = @intFromBool(a[0] == b[0]);
+        return .{ @bitCast(laneMask_u32x1(notNan & cmpeq)), a[1], a[2], a[3] };
+    }
 }
 
 pub inline fn _mm_cmpge_ps(a: __m128, b: __m128) __m128 {
@@ -191,80 +267,305 @@ pub inline fn _mm_cmpgt_ss(a: __m128, b: __m128) __m128 {
     return _mm_cmplt_ss(b, a);
 }
 
+/// dst[n] = if ((a[n] <= b[n]) and (a[n] != NaN) and b[n] != NaN) -1 else 0;
 pub inline fn _mm_cmple_ps(a: __m128, b: __m128) __m128 {
-    const cmpBool = (a <= b);
-    const cmpInt: @Vector(4, i1) = @bitCast(@intFromBool(cmpBool));
-    return @bitCast(intCast_i32x4(cmpInt));
+    if (has_avx) {
+        return asm ("vcmpps %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (2),
+        );
+    } else if (has_sse) {
+        var res = a;
+        asm ("cmpps %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (2),
+        );
+        return res;
+    } else {
+        const notNan = ~(isNan_ps(a) | isNan_ps(b));
+        const cmple = @intFromBool(a <= b);
+        return @bitCast(laneMask_u32x4(notNan & cmple));
+    }
 }
 
+/// dst = a; dst[0] = if ((a[0] <= b[0]) and (a[0] != NaN) and b[0] != NaN) -1 else 0;
 pub inline fn _mm_cmple_ss(a: __m128, b: __m128) __m128 {
-    // TODO: generated code is hot garbage
-    const pred: i1 = @bitCast(@intFromBool(a[0] <= b[0]));
-    const mask: f32 = @bitCast(@as(i32, @intCast(pred)));
-    return .{ mask, a[1], a[2], a[3] };
+    if (has_avx) {
+        return asm ("vcmpss %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (2),
+        );
+    } else if (has_sse) {
+        var res = a;
+        asm ("cmpss %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (2),
+        );
+        return res;
+    } else {
+        const notNan = ~(isNan_ss(a) | isNan_ss(b));
+        const cmple = @intFromBool(a[0] <= b[0]);
+        return .{ @bitCast(laneMask_u32x1(notNan & cmple)), a[1], a[2], a[3] };
+    }
 }
 
+/// dst[n] = if ((a[n] < b[n]) and (a[n] != NaN) and b[n] != NaN) -1 else 0;
 pub inline fn _mm_cmplt_ps(a: __m128, b: __m128) __m128 {
-    const cmpBool = (a < b);
-    const cmpInt: @Vector(4, i1) = @bitCast(@intFromBool(cmpBool));
-    return @bitCast(intCast_i32x4(cmpInt));
+    if (has_avx) {
+        return asm ("vcmpps %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (1),
+        );
+    } else if (has_sse) {
+        var res = a;
+        asm ("cmpps %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (1),
+        );
+        return res;
+    } else {
+        const notNan = ~(isNan_ps(a) | isNan_ps(b));
+        const cmplt = @intFromBool(a < b);
+        return @bitCast(laneMask_u32x4(notNan & cmplt));
+    }
 }
 
+/// dst = a; dst[0] = if ((a[0] < b[0]) and (a[0] != NaN) and b[0] != NaN) -1 else 0;
 pub inline fn _mm_cmplt_ss(a: __m128, b: __m128) __m128 {
-    // TODO: generated code is hot garbage
-    const pred: i1 = @bitCast(@intFromBool(a[0] < b[0]));
-    const mask: f32 = @bitCast(@as(i32, @intCast(pred)));
-    return .{ mask, a[1], a[2], a[3] };
+    if (has_avx) {
+        return asm ("vcmpss %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (1),
+        );
+    } else if (has_sse) {
+        var res = a;
+        asm ("cmpss %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (1),
+        );
+        return res;
+    } else {
+        const notNan = ~(isNan_ss(a) | isNan_ss(b));
+        const cmplt = @intFromBool(a[0] < b[0]);
+        return .{ @bitCast(laneMask_u32x1(notNan & cmplt)), a[1], a[2], a[3] };
+    }
 }
 
+/// dst[n] = if ((a[n] != b[n]) or (a[n] == NaN) or b[n] == NaN) -1 else 0;
 pub inline fn _mm_cmpneq_ps(a: __m128, b: __m128) __m128 {
-    const cmpBool = (a != b);
-    const cmpInt: @Vector(4, i1) = @bitCast(@intFromBool(cmpBool));
-    return @bitCast(intCast_i32x4(cmpInt));
+    if (has_avx) {
+        return asm ("vcmpps %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (4),
+        );
+    } else if (has_sse) {
+        var res = a;
+        asm ("cmpps %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (4),
+        );
+        return res;
+    } else {
+        const isNan = isNan_ps(a) | isNan_ps(b);
+        const cmpneq = @intFromBool(a != b);
+        return @bitCast(laneMask_u32x4(isNan | cmpneq));
+    }
 }
 
+/// dst = a; dst[0] = if ((a[0] != b[0]) or (a[0] == NaN) or b[0] == NaN) -1 else 0;
 pub inline fn _mm_cmpneq_ss(a: __m128, b: __m128) __m128 {
-    // TODO: generated code uses an extra blend
-    const pred: i1 = @bitCast(@intFromBool(a[0] != b[0]));
-    const mask: f32 = @bitCast(@as(i32, @intCast(pred)));
-    return .{ mask, a[1], a[2], a[3] };
+    if (has_avx) {
+        return asm ("vcmpss %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (4),
+        );
+    } else if (has_sse) {
+        var res = a;
+        asm ("cmpss %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (4),
+        );
+        return res;
+    } else {
+        const isNan = isNan_ss(a) | isNan_ss(b);
+        const cmpneq = @intFromBool(a[0] != b[0]);
+        return .{ @bitCast(laneMask_u32x1(isNan | cmpneq)), a[1], a[2], a[3] };
+    }
 }
 
 pub inline fn _mm_cmpnge_ps(a: __m128, b: __m128) __m128 {
-    return _mm_cmplt_ps(a, b);
+    return _mm_cmpnle_ps(b, a);
 }
 
 pub inline fn _mm_cmpnge_ss(a: __m128, b: __m128) __m128 {
-    return _mm_cmplt_ss(a, b);
+    return _mm_cmpnle_ss(b, a);
 }
 
 pub inline fn _mm_cmpngt_ps(a: __m128, b: __m128) __m128 {
-    return _mm_cmple_ps(a, b);
+    return _mm_cmpnlt_ps(b, a);
 }
 
 pub inline fn _mm_cmpngt_ss(a: __m128, b: __m128) __m128 {
-    return _mm_cmple_ss(a, b);
+    return _mm_cmpnlt_ss(b, a);
 }
 
 pub inline fn _mm_cmpnle_ps(a: __m128, b: __m128) __m128 {
-    return _mm_cmplt_ps(b, a);
+    if (has_avx) {
+        return asm ("vcmpps %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (6),
+        );
+    } else if (has_sse) {
+        var res = a;
+        asm ("cmpps %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (6),
+        );
+        return res;
+    } else {
+        const isNan = isNan_ps(a) | isNan_ps(b);
+        const cmpnle = ~@intFromBool(a <= b);
+        return @bitCast(laneMask_u32x4(isNan | cmpnle));
+    }
 }
 
 pub inline fn _mm_cmpnle_ss(a: __m128, b: __m128) __m128 {
-    return _mm_cmplt_ss(b, a);
+    if (has_avx) {
+        return asm ("vcmpss %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (6),
+        );
+    } else if (has_sse) {
+        var res = a;
+        asm ("cmpss %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (6),
+        );
+        return res;
+    } else {
+        const isNan = isNan_ss(a) | isNan_ss(b);
+        const cmpnle = ~@intFromBool(a[0] <= b[0]);
+        return .{ @bitCast(laneMask_u32x1(isNan | cmpnle)), a[1], a[2], a[3] };
+    }
 }
 
 pub inline fn _mm_cmpnlt_ps(a: __m128, b: __m128) __m128 {
-    return _mm_cmple_ps(b, a);
+    if (has_avx) {
+        return asm ("vcmpps %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (5),
+        );
+    } else if (has_sse) {
+        var res = a;
+        asm ("cmpps %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (5),
+        );
+        return res;
+    } else {
+        const isNan = isNan_ps(a) | isNan_ps(b);
+        const cmpnlt = ~@intFromBool(a < b);
+        return @bitCast(laneMask_u32x4(isNan | cmpnlt));
+    }
 }
 
 pub inline fn _mm_cmpnlt_ss(a: __m128, b: __m128) __m128 {
-    return _mm_cmple_ss(b, a);
+    if (has_avx) {
+        return asm ("vcmpss %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (5),
+        );
+    } else if (has_sse) {
+        var res = a;
+        asm ("cmpss %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (5),
+        );
+        return res;
+    } else {
+        const isNan = isNan_ss(a) | isNan_ss(b);
+        const cmpnlt = ~@intFromBool(a[0] < b[0]);
+        return .{ @bitCast(laneMask_u32x1(isNan | cmpnlt)), a[1], a[2], a[3] };
+    }
 }
 
-// ## pub inline fn _mm_cmpord_ps (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_cmpord_ss (a: __m128, b: __m128) __m128 {}
+/// dst[n] = if((a[n] != NaN) and (b[n] != NaN)) -1 else 0;
+pub inline fn _mm_cmpord_ps(a: __m128, b: __m128) __m128 {
+    if (has_avx) {
+        return asm ("vcmpps %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (7),
+        );
+    } else if (has_sse) {
+        var res = a;
+        asm ("cmpps %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (7),
+        );
+        return res;
+    } else {
+        const pred = ~(isNan_ps(a) | isNan_ps(b));
+        return @bitCast(laneMask_u32x4(pred));
+    }
+}
 
+/// dst = a; dst[0] = if((a[0] != NaN) and (b[0] != NaN)) -1 else 0;
+pub inline fn _mm_cmpord_ss(a: __m128, b: __m128) __m128 {
+    if (has_avx) {
+        return asm ("vcmpss %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (7),
+        );
+    } else if (has_sse) {
+        var res = a;
+        asm ("cmpss %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (7),
+        );
+        return res;
+    } else {
+        const pred = ~(isNan_ss(a) | isNan_ss(b));
+        return .{ @bitCast(laneMask_u32x1(pred)), a[1], a[2], a[3] };
+    }
+}
+
+/// dst[n] = if((a[n] == NaN) or (b[n] == NaN)) -1 else 0;
 pub inline fn _mm_cmpunord_ps(a: __m128, b: __m128) __m128 {
     if (has_avx) {
         return asm ("vcmpps %[c], %[b], %[a], %[ret]"
@@ -282,11 +583,8 @@ pub inline fn _mm_cmpunord_ps(a: __m128, b: __m128) __m128 {
         );
         return res;
     } else {
-        const isNan_a = (bitCast_u32x4(a) << @splat(1)) > @as(u32x4, @splat(0xFF000000));
-        const isNan_b = (bitCast_u32x4(b) << @splat(1)) > @as(u32x4, @splat(0xFF000000));
-        const hasNan = @intFromBool(isNan_a) | @intFromBool(isNan_b);
-        const mask = intCast_i32x4(@as(@Vector(4, i1), @bitCast(hasNan)));
-        return @bitCast(mask);
+        const pred = isNan_ps(a) | isNan_ps(b);
+        return @bitCast(laneMask_u32x4(pred));
     }
 }
 
@@ -301,18 +599,48 @@ test "_mm_cmpunord_ps" {
     try std.testing.expectEqual(ref1, res1);
 }
 
+/// dst = a; dst[0] = if((a[0] == NaN) or (b[0] == NaN)) -1 else 0;
 pub inline fn _mm_cmpunord_ss(a: __m128, b: __m128) __m128 {
-    const isNan_a: i32 = if ((@as(u32, @bitCast(a[0])) << 1) > 0xFF000000) -1 else 0;
-    const isNan_b: i32 = if ((@as(u32, @bitCast(b[0])) << 1) > 0xFF000000) -1 else 0;
-    return .{ @bitCast(isNan_a | isNan_b), a[1], a[2], a[3] };
+    if (has_avx) {
+        return asm ("vcmpss %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (3),
+        );
+    } else if (has_sse) {
+        var res = a;
+        asm ("cmpss %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (3),
+        );
+        return res;
+    } else {
+        const pred = isNan_ss(a) | isNan_ss(b);
+        return .{ @bitCast(laneMask_u32x1(pred)), a[1], a[2], a[3] };
+    }
 }
 
-// ## pub inline fn _mm_comieq_ss (a: __m128, b: __m128) i32 {}
-// ## pub inline fn _mm_comige_ss (a: __m128, b: __m128) i32 {}
-// ## pub inline fn _mm_comigt_ss (a: __m128, b: __m128) i32 {}
-// ## pub inline fn _mm_comile_ss (a: __m128, b: __m128) i32 {}
-// ## pub inline fn _mm_comilt_ss (a: __m128, b: __m128) i32 {}
-// ## pub inline fn _mm_comineq_ss (a: __m128, b: __m128) i32 {}
+/// TODO: the difference between _mm_comieq_ss and _mm_ucomieq_ss is QNaN signaling
+pub inline fn _mm_comieq_ss(a: __m128, b: __m128) i32 {
+    _mm_comieq_ss(a, b);
+}
+pub inline fn _mm_comige_ss(a: __m128, b: __m128) i32 {
+    _mm_comige_ss(a, b);
+}
+pub inline fn _mm_comigt_ss(a: __m128, b: __m128) i32 {
+    _mm_comigt_ss(a, b);
+}
+pub inline fn _mm_comile_ss(a: __m128, b: __m128) i32 {
+    _mm_comile_ss(a, b);
+}
+pub inline fn _mm_comilt_ss(a: __m128, b: __m128) i32 {
+    _mm_comilt_ss(a, b);
+}
+pub inline fn _mm_comineq_ss(a: __m128, b: __m128) i32 {
+    _mm_comineq_ss(a, b);
+}
 
 pub inline fn _mm_cvt_si2ss(a: __m128, b: i32) __m128 {
     return _mm_cvtsi32_ss(a, b);
@@ -421,10 +749,141 @@ pub inline fn _mm_loadu_ps(mem_addr: *align(1) const f32) __m128 {
 }
 
 // ## pub inline fn _mm_malloc (size: usize, align: usize) *void {}
-// ## pub inline fn _mm_max_ps (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_max_ss (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_min_ps (a: __m128, b: __m128) __m128 {}
-// ## pub inline fn _mm_min_ss (a: __m128, b: __m128) __m128 {}
+
+pub inline fn _mm_max_ps(a: __m128, b: __m128) __m128 {
+    if (has_avx) {
+        return asm ("vmaxps %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+              [b] "x" (b),
+        );
+    } else if (has_sse) {
+        var res = a;
+        asm ("maxps %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+        );
+        return res;
+    } else {
+        const isNan = isNan_ps(a) | isNan_ps(b);
+        const negZero: u32x4 = @splat(0x80000000);
+        const bothZero = @intFromBool((bitCast_u32x4(a) | bitCast_u32x4(b) | negZero) == negZero);
+        const cmplt = @intFromBool(a < b);
+        const mask = laneMask_u32x4(cmplt | bothZero | isNan);
+        return @bitCast((bitCast_u32x4(a) & ~mask) | (bitCast_u32x4(b) & mask));
+    }
+}
+
+test "_mm_max_ps" {
+    const a = _mm_set_epi32(-2147483648, 2139095041, 2139095042, -8388607);
+    const b = _mm_set_epi32(0, 0, 2139095041, 2139095041);
+    const c = _mm_set_epi32(-2147483647, -8388608, 2, -8388608);
+    const d = _mm_set_epi32(-2147483648, -8388607, 1, 2139095040);
+    const ref0 = _mm_set_epi32(0, 0, 2139095041, 2139095041);
+    const ref1 = _mm_set_epi32(-2147483648, 2139095041, 2139095042, -8388607);
+    const ref2 = _mm_set_epi32(-2147483648, -8388607, 2, 2139095040);
+    const ref3 = _mm_set_epi32(-2147483648, -8388608, 2, 2139095040);
+    const res0: __m128i = @bitCast(_mm_max_ps(@bitCast(a), @bitCast(b)));
+    const res1: __m128i = @bitCast(_mm_max_ps(@bitCast(b), @bitCast(a)));
+    const res2: __m128i = @bitCast(_mm_max_ps(@bitCast(c), @bitCast(d)));
+    const res3: __m128i = @bitCast(_mm_max_ps(@bitCast(d), @bitCast(c)));
+    try std.testing.expectEqual(ref0, res0);
+    try std.testing.expectEqual(ref1, res1);
+    try std.testing.expectEqual(ref2, res2);
+    try std.testing.expectEqual(ref3, res3);
+}
+
+pub inline fn _mm_max_ss(a: __m128, b: __m128) __m128 {
+    if (has_avx) {
+        return asm ("vmaxps %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+              [b] "x" (b),
+        );
+    } else if (has_sse) {
+        var res = a;
+        asm ("maxps %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+        );
+        return res;
+    } else {
+        const isNan = isNan_ps(a) | isNan_ps(b);
+        const negZero: u32x4 = @splat(0x80000000);
+        const bothZero = @intFromBool((bitCast_u32x4(a) | bitCast_u32x4(b) | negZero) == negZero);
+        const cmplt = @intFromBool(a < b);
+        const mask = laneMask_u32x4(cmplt | bothZero | isNan);
+        return @bitCast((bitCast_u32x4(a) & ~mask) | (bitCast_u32x4(b) & mask));
+    }
+}
+
+pub inline fn _mm_min_ps(a: __m128, b: __m128) __m128 {
+    if (has_avx) {
+        return asm ("vminps %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+              [b] "x" (b),
+        );
+    } else if (has_sse) {
+        var res = a;
+        asm ("minps %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+        );
+        return res;
+    } else {
+        const isNan = isNan_ps(a) | isNan_ps(b);
+        const negZero: u32x4 = @splat(0x80000000);
+        const bothZero = @intFromBool((bitCast_u32x4(a) | bitCast_u32x4(b) | negZero) == negZero);
+        const cmpgt = @intFromBool(a > b);
+        const mask = laneMask_u32x4(cmpgt | bothZero | isNan);
+        return @bitCast((bitCast_u32x4(a) & ~mask) | (bitCast_u32x4(b) & mask));
+    }
+}
+
+test "_mm_min_ps" {
+    const a = _mm_set_epi32(-2147483648, 2139095041, 2139095042, -8388607);
+    const b = _mm_set_epi32(0, 0, 2139095041, 2139095041);
+    const c = _mm_set_epi32(-2147483647, -8388608, 2, -8388608);
+    const d = _mm_set_epi32(-2147483648, -8388607, 1, 2139095040);
+    const ref0 = _mm_set_epi32(0, 0, 2139095041, 2139095041);
+    const ref1 = _mm_set_epi32(-2147483648, 2139095041, 2139095042, -8388607);
+    const ref2 = _mm_set_epi32(-2147483647, -8388607, 1, -8388608);
+    const ref3 = _mm_set_epi32(-2147483647, -8388608, 1, -8388608);
+    const res0: __m128i = @bitCast(_mm_min_ps(@bitCast(a), @bitCast(b)));
+    const res1: __m128i = @bitCast(_mm_min_ps(@bitCast(b), @bitCast(a)));
+    const res2: __m128i = @bitCast(_mm_min_ps(@bitCast(c), @bitCast(d)));
+    const res3: __m128i = @bitCast(_mm_min_ps(@bitCast(d), @bitCast(c)));
+    try std.testing.expectEqual(ref0, res0);
+    try std.testing.expectEqual(ref1, res1);
+    try std.testing.expectEqual(ref2, res2);
+    try std.testing.expectEqual(ref3, res3);
+}
+
+pub inline fn _mm_min_ss(a: __m128, b: __m128) __m128 {
+    if (has_avx) {
+        return asm ("vminss %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+              [b] "x" (b),
+        );
+    } else if (has_sse) {
+        var res = a;
+        asm ("minss %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+        );
+        return res;
+    } else {
+        const isNan = isNan_ss(a) | isNan_ss(b);
+        const a0: u32 = @bitCast(a[0]);
+        const b0: u32 = @bitCast(b[0]);
+        const bothZero = @intFromBool((a0 | b0 | 0x80000000) == 0x80000000);
+        const cmpgt = @intFromBool(a0 > b0);
+        const mask = laneMask_u32x1(cmpgt | bothZero | isNan);
+        return .{ @bitCast((a0 & ~mask) | (b0 & mask)), a[1], a[2], a[3] };
+    }
+}
 
 pub inline fn _mm_move_ss(a: __m128, b: __m128) __m128 {
     return .{ b[0], a[1], a[2], a[3] };
@@ -535,28 +994,42 @@ pub inline fn _mm_sub_ss(a: __m128, b: __m128) __m128 {
 
 // ## ?? void _MM_TRANSPOSE4_PS (__m128 row0, __m128 row1, __m128 row2, __m128 row3) ??
 
+/// result = if ((a[0] == b[0]) and (a[0] != NaN) and b[0] != NaN) 1 else 0;
 pub inline fn _mm_ucomieq_ss(a: __m128, b: __m128) i32 {
-    return @intFromBool(a[0] == b[0]);
+    const notNan = ~(isNan_ss(a) | isNan_ss(b));
+    const cmpeq = @intFromBool(a[0] == b[0]);
+    return notNan & cmpeq;
 }
 
+/// result = if ((a[0] >= b[0]) and (a[0] != NaN) and b[0] != NaN) 1 else 0;
 pub inline fn _mm_ucomige_ss(a: __m128, b: __m128) i32 {
-    return @intFromBool(a[0] >= b[0]);
+    return _mm_ucomile_ss(b, a);
 }
 
+/// result = if ((a[0] > b[0]) and (a[0] != NaN) and b[0] != NaN) 1 else 0;
 pub inline fn _mm_ucomigt_ss(a: __m128, b: __m128) i32 {
-    return @intFromBool(a[0] > b[0]);
+    return _mm_ucomilt_ss(b, a);
 }
 
+/// result = if ((a[0] <= b[0]) and (a[0] != NaN) and b[0] != NaN) 1 else 0;
 pub inline fn _mm_ucomile_ss(a: __m128, b: __m128) i32 {
-    return @intFromBool(a[0] <= b[0]);
+    const notNan = ~(isNan_ss(a) | isNan_ss(b));
+    const cmple = @intFromBool(a[0] <= b[0]);
+    return notNan & cmple;
 }
 
+/// result = if ((a[0] <= b[0]) and (a[0] != NaN) and b[0] != NaN) 1 else 0;
 pub inline fn _mm_ucomilt_ss(a: __m128, b: __m128) i32 {
-    return @intFromBool(a[0] < b[0]);
+    const notNan = ~(isNan_ss(a) | isNan_ss(b));
+    const cmplt = @intFromBool(a[0] < b[0]);
+    return notNan & cmplt;
 }
 
+/// result = if ((a[0] != b[0]) or (a[0] == NaN) or b[0] == NaN) 1 else 0;
 pub inline fn _mm_ucomineq_ss(a: __m128, b: __m128) i32 {
-    return @intFromBool(a[0] != b[0]);
+    const isNan = isNan_ss(a) | isNan_ss(b);
+    const cmpneq = @intFromBool(a != b);
+    return isNan | cmpneq;
 }
 
 pub inline fn _mm_undefined_ps() __m128 {
@@ -716,79 +1189,419 @@ pub inline fn _mm_castsi128_ps(a: __m128i) __m128 {
 
 // ## pub inline fn _mm_clflush (p: *const void) void {}
 
+/// dst[n] = if(a[n] == b[n]) -1 else 0;
 pub inline fn _mm_cmpeq_epi16(a: __m128i, b: __m128i) __m128i {
-    const cmpBool = (bitCast_i16x8(a) == bitCast_i16x8(b));
-    const cmpInt: @Vector(8, i1) = @bitCast(@intFromBool(cmpBool));
-    return @bitCast(intCast_i16x8(cmpInt));
+    const pred = @intFromBool(bitCast_u16x8(a) == bitCast_u16x8(b));
+    return @bitCast(laneMask_u16x8(pred));
 }
 
+/// dst[n] = if(a[n] == b[n]) -1 else 0;
 pub inline fn _mm_cmpeq_epi32(a: __m128i, b: __m128i) __m128i {
-    const cmpBool = (bitCast_i32x4(a) == bitCast_i32x4(b));
-    const cmpInt: @Vector(4, i1) = @bitCast(@intFromBool(cmpBool));
-    return @bitCast(intCast_i32x4(cmpInt));
+    const pred = @intFromBool(bitCast_u32x4(a) == bitCast_u32x4(b));
+    return @bitCast(laneMask_u32x4(pred));
 }
 
+/// dst[n] = if(a[n] == b[n]) -1 else 0;
 pub inline fn _mm_cmpeq_epi8(a: __m128i, b: __m128i) __m128i {
-    const cmpBool = (bitCast_i8x16(a) == bitCast_i8x16(b));
-    const cmpInt: @Vector(16, i1) = @bitCast(@intFromBool(cmpBool));
-    return @bitCast(intCast_i8x16(cmpInt));
+    const pred = @intFromBool(bitCast_u8x16(a) == bitCast_u8x16(b));
+    return @bitCast(laneMask_u8x16(pred));
 }
 
-// ## pub inline fn _mm_cmpeq_pd (a: __m128d, b: __m128d) __m128d {}
-// ## pub inline fn _mm_cmpeq_sd (a: __m128d, b: __m128d) __m128d {}
-// ## pub inline fn _mm_cmpge_pd (a: __m128d, b: __m128d) __m128d {}
-// ## pub inline fn _mm_cmpge_sd (a: __m128d, b: __m128d) __m128d {}
+/// dst[n] = if ((a[n] == b[n]) and (a[n] != NaN) and b[n] != NaN) -1 else 0;
+pub inline fn _mm_cmpeq_pd(a: __m128d, b: __m128d) __m128d {
+    if (has_avx) {
+        return asm ("vcmppd %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128d),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (0),
+        );
+    } else if (has_sse2) {
+        var res = a;
+        asm ("cmppd %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (0),
+        );
+        return res;
+    } else {
+        const notNan = ~(isNan_pd(a) | isNan_pd(b));
+        const cmpeq = @intFromBool(a == b);
+        return @bitCast(laneMask_u64x2(notNan & cmpeq));
+    }
+}
 
+/// dst[0] = if ((a[0] == b[0]) and (a[0] != NaN) and b[0] != NaN) -1 else 0; dst[1] = a[1];
+pub inline fn _mm_cmpeq_sd(a: __m128d, b: __m128d) __m128d {
+    if (has_avx) {
+        return asm ("vcmpsd %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128d),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (0),
+        );
+    } else if (has_sse2) {
+        var res = a;
+        asm ("cmpsd %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (0),
+        );
+        return res;
+    } else {
+        const notNan = ~(isNan_sd(a) | isNan_sd(b));
+        const cmpeq = @intFromBool(a[0] == b[0]);
+        return .{ @bitCast(laneMask_u64x1(notNan & cmpeq)), a[1] };
+    }
+}
+
+pub inline fn _mm_cmpge_pd(a: __m128d, b: __m128d) __m128d {
+    return _mm_cmple_pd(b, a);
+}
+
+pub inline fn _mm_cmpge_sd(a: __m128d, b: __m128d) __m128d {
+    return _mm_cmple_sd(b, a);
+}
+
+/// dst[n] = if(a[n] > b[n]) -1 else 0;
 pub inline fn _mm_cmpgt_epi16(a: __m128i, b: __m128i) __m128i {
-    const cmpBool = (bitCast_i16x8(a) > bitCast_i16x8(b));
-    const cmpInt: @Vector(8, i1) = @bitCast(@intFromBool(cmpBool));
-    return @bitCast(intCast_i16x8(cmpInt));
+    const pred = @intFromBool(bitCast_i16x8(a) > bitCast_i16x8(b));
+    return @bitCast(laneMask_u16x8(pred));
 }
 
+/// dst[n] = if(a[n] > b[n]) -1 else 0;
 pub inline fn _mm_cmpgt_epi32(a: __m128i, b: __m128i) __m128i {
-    const cmpBool = (bitCast_i32x4(a) > bitCast_i32x4(b));
-    const cmpInt: @Vector(4, i1) = @bitCast(@intFromBool(cmpBool));
-    return @bitCast(intCast_i32x4(cmpInt));
+    const pred = @intFromBool(bitCast_i32x4(a) > bitCast_i32x4(b));
+    return @bitCast(laneMask_u32x4(pred));
 }
 
+/// dst[n] = if(a[n] > b[n]) -1 else 0;
 pub inline fn _mm_cmpgt_epi8(a: __m128i, b: __m128i) __m128i {
-    const cmpBool = (bitCast_i8x16(a) > bitCast_i8x16(b));
-    const cmpInt: @Vector(16, i1) = @bitCast(@intFromBool(cmpBool));
-    return @bitCast(intCast_i8x16(cmpInt));
+    const pred = @intFromBool(bitCast_i8x16(a) > bitCast_i8x16(b));
+    return @bitCast(laneMask_u8x16(pred));
 }
 
-// ## pub inline fn _mm_cmpgt_pd (a: __m128d, b: __m128d) __m128d {}
-// ## pub inline fn _mm_cmpgt_sd (a: __m128d, b: __m128d) __m128d {}
-// ## pub inline fn _mm_cmple_pd (a: __m128d, b: __m128d) __m128d {}
-// ## pub inline fn _mm_cmple_sd (a: __m128d, b: __m128d) __m128d {}
+pub inline fn _mm_cmpgt_pd(a: __m128d, b: __m128d) __m128d {
+    return _mm_cmplt_pd(b, a);
+}
 
+pub inline fn _mm_cmpgt_sd(a: __m128d, b: __m128d) __m128d {
+    return _mm_cmplt_sd(b, a);
+}
+
+pub inline fn _mm_cmple_pd(a: __m128d, b: __m128d) __m128d {
+    if (has_avx) {
+        return asm ("vcmppd %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128d),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (2),
+        );
+    } else if (has_sse2) {
+        var res = a;
+        asm ("cmppd %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (2),
+        );
+        return res;
+    } else {
+        const notNan = ~(isNan_pd(a) | isNan_pd(b));
+        const cmple = @intFromBool(a <= b);
+        return @bitCast(laneMask_u64x2(notNan & cmple));
+    }
+}
+
+/// dst[0] = if ((a[0] <= b[0]) and (a[0] != NaN) and b[0] != NaN) -1 else 0; dst[1] = a[1];
+pub inline fn _mm_cmple_sd(a: __m128d, b: __m128d) __m128d {
+    if (has_avx) {
+        return asm ("vcmpsd %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128d),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (2),
+        );
+    } else if (has_sse2) {
+        var res = a;
+        asm ("cmpsd %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (2),
+        );
+        return res;
+    } else {
+        const notNan = ~(isNan_sd(a) | isNan_sd(b));
+        const cmple = @intFromBool(a[0] <= b[0]);
+        return .{ @bitCast(laneMask_u64x1(notNan & cmple)), a[1] };
+    }
+}
+
+/// dst[n] = if(a[n] < b[n]) -1 else 0;
 pub inline fn _mm_cmplt_epi16(a: __m128i, b: __m128i) __m128i {
     return _mm_cmpgt_epi16(b, a);
 }
 
+/// dst[n] = if(a[n] < b[n]) -1 else 0;
 pub inline fn _mm_cmplt_epi32(a: __m128i, b: __m128i) __m128i {
     return _mm_cmpgt_epi32(b, a);
 }
 
+/// dst[n] = if(a[n] < b[n]) -1 else 0;
 pub inline fn _mm_cmplt_epi8(a: __m128i, b: __m128i) __m128i {
     return _mm_cmpgt_epi8(b, a);
 }
 
-// ## pub inline fn _mm_cmplt_pd (a: __m128d, b: __m128d) __m128d {}
-// ## pub inline fn _mm_cmplt_sd (a: __m128d, b: __m128d) __m128d {}
-// ## pub inline fn _mm_cmpneq_pd (a: __m128d, b: __m128d) __m128d {}
-// ## pub inline fn _mm_cmpneq_sd (a: __m128d, b: __m128d) __m128d {}
-// ## pub inline fn _mm_cmpnge_pd (a: __m128d, b: __m128d) __m128d {}
-// ## pub inline fn _mm_cmpnge_sd (a: __m128d, b: __m128d) __m128d {}
-// ## pub inline fn _mm_cmpngt_pd (a: __m128d, b: __m128d) __m128d {}
-// ## pub inline fn _mm_cmpngt_sd (a: __m128d, b: __m128d) __m128d {}
-// ## pub inline fn _mm_cmpnle_pd (a: __m128d, b: __m128d) __m128d {}
-// ## pub inline fn _mm_cmpnle_sd (a: __m128d, b: __m128d) __m128d {}
-// ## pub inline fn _mm_cmpnlt_pd (a: __m128d, b: __m128d) __m128d {}
-// ## pub inline fn _mm_cmpnlt_sd (a: __m128d, b: __m128d) __m128d {}
-// ## pub inline fn _mm_cmpord_pd (a: __m128d, b: __m128d) __m128d {}
-// ## pub inline fn _mm_cmpord_sd (a: __m128d, b: __m128d) __m128d {}
+/// dst[n] = if ((a[n] < b[n]) and (a[n] != NaN) and b[n] != NaN) -1 else 0;
+pub inline fn _mm_cmplt_pd(a: __m128d, b: __m128d) __m128d {
+    if (has_avx) {
+        return asm ("vcmppd %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128d),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (1),
+        );
+    } else if (has_sse2) {
+        var res = a;
+        asm ("cmppd %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (1),
+        );
+        return res;
+    } else {
+        const notNan = ~(isNan_pd(a) | isNan_pd(b));
+        const cmplt = @intFromBool(a < b);
+        return @bitCast(laneMask_u64x2(notNan & cmplt));
+    }
+}
 
+/// dst[0] = if ((a[0] < b[0]) and (a[0] != NaN) and b[0] != NaN) -1 else 0; dst[1] = a[1];
+pub inline fn _mm_cmplt_sd(a: __m128d, b: __m128d) __m128d {
+    if (has_avx) {
+        return asm ("vcmpsd %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128d),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (1),
+        );
+    } else if (has_sse2) {
+        var res = a;
+        asm ("cmpsd %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (1),
+        );
+        return res;
+    } else {
+        const notNan = ~(isNan_sd(a) | isNan_sd(b));
+        const cmplt = @intFromBool(a[0] < b[0]);
+        return .{ @bitCast(laneMask_u64x1(notNan & cmplt)), a[1] };
+    }
+}
+
+/// dst[n] = if ((a[n] != b[n]) or (a[n] == NaN) or b[n] == NaN) -1 else 0;
+pub inline fn _mm_cmpneq_pd(a: __m128d, b: __m128d) __m128d {
+    if (has_avx) {
+        return asm ("vcmppd %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128d),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (4),
+        );
+    } else if (has_sse2) {
+        var res = a;
+        asm ("cmppd %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (4),
+        );
+        return res;
+    } else {
+        const isNan = isNan_pd(a) | isNan_pd(b);
+        const cmpneq = @intFromBool(a != b);
+        return @bitCast(laneMask_u64x2(isNan | cmpneq));
+    }
+}
+
+/// dst[0] = if ((a[0] != b[0]) or (a[0] == NaN) or b[0] == NaN) -1 else 0; dst[1] = a[1];
+pub inline fn _mm_cmpneq_sd(a: __m128d, b: __m128d) __m128d {
+    if (has_avx) {
+        return asm ("vcmpsd %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128d),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (4),
+        );
+    } else if (has_sse2) {
+        var res = a;
+        asm ("cmpsd %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (4),
+        );
+        return res;
+    } else {
+        const isNan = isNan_sd(a) | isNan_sd(b);
+        const cmpneq = @intFromBool(a[0] != b[0]);
+        return .{ @bitCast(laneMask_u64x1(isNan | cmpneq)), a[1] };
+    }
+}
+
+pub inline fn _mm_cmpnge_pd(a: __m128d, b: __m128d) __m128d {
+    return _mm_cmpnle_pd(b, a);
+}
+
+pub inline fn _mm_cmpnge_sd(a: __m128d, b: __m128d) __m128d {
+    return _mm_cmpnle_sd(b, a);
+}
+
+pub inline fn _mm_cmpngt_pd(a: __m128d, b: __m128d) __m128d {
+    return _mm_cmpnlt_pd(b, a);
+}
+
+pub inline fn _mm_cmpngt_sd(a: __m128d, b: __m128d) __m128d {
+    return _mm_cmpnle_sd(b, a);
+}
+
+pub inline fn _mm_cmpnle_pd(a: __m128d, b: __m128d) __m128d {
+    if (has_avx) {
+        return asm ("vcmppd %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128d),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (6),
+        );
+    } else if (has_sse2) {
+        var res = a;
+        asm ("cmppd %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (6),
+        );
+        return res;
+    } else {
+        const isNan = isNan_pd(a) | isNan_pd(b);
+        const cmpnle = ~@intFromBool(a <= b);
+        return @bitCast(laneMask_u64x2(isNan | cmpnle));
+    }
+}
+
+pub inline fn _mm_cmpnle_sd(a: __m128d, b: __m128d) __m128d {
+    if (has_avx) {
+        return asm ("vcmpsd %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128d),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (6),
+        );
+    } else if (has_sse2) {
+        var res = a;
+        asm ("cmpsd %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (6),
+        );
+        return res;
+    } else {
+        const isNan = isNan_sd(a) | isNan_sd(b);
+        const cmpnle = ~@intFromBool(a[0] <= b[0]);
+        return .{ @bitCast(laneMask_u64x1(isNan | cmpnle)), a[1] };
+    }
+}
+
+pub inline fn _mm_cmpnlt_pd(a: __m128d, b: __m128d) __m128d {
+    if (has_avx) {
+        return asm ("vcmppd %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128d),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (5),
+        );
+    } else if (has_sse2) {
+        var res = a;
+        asm ("cmppd %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (5),
+        );
+        return res;
+    } else {
+        const isNan = isNan_pd(a) | isNan_pd(b);
+        const cmpnlt = ~@intFromBool(a < b);
+        return @bitCast(laneMask_u64x2(isNan | cmpnlt));
+    }
+}
+
+pub inline fn _mm_cmpnlt_sd(a: __m128d, b: __m128d) __m128d {
+    if (has_avx) {
+        return asm ("vcmpsd %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128d),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (5),
+        );
+    } else if (has_sse2) {
+        var res = a;
+        asm ("cmpsd %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (5),
+        );
+        return res;
+    } else {
+        const isNan = isNan_sd(a) | isNan_sd(b);
+        const cmpnlt = ~@intFromBool(a[0] < b[0]);
+        return .{ @bitCast(laneMask_u64x1(isNan | cmpnlt)), a[1] };
+    }
+}
+
+/// dst[n] = if((a[n] != NaN) and (b[n] != NaN)) -1 else 0;
+pub inline fn _mm_cmpord_pd(a: __m128d, b: __m128d) __m128d {
+    if (has_avx) {
+        return asm ("vcmppd %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128d),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (7),
+        );
+    } else if (has_sse) {
+        var res = a;
+        asm ("cmppd %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (7),
+        );
+        return res;
+    } else {
+        const pred = ~(isNan_pd(a) | isNan_pd(b));
+        return @bitCast(laneMask_u64x2(pred));
+    }
+}
+
+/// dst[0] = if((a[0] != NaN) and (b[0] != NaN)) -1 else 0; dst[1] = a[1];
+pub inline fn _mm_cmpord_sd(a: __m128d, b: __m128d) __m128d {
+    if (has_avx) {
+        return asm ("vcmpsd %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128d),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (7),
+        );
+    } else if (has_sse) {
+        var res = a;
+        asm ("cmpsd %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (7),
+        );
+        return res;
+    } else {
+        const pred = ~(isNan_sd(a) | isNan_sd(b));
+        return .{ @bitCast(laneMask_u64x1(pred)), a[1] };
+    }
+}
+
+/// dst[n] = if((a[n] == NaN) or (b[n] == NaN)) -1 else 0;
 pub inline fn _mm_cmpunord_pd(a: __m128d, b: __m128d) __m128d {
     if (has_avx) {
         return asm ("vcmppd %[c], %[b], %[a], %[ret]"
@@ -806,11 +1619,8 @@ pub inline fn _mm_cmpunord_pd(a: __m128d, b: __m128d) __m128d {
         );
         return res;
     } else {
-        const isNan_a = (bitCast_u64x2(a) << @splat(1)) > @as(u64x2, @splat(0xFFE0000000000000));
-        const isNan_b = (bitCast_u64x2(b) << @splat(1)) > @as(u64x2, @splat(0xFFE0000000000000));
-        const hasNan = @intFromBool(isNan_a) | @intFromBool(isNan_b);
-        const mask = intCast_i64x2(@as(@Vector(2, i1), @bitCast(hasNan)));
-        return @bitCast(mask);
+        const pred = isNan_pd(a) | isNan_pd(b);
+        return @bitCast(laneMask_u64x2(pred));
     }
 }
 
@@ -829,18 +1639,31 @@ test "_mm_cmpunord_pd" {
     try std.testing.expectEqual(ref2, res2);
 }
 
+/// dst[0] = if((a[0] == NaN) or (b[0] == NaN)) -1 else 0; dst[1] = a[1];
 pub inline fn _mm_cmpunord_sd(a: __m128d, b: __m128d) __m128d {
-    const isNan_a: i64 = if ((@as(u64, @bitCast(a[0])) << 1) > 0xFFE0000000000000) -1 else 0;
-    const isNan_b: i64 = if ((@as(u64, @bitCast(b[0])) << 1) > 0xFFE0000000000000) -1 else 0;
-    return .{ @bitCast(isNan_a | isNan_b), a[1] };
+    const pred = isNan_sd(a) | isNan_sd(b);
+    return .{ @bitCast(laneMask_u64x1(pred)), a[1] };
 }
 
-// ## pub inline fn _mm_comieq_sd (a: __m128d, b: __m128d) i32 {}
-// ## pub inline fn _mm_comige_sd (a: __m128d, b: __m128d) i32 {}
-// ## pub inline fn _mm_comigt_sd (a: __m128d, b: __m128d) i32 {}
-// ## pub inline fn _mm_comile_sd (a: __m128d, b: __m128d) i32 {}
-// ## pub inline fn _mm_comilt_sd (a: __m128d, b: __m128d) i32 {}
-// ## pub inline fn _mm_comineq_sd (a: __m128d, b: __m128d) i32 {}
+/// TODO: the difference between _mm_comieq_sd and _mm_ucomieq_sd is QNaN signaling
+pub inline fn _mm_comieq_sd(a: __m128d, b: __m128d) i32 {
+    return _mm_ucomieq_sd(a, b);
+}
+pub inline fn _mm_comige_sd(a: __m128d, b: __m128d) i32 {
+    return _mm_ucomige_sd(a, b);
+}
+pub inline fn _mm_comigt_sd(a: __m128d, b: __m128d) i32 {
+    return _mm_ucomigt_sd(a, b);
+}
+pub inline fn _mm_comile_sd(a: __m128d, b: __m128d) i32 {
+    return _mm_ucomile_sd(a, b);
+}
+pub inline fn _mm_comilt_sd(a: __m128d, b: __m128d) i32 {
+    return _mm_ucomilt_sd(a, b);
+}
+pub inline fn _mm_comineq_sd(a: __m128d, b: __m128d) i32 {
+    return _mm_ucomineq_sd(a, b);
+}
 
 pub inline fn _mm_cvtepi32_pd(a: __m128i) __m128d {
     return .{ @floatFromInt(a[0]), @floatFromInt(a[1]) };
@@ -921,7 +1744,7 @@ pub inline fn _mm_cvttps_epi32(a: __m128) __m128i {
             : [ret] "=x" (-> __m128i),
             : [a] "x" (a),
         );
-    } else if (has_sse) {
+    } else if (has_sse2) {
         return asm ("cvttps2dq %[a], %[ret]"
             : [ret] "=x" (-> __m128i),
             : [a] "x" (a),
@@ -1258,7 +2081,6 @@ pub inline fn _mm_shuffle_epi32(a: __m128i, comptime imm8: comptime_int) __m128i
     return @bitCast(@shuffle(i32, bitCast_i32x4(a), undefined, shuf));
 }
 
-// TODO: check what hardware does when `imm8 > 0x03`
 pub inline fn _mm_shuffle_pd(a: __m128d, b: __m128d, comptime imm8: comptime_int) __m128d {
     return .{ if ((imm8 & 1) == 0) a[0] else a[1], if ((imm8 & 2) == 0) b[0] else b[1] };
 }
@@ -1631,28 +2453,42 @@ pub inline fn _mm_subs_epu8(a: __m128i, b: __m128i) __m128i {
     return @bitCast(bitCast_u8x16(a) -| bitCast_u8x16(b));
 }
 
+/// result = if ((a[0] == b[0]) and (a[0] != NaN) and b[0] != NaN) 1 else 0;
 pub inline fn _mm_ucomieq_sd(a: __m128d, b: __m128d) i32 {
-    return @intFromBool(a[0] == b[0]);
+    const notNan = ~(isNan_sd(a) | isNan_sd(b));
+    const cmpeq = @intFromBool(a[0] == b[0]);
+    return notNan & cmpeq;
 }
 
+/// result = if ((a[0] >= b[0]) and (a[0] != NaN) and b[0] != NaN) 1 else 0;
 pub inline fn _mm_ucomige_sd(a: __m128d, b: __m128d) i32 {
-    return @intFromBool(a[0] >= b[0]);
+    return _mm_ucomile_sd(b, a);
 }
 
+/// result = if ((a[0] > b[0]) and (a[0] != NaN) and b[0] != NaN) 1 else 0;
 pub inline fn _mm_ucomigt_sd(a: __m128d, b: __m128d) i32 {
-    return @intFromBool(a[0] > b[0]);
+    return _mm_ucomilt_sd(b, a);
 }
 
+/// result = if ((a[0] <= b[0]) and (a[0] != NaN) and b[0] != NaN) 1 else 0;
 pub inline fn _mm_ucomile_sd(a: __m128d, b: __m128d) i32 {
-    return @intFromBool(a[0] <= b[0]);
+    const notNan = ~(isNan_sd(a) | isNan_sd(b));
+    const cmple = @intFromBool(a[0] <= b[0]);
+    return notNan & cmple;
 }
 
+/// result = if ((a[0] <= b[0]) and (a[0] != NaN) and b[0] != NaN) 1 else 0;
 pub inline fn _mm_ucomilt_sd(a: __m128d, b: __m128d) i32 {
-    return @intFromBool(a[0] < b[0]);
+    const notNan = ~(isNan_sd(a) | isNan_sd(b));
+    const cmplt = @intFromBool(a[0] < b[0]);
+    return notNan & cmplt;
 }
 
+/// result = if ((a[0] != b[0]) or (a[0] == NaN) or b[0] == NaN) 1 else 0;
 pub inline fn _mm_ucomineq_sd(a: __m128d, b: __m128d) i32 {
-    return @intFromBool(a[0] != b[0]);
+    const isNan = isNan_sd(a) | isNan_sd(b);
+    const cmpneq = @intFromBool(a != b);
+    return isNan | cmpneq;
 }
 
 pub inline fn _mm_undefined_pd() __m128d {
@@ -2097,10 +2933,10 @@ pub inline fn _mm_ceil_ss(a: __m128, b: __m128) __m128 {
     return _mm_round_ss(a, b, _MM_FROUND_CEIL);
 }
 
+/// dst[n] = if(a[n] == b[n]) -1 else 0;
 pub inline fn _mm_cmpeq_epi64(a: __m128i, b: __m128i) __m128i {
-    const cmpBool = (bitCast_i64x2(a) == bitCast_i64x2(b));
-    const cmpInt: @Vector(2, i1) = @bitCast(@intFromBool(cmpBool));
-    return @bitCast(intCast_i64x2(cmpInt));
+    const pred = @intFromBool(bitCast_i64x2(a) == bitCast_i64x2(b));
+    return @bitCast(laneMask_u64x2(pred));
 }
 
 pub inline fn _mm_cvtepi16_epi32(a: __m128i) __m128i {
@@ -2538,9 +3374,9 @@ test "_mm_test_mix_ones_zeros" {
     const a = _mm_set_epi32(0, 1, 0, 0);
     const b = _mm_set_epi32(0, 3, 0, 0);
     const c = _mm_set_epi32(0, 2, 0, 0);
-    try std.testing.expectEqual(1, _mm_test_mix_ones_zeros(a, b));
-    try std.testing.expectEqual(0, _mm_test_mix_ones_zeros(a, c));
-    try std.testing.expectEqual(0, _mm_test_mix_ones_zeros(b, a));
+    try std.testing.expectEqual(@as(i32, 1), _mm_test_mix_ones_zeros(a, b));
+    try std.testing.expectEqual(@as(i32, 0), _mm_test_mix_ones_zeros(a, c));
+    try std.testing.expectEqual(@as(i32, 0), _mm_test_mix_ones_zeros(b, a));
 }
 
 pub inline fn _mm_testc_si128(a: __m128i, b: __m128i) i32 {
@@ -2577,9 +3413,9 @@ test "_mm_testnzc_si128" {
     const a = _mm_set_epi32(0, 1, 0, 0);
     const b = _mm_set_epi32(0, 3, 0, 0);
     const c = _mm_set_epi32(0, 2, 0, 0);
-    try std.testing.expectEqual(1, _mm_testnzc_si128(a, b));
-    try std.testing.expectEqual(0, _mm_testnzc_si128(a, c));
-    try std.testing.expectEqual(0, _mm_testnzc_si128(b, a));
+    try std.testing.expectEqual(@as(i32, 1), _mm_testnzc_si128(a, b));
+    try std.testing.expectEqual(@as(i32, 0), _mm_testnzc_si128(a, c));
+    try std.testing.expectEqual(@as(i32, 0), _mm_testnzc_si128(b, a));
 }
 
 pub inline fn _mm_testz_si128(a: __m128i, b: __m128i) i32 {
@@ -2596,10 +3432,10 @@ test "_mm_testz_si128" {
 
 // SSE4.2 ==============================================================
 
+/// dst[n] = if(a[n] > b[n]) -1 else 0;
 pub inline fn _mm_cmpgt_epi64(a: __m128i, b: __m128i) __m128i {
-    const cmpBool = (bitCast_i64x2(a) > bitCast_i64x2(b));
-    const cmpInt: @Vector(2, i1) = @bitCast(@intFromBool(cmpBool));
-    return @bitCast(intCast_i64x2(cmpInt));
+    const pred = @intFromBool(bitCast_i64x2(a) > bitCast_i64x2(b));
+    return @bitCast(laneMask_u64x2(pred));
 }
 
 test "_mm_cmpeq_epi64" {
