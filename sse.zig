@@ -646,7 +646,9 @@ pub inline fn _mm_cvt_si2ss(a: __m128, b: i32) __m128 {
     return _mm_cvtsi32_ss(a, b);
 }
 
-// ## pub inline fn _mm_cvt_ss2si (a: __m128) i32 {}
+pub inline fn _mm_cvt_ss2si(a: __m128) i32 {
+    return _mm_cvtss_si32(a);
+}
 
 pub inline fn _mm_cvtsi32_ss(a: __m128, b: i32) __m128 {
     return .{ @floatFromInt(b), a[1], a[2], a[3] };
@@ -661,8 +663,57 @@ pub inline fn _mm_cvtss_f32(a: __m128) f32 {
     return a[0];
 }
 
-// ## pub inline fn _mm_cvtss_si32 (a: __m128) i32 {}
-// ## pub inline fn _mm_cvtss_si64 (a: __m128) i64 {}
+/// fallback ignores MXCSR for now...
+/// Round to nearest, halfway "ties" round to even.
+pub inline fn _mm_cvtss_si32(a: __m128) i32 {
+    if (has_avx) {
+        return asm ("vcvtss2si %[a], %[ret]"
+            : [ret] "=r" (-> i32),
+            : [a] "x" (a),
+        );
+    } else if (has_sse) {
+        return asm ("cvtss2si %[a], %[ret]"
+            : [ret] "=r" (-> i32),
+            : [a] "x" (a),
+        );
+    } else {
+        @setRuntimeSafety(false); // intFromFloat is guarded
+        if ((@as(u32, @bitCast(a[0])) & 0x7F800000) >= 0x4F000000) {
+            return -2147483648; // exponent too large
+        }
+        const r: f32 = @round(a); // ties round away from zero
+        const i: u32 = @bitCast(@as(i32, @intFromFloat(r)));
+        const isTie: u32 = @intFromBool(@abs(a - r) == 0.5);
+        const isNeg: u32 = @intFromBool(@as(i32, @bitCast(a)) < 0);
+        return @bitCast(i -% (((i & isTie) ^ isNeg) -% isNeg));
+    }
+}
+
+/// fallback ignores MXCSR for now...
+/// Round to nearest, halfway "ties" round to even.
+pub inline fn _mm_cvtss_si64(a: __m128) i64 {
+    if (has_avx) {
+        return asm ("vcvtss2si %[a], %[ret]"
+            : [ret] "=r" (-> i64),
+            : [a] "x" (a),
+        );
+    } else if (has_sse) {
+        return asm ("cvtss2si %[a], %[ret]"
+            : [ret] "=r" (-> i64),
+            : [a] "x" (a),
+        );
+    } else {
+        @setRuntimeSafety(false); // intFromFloat is guarded
+        if ((@as(u32, @bitCast(a[0])) & 0x7F800000) >= 0x5F000000) {
+            return -9223372036854775808; // exponent too large
+        }
+        const r: f32 = @round(a); // ties round away from zero
+        const i: u64 = @bitCast(@as(i64, @intFromFloat(r)));
+        const isTie: u64 = @intFromBool(@abs(a - r) == 0.5);
+        const isNeg: u64 = @intFromBool(@as(i32, @bitCast(a)) < 0);
+        return @bitCast(i -% (((i & isTie) ^ isNeg) -% isNeg));
+    }
+}
 
 pub inline fn _mm_cvtt_ss2si(a: __m128) i32 {
     return _mm_cvttss_si32(a);
@@ -680,10 +731,11 @@ pub inline fn _mm_cvttss_si32(a: __m128) i32 {
             : [a] "x" (a),
         );
     } else {
+        @setRuntimeSafety(false); // intFromFloat is guarded
         if ((@as(u32, @bitCast(a[0])) & 0x7F800000) >= 0x4F000000) {
-            return -2147483648; // Don't Panic: exponent too large
+            return -2147483648; // exponent too large
         }
-        return @intFromFloat(a[0]); // @trunc seems to be implied
+        return @intFromFloat(a[0]); // @trunc is inferred
     }
 }
 
@@ -699,10 +751,11 @@ pub inline fn _mm_cvttss_si64(a: __m128) i64 {
             : [a] "x" (a),
         );
     } else {
+        @setRuntimeSafety(false); // intFromFloat is guarded
         if ((@as(u32, @bitCast(a[0])) & 0x7F800000) >= 0x5F000000) {
-            return -9223372036854775808; // Don't Panic: too large
+            return -9223372036854775808; // exponent too large
         }
-        return @intFromFloat(a[0]); // @trunc seems to be implied
+        return @intFromFloat(a[0]); // @trunc is inferred
     }
 }
 
@@ -1675,7 +1728,35 @@ pub inline fn _mm_cvtepi32_ps(a: __m128i) __m128 {
 
 // ## pub inline fn _mm_cvtpd_epi32 (a: __m128d) __m128i {}
 // ## pub inline fn _mm_cvtpd_ps (a: __m128d) __m128 {}
-// ## pub inline fn _mm_cvtps_epi32 (a: __m128) __m128i {}
+
+/// fallback ignores MXCSR for now...
+/// Round to nearest, halfway "ties" round to even.
+pub inline fn _mm_cvtps_epi32(a: __m128) __m128i {
+    if (has_avx) {
+        return asm ("vcvtps2dq %[a], %[ret]"
+            : [ret] "=x" (-> __m128i),
+            : [a] "x" (a),
+        );
+    } else if (has_sse2) {
+        return asm ("cvtps2dq %[a], %[ret]"
+            : [ret] "=x" (-> __m128i),
+            : [a] "x" (a),
+        );
+    } else {
+        @setRuntimeSafety(false); // intFromFloat is guarded
+        const mask: u32x4 = @splat(0x7F800000);
+        const limit: u32x4 = @splat(0x4F000000);
+        const indefinite: __m128 = @bitCast(@as(u32x4, @splat(0xCF000000)));
+        const predicate = (bitCast_u32x4(a) & mask) >= limit;
+        const clamped = @select(f32, predicate, indefinite, a);
+
+        const rounded = @round(clamped); // ties round away from zero
+        const int = bitCast_u32x4(@as(i32, @intFromFloat(rounded)));
+        const isTie: u32x4 = @intFromBool(@abs(clamped - rounded) == 0.5);
+        const isNeg: u32x4 = @intFromBool(bitCast_i32x4(a) < 0);
+        return @bitCast(int -% (((int & isTie) ^ isNeg) -% isNeg));
+    }
+}
 
 pub inline fn _mm_cvtps_pd(a: __m128) __m128d {
     return .{ @floatCast(a[0]), @floatCast(a[1]) };
@@ -1750,12 +1831,13 @@ pub inline fn _mm_cvttps_epi32(a: __m128) __m128i {
             : [a] "x" (a),
         );
     } else {
+        @setRuntimeSafety(false); // intFromFloat is guarded
         const mask: u32x4 = @splat(0x7F800000);
         const limit: u32x4 = @splat(0x4F000000);
         const indefinite: __m128 = @bitCast(@as(u32x4, @splat(0xCF000000)));
         const predicate = (bitCast_u32x4(a) & mask) >= limit;
-        const r: i32x4 = @intFromFloat(@select(f32, predicate, indefinite, a));
-        return @bitCast(r);
+        const clamped = @select(f32, predicate, indefinite, a);
+        return @bitCast(@as(i32x4, @intFromFloat(clamped))); // @trunc is inferred
     }
 }
 
