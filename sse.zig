@@ -147,7 +147,7 @@ inline fn intCast_i8x32(a: anytype) i8x32 {
 }
 // =====================================================================
 
-/// Note: (x != x) code gen seems good. However, it somehow fails under test.
+// Note: (x != x) code gen seems good. However, it somehow fails under test.
 inline fn isNan_ss(a: __m128) u1 {
     const pred = ((@as(u32, @bitCast(a[0])) << 1) > 0xFF000000);
     return @intFromBool(pred);
@@ -519,7 +519,7 @@ pub inline fn _mm_cmpnlt_ss(a: __m128, b: __m128) __m128 {
     }
 }
 
-/// dst[n] = if((a[n] != NaN) and (b[n] != NaN)) -1 else 0;
+/// dst[n] = if ((a[n] != NaN) and (b[n] != NaN)) -1 else 0;
 pub inline fn _mm_cmpord_ps(a: __m128, b: __m128) __m128 {
     if (has_avx) {
         return asm ("vcmpps %[c], %[b], %[a], %[ret]"
@@ -542,7 +542,7 @@ pub inline fn _mm_cmpord_ps(a: __m128, b: __m128) __m128 {
     }
 }
 
-/// dst = a; dst[0] = if((a[0] != NaN) and (b[0] != NaN)) -1 else 0;
+/// dst = a; dst[0] = if ((a[0] != NaN) and (b[0] != NaN)) -1 else 0;
 pub inline fn _mm_cmpord_ss(a: __m128, b: __m128) __m128 {
     if (has_avx) {
         return asm ("vcmpss %[c], %[b], %[a], %[ret]"
@@ -565,7 +565,7 @@ pub inline fn _mm_cmpord_ss(a: __m128, b: __m128) __m128 {
     }
 }
 
-/// dst[n] = if((a[n] == NaN) or (b[n] == NaN)) -1 else 0;
+/// dst[n] = if ((a[n] == NaN) or (b[n] == NaN)) -1 else 0;
 pub inline fn _mm_cmpunord_ps(a: __m128, b: __m128) __m128 {
     if (has_avx) {
         return asm ("vcmpps %[c], %[b], %[a], %[ret]"
@@ -599,7 +599,7 @@ test "_mm_cmpunord_ps" {
     try std.testing.expectEqual(ref1, res1);
 }
 
-/// dst = a; dst[0] = if((a[0] == NaN) or (b[0] == NaN)) -1 else 0;
+/// dst = a; dst[0] = if ((a[0] == NaN) or (b[0] == NaN)) -1 else 0;
 pub inline fn _mm_cmpunord_ss(a: __m128, b: __m128) __m128 {
     if (has_avx) {
         return asm ("vcmpss %[c], %[b], %[a], %[ret]"
@@ -1189,19 +1189,19 @@ pub inline fn _mm_castsi128_ps(a: __m128i) __m128 {
 
 // ## pub inline fn _mm_clflush (p: *const void) void {}
 
-/// dst[n] = if(a[n] == b[n]) -1 else 0;
+/// dst[n] = if (a[n] == b[n]) -1 else 0;
 pub inline fn _mm_cmpeq_epi16(a: __m128i, b: __m128i) __m128i {
     const pred = @intFromBool(bitCast_u16x8(a) == bitCast_u16x8(b));
     return @bitCast(laneMask_u16x8(pred));
 }
 
-/// dst[n] = if(a[n] == b[n]) -1 else 0;
+/// dst[n] = if (a[n] == b[n]) -1 else 0;
 pub inline fn _mm_cmpeq_epi32(a: __m128i, b: __m128i) __m128i {
     const pred = @intFromBool(bitCast_u32x4(a) == bitCast_u32x4(b));
     return @bitCast(laneMask_u32x4(pred));
 }
 
-/// dst[n] = if(a[n] == b[n]) -1 else 0;
+/// dst[n] = if (a[n] == b[n]) -1 else 0;
 pub inline fn _mm_cmpeq_epi8(a: __m128i, b: __m128i) __m128i {
     const pred = @intFromBool(bitCast_u8x16(a) == bitCast_u8x16(b));
     return @bitCast(laneMask_u8x16(pred));
@@ -1263,19 +1263,19 @@ pub inline fn _mm_cmpge_sd(a: __m128d, b: __m128d) __m128d {
     return _mm_cmple_sd(b, a);
 }
 
-/// dst[n] = if(a[n] > b[n]) -1 else 0;
+/// dst[n] = if (a[n] > b[n]) -1 else 0;
 pub inline fn _mm_cmpgt_epi16(a: __m128i, b: __m128i) __m128i {
     const pred = @intFromBool(bitCast_i16x8(a) > bitCast_i16x8(b));
     return @bitCast(laneMask_u16x8(pred));
 }
 
-/// dst[n] = if(a[n] > b[n]) -1 else 0;
+/// dst[n] = if (a[n] > b[n]) -1 else 0;
 pub inline fn _mm_cmpgt_epi32(a: __m128i, b: __m128i) __m128i {
     const pred = @intFromBool(bitCast_i32x4(a) > bitCast_i32x4(b));
     return @bitCast(laneMask_u32x4(pred));
 }
 
-/// dst[n] = if(a[n] > b[n]) -1 else 0;
+/// dst[n] = if (a[n] > b[n]) -1 else 0;
 pub inline fn _mm_cmpgt_epi8(a: __m128i, b: __m128i) __m128i {
     const pred = @intFromBool(bitCast_i8x16(a) > bitCast_i8x16(b));
     return @bitCast(laneMask_u8x16(pred));
@@ -1336,17 +1336,17 @@ pub inline fn _mm_cmple_sd(a: __m128d, b: __m128d) __m128d {
     }
 }
 
-/// dst[n] = if(a[n] < b[n]) -1 else 0;
+/// dst[n] = if (a[n] < b[n]) -1 else 0;
 pub inline fn _mm_cmplt_epi16(a: __m128i, b: __m128i) __m128i {
     return _mm_cmpgt_epi16(b, a);
 }
 
-/// dst[n] = if(a[n] < b[n]) -1 else 0;
+/// dst[n] = if (a[n] < b[n]) -1 else 0;
 pub inline fn _mm_cmplt_epi32(a: __m128i, b: __m128i) __m128i {
     return _mm_cmpgt_epi32(b, a);
 }
 
-/// dst[n] = if(a[n] < b[n]) -1 else 0;
+/// dst[n] = if (a[n] < b[n]) -1 else 0;
 pub inline fn _mm_cmplt_epi8(a: __m128i, b: __m128i) __m128i {
     return _mm_cmpgt_epi8(b, a);
 }
@@ -1555,7 +1555,7 @@ pub inline fn _mm_cmpnlt_sd(a: __m128d, b: __m128d) __m128d {
     }
 }
 
-/// dst[n] = if((a[n] != NaN) and (b[n] != NaN)) -1 else 0;
+/// dst[n] = if ((a[n] != NaN) and (b[n] != NaN)) -1 else 0;
 pub inline fn _mm_cmpord_pd(a: __m128d, b: __m128d) __m128d {
     if (has_avx) {
         return asm ("vcmppd %[c], %[b], %[a], %[ret]"
@@ -1578,7 +1578,7 @@ pub inline fn _mm_cmpord_pd(a: __m128d, b: __m128d) __m128d {
     }
 }
 
-/// dst[0] = if((a[0] != NaN) and (b[0] != NaN)) -1 else 0; dst[1] = a[1];
+/// dst[0] = if ((a[0] != NaN) and (b[0] != NaN)) -1 else 0; dst[1] = a[1];
 pub inline fn _mm_cmpord_sd(a: __m128d, b: __m128d) __m128d {
     if (has_avx) {
         return asm ("vcmpsd %[c], %[b], %[a], %[ret]"
@@ -1601,7 +1601,7 @@ pub inline fn _mm_cmpord_sd(a: __m128d, b: __m128d) __m128d {
     }
 }
 
-/// dst[n] = if((a[n] == NaN) or (b[n] == NaN)) -1 else 0;
+/// dst[n] = if ((a[n] == NaN) or (b[n] == NaN)) -1 else 0;
 pub inline fn _mm_cmpunord_pd(a: __m128d, b: __m128d) __m128d {
     if (has_avx) {
         return asm ("vcmppd %[c], %[b], %[a], %[ret]"
@@ -1639,7 +1639,7 @@ test "_mm_cmpunord_pd" {
     try std.testing.expectEqual(ref2, res2);
 }
 
-/// dst[0] = if((a[0] == NaN) or (b[0] == NaN)) -1 else 0; dst[1] = a[1];
+/// dst[0] = if ((a[0] == NaN) or (b[0] == NaN)) -1 else 0; dst[1] = a[1];
 pub inline fn _mm_cmpunord_sd(a: __m128d, b: __m128d) __m128d {
     const pred = isNan_sd(a) | isNan_sd(b);
     return .{ @bitCast(laneMask_u64x1(pred)), a[1] };
@@ -2882,7 +2882,6 @@ pub inline fn _mm_blend_epi16(a: __m128i, b: __m128i, comptime imm8: comptime_in
     return @bitCast(@select(i16, mask, bitCast_i16x8(b), bitCast_i16x8(a)));
 }
 
-// TODO: check what hardware does when `imm8 > 0x03`
 pub inline fn _mm_blend_pd(a: __m128d, b: __m128d, comptime imm8: comptime_int) __m128d {
     var r = a;
     if ((imm8 & 1) == 1) r[0] = b[0];
@@ -2890,7 +2889,6 @@ pub inline fn _mm_blend_pd(a: __m128d, b: __m128d, comptime imm8: comptime_int) 
     return r;
 }
 
-// TODO: check what hardware does when `imm8 > 0x0F`
 pub inline fn _mm_blend_ps(a: __m128, b: __m128, comptime imm8: comptime_int) __m128 {
     const mask = comptime blk: { // convert imm8 to vector of bools
         var m: @Vector(4, bool) = undefined;
@@ -2933,10 +2931,17 @@ pub inline fn _mm_ceil_ss(a: __m128, b: __m128) __m128 {
     return _mm_round_ss(a, b, _MM_FROUND_CEIL);
 }
 
-/// dst[n] = if(a[n] == b[n]) -1 else 0;
+/// dst[n] = if (a[n] == b[n]) -1 else 0;
 pub inline fn _mm_cmpeq_epi64(a: __m128i, b: __m128i) __m128i {
     const pred = @intFromBool(bitCast_i64x2(a) == bitCast_i64x2(b));
     return @bitCast(laneMask_u64x2(pred));
+}
+
+test "_mm_cmpeq_epi64" {
+    const a = _mm_set_epi64x(9223372036854775807, 1);
+    const b = _mm_set_epi64x(8070450532247928831, 1);
+    const ref = _mm_set_epi64x(0, -1);
+    try std.testing.expectEqual(ref, _mm_cmpeq_epi64(a, b));
 }
 
 pub inline fn _mm_cvtepi16_epi32(a: __m128i) __m128i {
@@ -3341,6 +3346,7 @@ pub inline fn _mm_round_ss(a: __m128, b: __m128, comptime imm8: comptime_int) __
 
 // ## pub inline fn _mm_stream_load_si128 (mem_addr: *const __m128i) __m128i {}
 
+/// result = if (a == -1) 1 else 0;
 pub inline fn _mm_test_all_ones(a: __m128i) i32 {
     return _mm_testc_si128(a, @bitCast(@as(i32x4, @splat(-1))));
 }
@@ -3354,6 +3360,7 @@ test "_mm_test_all_ones" {
     try std.testing.expectEqual(0, _mm_test_all_ones(c));
 }
 
+/// result = if ((a & mask) == 0) 1 else 0;
 pub inline fn _mm_test_all_zeros(a: __m128i, mask: __m128i) i32 {
     return _mm_testz_si128(a, mask);
 }
@@ -3366,6 +3373,8 @@ test "_mm_test_all_zeros" {
     try std.testing.expectEqual(0, _mm_test_all_zeros(a, c));
 }
 
+/// result = if (((a & mask) != 0) and ((~a & mask) != 0)) 1 else 0;
+// Arg names are wrong in Intel(r) Intrinsics Guide v3.6.5 thru current
 pub inline fn _mm_test_mix_ones_zeros(a: __m128i, mask: __m128i) i32 {
     return _mm_testnzc_si128(a, mask);
 }
@@ -3379,6 +3388,7 @@ test "_mm_test_mix_ones_zeros" {
     try std.testing.expectEqual(@as(i32, 0), _mm_test_mix_ones_zeros(b, a));
 }
 
+/// result = if ((~a & b) == 0) 1 else 0;
 pub inline fn _mm_testc_si128(a: __m128i, b: __m128i) i32 {
     return _mm_testz_si128(~a, b);
 }
@@ -3391,6 +3401,7 @@ test "_mm_testc_si128" {
     try std.testing.expectEqual(1, _mm_testc_si128(a, c));
 }
 
+/// result = if (((a & b) != 0) and ((~a & b) != 0)) 1 else 0;
 pub inline fn _mm_testnzc_si128(a: __m128i, b: __m128i) i32 {
     if (has_avx) {
         return asm ("vptest %[b],%[a]"
@@ -3418,6 +3429,7 @@ test "_mm_testnzc_si128" {
     try std.testing.expectEqual(@as(i32, 0), _mm_testnzc_si128(b, a));
 }
 
+/// result = if ((a & b) == 0) 1 else 0;
 pub inline fn _mm_testz_si128(a: __m128i, b: __m128i) i32 {
     return @intFromBool(@reduce(.Or, (a & b)) == 0);
 }
@@ -3432,15 +3444,8 @@ test "_mm_testz_si128" {
 
 // SSE4.2 ==============================================================
 
-/// dst[n] = if(a[n] > b[n]) -1 else 0;
+/// dst[n] = if (a[n] > b[n]) -1 else 0;
 pub inline fn _mm_cmpgt_epi64(a: __m128i, b: __m128i) __m128i {
     const pred = @intFromBool(bitCast_i64x2(a) > bitCast_i64x2(b));
     return @bitCast(laneMask_u64x2(pred));
-}
-
-test "_mm_cmpeq_epi64" {
-    const a = _mm_set_epi64x(9223372036854775807, 1);
-    const b = _mm_set_epi64x(8070450532247928831, 1);
-    const ref = _mm_set_epi64x(0, -1);
-    try std.testing.expectEqual(ref, _mm_cmpeq_epi64(a, b));
 }
