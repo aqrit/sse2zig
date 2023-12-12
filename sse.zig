@@ -175,12 +175,12 @@ inline fn isNan_ss(a: __m128) u1 {
 //
 // Zig doesn't expose a way to change the default rounding mode?
 
-/// Adapted from https://stackoverflow.com/a/32791681
-/// Credit: supercat
-/// License: https://creativecommons.org/licenses/by-sa/3.0/
-///
-/// Round using the default rounding mode
+/// Round using the current rounding mode
 /// Which is usually _MM_FROUND_TO_NEAREST_INT (roundeven)
+///
+/// Adapted from https://stackoverflow.com/a/32791681
+/// Credit: supercat (License: CC BY-SA 3.0)
+///
 // TODO: roundps seems to change NaNs ( 7F800001 -> 7FC00001 ) ?
 inline fn RoundCurrentDirection_ps(a: __m128) __m128 {
     const magic: __m128 = @splat(8388608.0); // 0x4B000000
@@ -193,15 +193,32 @@ inline fn RoundCurrentDirection_ps(a: __m128) __m128 {
     return @select(f32, pred, a, @as(__m128, @bitCast(res)));
 }
 
-inline fn RoundCurrentDirection_ss(a: __m128) f32 {
+/// Round using the current rounding mode
+/// Which is usually _MM_FROUND_TO_NEAREST_INT (roundeven)
+///
+/// Adapted from https://stackoverflow.com/a/32791681
+/// Credit: supercat (License: CC BY-SA 3.0)
+///
+// TODO: roundss seems to change NaNs ( 7F800001 -> 7FC00001 ) ?
+inline fn RoundCurrentDirection_f32(a: f32) f32 {
     const magic: f32 = 8388608.0; // 0x4B000000
-    const bits: u32 = @bitCast(a[0]);
+    const bits: u32 = @bitCast(a);
     const sign = bits & 0x80000000;
     const abs = bits ^ sign;
     const round = (@as(f32, @bitCast(abs)) + magic) - magic; // force rounding using default mode...
     const res = sign | @as(u32, @bitCast(round)); // restore sign
     const pred = (abs >= @as(u32, @bitCast(magic))); // NaN or whole number
-    return if (pred) a[0] else @as(f32, @bitCast(res));
+    return if (pred) a else @as(f32, @bitCast(res));
+}
+
+inline fn RoundEven_f32(a: f32) f32 {
+    // TODO: currently, using the default rounding, which is hopefully RoundEven
+    return RoundCurrentDirection_f32(a);
+}
+
+inline fn RoundEven_ps(a: __m128) __m128 {
+    // TODO: currently, using the default rounding, which is hopefully RoundEven
+    return RoundCurrentDirection_ps(a);
 }
 
 // =====================================================================
@@ -3513,8 +3530,48 @@ pub inline fn _mm_round_ps(a: __m128, comptime imm8: comptime_int) __m128 {
               [c] "N" (imm8),
         );
     } else {
-        @compileError("Error: _mm_round_ps requires SSE4.1");
+        return switch (imm8 & 0x07) {
+            _MM_FROUND_TO_NEAREST_INT => RoundEven_ps(a),
+            _MM_FROUND_TO_NEG_INF => @floor(a),
+            _MM_FROUND_TO_POS_INF => @ceil(a),
+            _MM_FROUND_TO_ZERO => @trunc(a),
+            else => RoundCurrentDirection_ps(a),
+        };
     }
+}
+
+test "_mm_round_ps" {
+    const a = _mm_set_ps(3.5, 2.5, 1.5, 0.5);
+    const b = _mm_set_ps(-3.6, -2.4, -1.5, -0.5);
+    const c = _mm_set_ps(1.1, 1.9, 8388607.5, -8388607.5);
+    const ref0a = _mm_set_ps(4.0, 2.0, 2.0, 0.0);
+    const ref0b = _mm_set_ps(-4.0, -2.0, -2.0, -0.0);
+    const ref0c = _mm_set_ps(1.0, 2.0, 8388608.0, -8388608.0);
+    const ref1a = _mm_set_ps(3.0, 2.0, 1.0, 0.0);
+    const ref1b = _mm_set_ps(-4.0, -3.0, -2.0, -1.0);
+    const ref1c = _mm_set_ps(1.0, 1.0, 8388607.0, -8388608.0);
+    const ref2a = _mm_set_ps(4.0, 3.0, 2.0, 1.0);
+    const ref2b = _mm_set_ps(-3.0, -2.0, -1.0, -0.0);
+    const ref2c = _mm_set_ps(2.0, 2.0, 8388608.0, -8388607.0);
+    const ref3a = _mm_set_ps(3.0, 2.0, 1.0, 0.0);
+    const ref3b = _mm_set_ps(-3.0, -2.0, -1.0, -0.0);
+    const ref3c = _mm_set_ps(1.0, 1.0, 8388607.0, -8388607.0);
+    try std.testing.expectEqual(ref0a, _mm_round_ps(a, 0));
+    try std.testing.expectEqual(ref0b, _mm_round_ps(b, 0));
+    try std.testing.expectEqual(ref0c, _mm_round_ps(c, 0));
+    try std.testing.expectEqual(ref1a, _mm_round_ps(a, 1));
+    try std.testing.expectEqual(ref1b, _mm_round_ps(b, 1));
+    try std.testing.expectEqual(ref1c, _mm_round_ps(c, 1));
+    try std.testing.expectEqual(ref2a, _mm_round_ps(a, 2));
+    try std.testing.expectEqual(ref2b, _mm_round_ps(b, 2));
+    try std.testing.expectEqual(ref2c, _mm_round_ps(c, 2));
+    try std.testing.expectEqual(ref3a, _mm_round_ps(a, 3));
+    try std.testing.expectEqual(ref3b, _mm_round_ps(b, 3));
+    try std.testing.expectEqual(ref3c, _mm_round_ps(c, 3));
+    try std.testing.expectEqual(ref0b, _mm_round_ps(b, 4));
+    try std.testing.expectEqual(ref0b, _mm_round_ps(b, 5));
+    try std.testing.expectEqual(ref0b, _mm_round_ps(b, 6));
+    try std.testing.expectEqual(ref0b, _mm_round_ps(b, 7));
 }
 
 pub inline fn _mm_round_sd(a: __m128d, b: __m128d, comptime imm8: comptime_int) __m128d {
@@ -3561,13 +3618,48 @@ pub inline fn _mm_round_ss(a: __m128, b: __m128, comptime imm8: comptime_int) __
         );
         return res;
     } else {
-        return switch (imm8 & 0x03) { // TODO: fix _MM_FROUND_TO_NEAREST_INT and add case for 0x4
-            _MM_FROUND_TO_NEAREST_INT => .{ RoundCurrentDirection_ss(a), a[1], a[2], a[3] },
-            _MM_FROUND_TO_NEG_INF => .{ @floor(a[0]), a[1], a[2], a[3] },
-            _MM_FROUND_TO_POS_INF => .{ @ceil(a[0]), a[1], a[2], a[3] },
-            _MM_FROUND_TO_ZERO => .{ @trunc(a[0]), a[1], a[2], a[3] },
+        return switch (imm8 & 0x07) {
+            _MM_FROUND_TO_NEAREST_INT => .{ RoundEven_f32(b[0]), a[1], a[2], a[3] },
+            _MM_FROUND_TO_NEG_INF => .{ @floor(b[0]), a[1], a[2], a[3] },
+            _MM_FROUND_TO_POS_INF => .{ @ceil(b[0]), a[1], a[2], a[3] },
+            _MM_FROUND_TO_ZERO => .{ @trunc(b[0]), a[1], a[2], a[3] },
+            else => .{ RoundCurrentDirection_f32(b[0]), a[1], a[2], a[3] },
         };
     }
+}
+
+test "_mm_round_ss" {
+    const a = _mm_set_ps(3.0, 2.9, 1.0, 0.5);
+    const b = _mm_set_ps(3.1, 2.7, 1.1, -2.5);
+    const c = _mm_set_ps(3.2, 2.5, 1.2, 8388607.5);
+    const ref1a = _mm_set_ps(3.1, 2.7, 1.1, 0.0);
+    const ref1b = _mm_set_ps(3.1, 2.7, 1.1, -3.0);
+    const ref1c = _mm_set_ps(3.1, 2.7, 1.1, 8388607.0);
+    const ref2a = _mm_set_ps(3.1, 2.7, 1.1, 1.0);
+    const ref2b = _mm_set_ps(3.1, 2.7, 1.1, -2.0);
+    const ref2c = _mm_set_ps(3.1, 2.7, 1.1, 8388608.0);
+    const ref3a = _mm_set_ps(3.1, 2.7, 1.1, 0.0);
+    const ref3b = _mm_set_ps(3.1, 2.7, 1.1, -2.0);
+    const ref3c = _mm_set_ps(3.1, 2.7, 1.1, 8388607.0);
+    const ref0a = _mm_set_ps(3.1, 2.7, 1.1, 0.0);
+    const ref0b = _mm_set_ps(3.1, 2.7, 1.1, -2.0);
+    const ref0c = _mm_set_ps(3.1, 2.7, 1.1, 8388608.0);
+    try std.testing.expectEqual(ref0a, _mm_round_ss(b, a, 0));
+    try std.testing.expectEqual(ref0b, _mm_round_ss(b, b, 0));
+    try std.testing.expectEqual(ref0c, _mm_round_ss(b, c, 0));
+    try std.testing.expectEqual(ref1a, _mm_round_ss(b, a, 1));
+    try std.testing.expectEqual(ref1b, _mm_round_ss(b, b, 1));
+    try std.testing.expectEqual(ref1c, _mm_round_ss(b, c, 1));
+    try std.testing.expectEqual(ref2a, _mm_round_ss(b, a, 2));
+    try std.testing.expectEqual(ref2b, _mm_round_ss(b, b, 2));
+    try std.testing.expectEqual(ref2c, _mm_round_ss(b, c, 2));
+    try std.testing.expectEqual(ref3a, _mm_round_ss(b, a, 3));
+    try std.testing.expectEqual(ref3b, _mm_round_ss(b, b, 3));
+    try std.testing.expectEqual(ref3c, _mm_round_ss(b, c, 3));
+    try std.testing.expectEqual(ref0b, _mm_round_ss(b, b, 4));
+    try std.testing.expectEqual(ref0b, _mm_round_ss(b, b, 5));
+    try std.testing.expectEqual(ref0b, _mm_round_ss(b, b, 6));
+    try std.testing.expectEqual(ref0b, _mm_round_ss(b, b, 7));
 }
 
 // ## pub inline fn _mm_stream_load_si128 (mem_addr: *const __m128i) __m128i {}
