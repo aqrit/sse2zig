@@ -145,27 +145,68 @@ inline fn intCast_i16x16(a: anytype) i16x16 {
 inline fn intCast_i8x32(a: anytype) i8x32 {
     return @intCast(a);
 }
+
 // =====================================================================
 // Note: `nan = (x != x)` code gen seems good.
-// However, it somehow fails under test. comptimeFloat?
+// However, it somehow fails under test. comptime_float?
+// `@setFloatMode(std.builtin.FloatMode.Strict)` doesn't help.
 
-inline fn isNan_ss(a: __m128) u1 {
-    const pred = ((@as(u32, @bitCast(a[0])) << 1) > 0xFF000000);
+inline fn isNan_pd(a: __m128d) @Vector(2, u1) {
+    const pred = (bitCast_u64x2(a) << @splat(1)) > @as(u64x2, @splat(0xFFE0000000000000));
     return @intFromBool(pred);
 }
 inline fn isNan_ps(a: __m128) @Vector(4, u1) {
     const pred = (bitCast_u32x4(a) << @splat(1)) > @as(u32x4, @splat(0xFF000000));
     return @intFromBool(pred);
 }
-inline fn isNan_pd(a: __m128d) @Vector(2, u1) {
-    const pred = (bitCast_u64x2(a) << @splat(1)) > @as(u64x2, @splat(0xFFE0000000000000));
-    return @intFromBool(pred);
-}
 inline fn isNan_sd(a: __m128d) u1 {
     const pred = ((@as(u32, @bitCast(a[0])) << 1) > 0xFFE0000000000000);
     return @intFromBool(pred);
 }
+inline fn isNan_ss(a: __m128) u1 {
+    const pred = ((@as(u32, @bitCast(a[0])) << 1) > 0xFF000000);
+    return @intFromBool(pred);
+}
+
 // =====================================================================
+// Zig is missing: Round to Nearest, halfway ties round to even?
+// Note: Zig has @floor, @ceil, @trunc, and @round.
+// See also: https://github.com/ziglang/zig/issues/9551
+//
+// Zig doesn't expose a way to change the default rounding mode?
+
+/// Adapted from https://stackoverflow.com/a/32791681
+/// Credit: supercat
+/// License: https://creativecommons.org/licenses/by-sa/3.0/
+///
+/// Round using the default rounding mode
+/// Which is usually _MM_FROUND_TO_NEAREST_INT (roundeven)
+// TODO: roundps seems to change NaNs ( 7F800001 -> 7FC00001 ) ?
+inline fn RoundCurrentDirection_ps(a: __m128) __m128 {
+    const magic: __m128 = @splat(8388608.0); // 0x4B000000
+    const bits = bitCast_u32x4(a);
+    const sign = bits & @as(u32x4, @splat(0x80000000));
+    const abs = bits ^ sign;
+    const round = (@as(__m128, @bitCast(abs)) + magic) - magic; // force rounding using default mode...
+    const res = sign | bitCast_u32x4(round); // restore sign
+    const pred = (abs >= bitCast_u32x4(magic)); // NaN or whole number
+    return @select(f32, pred, a, @as(__m128, @bitCast(res)));
+}
+
+inline fn RoundCurrentDirection_ss(a: __m128) f32 {
+    const magic: f32 = 8388608.0; // 0x4B000000
+    const bits: u32 = @bitCast(a[0]);
+    const sign = bits & 0x80000000;
+    const abs = bits ^ sign;
+    const round = (@as(f32, @bitCast(abs)) + magic) - magic; // force rounding using default mode...
+    const res = sign | @as(u32, @bitCast(round)); // restore sign
+    const pred = (abs >= @as(u32, @bitCast(magic))); // NaN or whole number
+    return if (pred) a[0] else @as(f32, @bitCast(res));
+}
+
+// =====================================================================
+// These are called boolMask in std.math ?
+// Fill a lane with all set bits or all zeros
 
 inline fn laneMask_u32x1(pred: u1) u32 {
     return @bitCast(@as(i32, @intCast(@as(i1, @bitCast(pred)))));
@@ -3497,6 +3538,12 @@ pub inline fn _mm_round_sd(a: __m128d, b: __m128d, comptime imm8: comptime_int) 
     }
 }
 
+/// Round the lower f32.
+/// The fallback implements only:
+///    (_MM_FROUND_TO_NEAREST_INT |_MM_FROUND_NO_EXC) // round to nearest, and suppress exceptions
+///    (_MM_FROUND_TO_NEG_INF |_MM_FROUND_NO_EXC)     // round down, and suppress exceptions
+///    (_MM_FROUND_TO_POS_INF |_MM_FROUND_NO_EXC)     // round up, and suppress exceptions
+///    (_MM_FROUND_TO_ZERO |_MM_FROUND_NO_EXC)        // truncate, and suppress exceptions
 pub inline fn _mm_round_ss(a: __m128, b: __m128, comptime imm8: comptime_int) __m128 {
     if (has_avx) {
         return asm ("vroundss %[c], %[b], %[a], %[ret]"
@@ -3514,7 +3561,12 @@ pub inline fn _mm_round_ss(a: __m128, b: __m128, comptime imm8: comptime_int) __
         );
         return res;
     } else {
-        @compileError("Error: _mm_round_ss requires SSE4.1");
+        return switch (imm8 & 0x03) { // TODO: fix _MM_FROUND_TO_NEAREST_INT and add case for 0x4
+            _MM_FROUND_TO_NEAREST_INT => .{ RoundCurrentDirection_ss(a), a[1], a[2], a[3] },
+            _MM_FROUND_TO_NEG_INF => .{ @floor(a[0]), a[1], a[2], a[3] },
+            _MM_FROUND_TO_POS_INF => .{ @ceil(a[0]), a[1], a[2], a[3] },
+            _MM_FROUND_TO_ZERO => .{ @trunc(a[0]), a[1], a[2], a[3] },
+        };
     }
 }
 
@@ -3622,4 +3674,13 @@ test "_mm_testz_si128" {
 pub inline fn _mm_cmpgt_epi64(a: __m128i, b: __m128i) __m128i {
     const pred = @intFromBool(bitCast_i64x2(a) > bitCast_i64x2(b));
     return @bitCast(laneMask_u64x2(pred));
+}
+
+test "_mm_cmpgt_epi64" {
+    const a = _mm_set_epi64x(-9223372036854775807, 1);
+    const b = _mm_set_epi64x(0, 2);
+    const ref0 = _mm_set_epi64x(0, 0);
+    const ref1 = _mm_set_epi64x(-1, -1);
+    try std.testing.expectEqual(ref0, _mm_cmpgt_epi64(a, b));
+    try std.testing.expectEqual(ref1, _mm_cmpgt_epi64(b, a));
 }
