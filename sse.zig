@@ -176,11 +176,7 @@ inline fn isNan_ss(a: __m128) u1 {
 // Zig doesn't expose a way to change the default rounding mode?
 
 /// Round using the current rounding mode
-/// Which is usually _MM_FROUND_TO_NEAREST_INT (roundeven)
-///
-/// Adapted from https://stackoverflow.com/a/32791681
-/// Credit: supercat (License: CC BY-SA 3.0)
-///
+/// See: Henry S. Warren, Hacker's Delight 2nd Edition, pp. 378-380
 // TODO: roundps seems to change NaNs ( 7F800001 -> 7FC00001 ) ?
 inline fn RoundCurrentDirection_ps(a: __m128) __m128 {
     const magic: __m128 = @splat(8388608.0); // 0x4B000000
@@ -194,12 +190,8 @@ inline fn RoundCurrentDirection_ps(a: __m128) __m128 {
 }
 
 /// Round using the current rounding mode
-/// Which is usually _MM_FROUND_TO_NEAREST_INT (roundeven)
-///
-/// Adapted from https://stackoverflow.com/a/32791681
-/// Credit: supercat (License: CC BY-SA 3.0)
-///
-// TODO: roundss seems to change NaNs ( 7F800001 -> 7FC00001 ) ?
+/// See: Henry S. Warren, Hacker's Delight 2nd Edition, pp. 378-380
+// TODO: roundps seems to change NaNs ( 7F800001 -> 7FC00001 ) ?
 inline fn RoundCurrentDirection_f32(a: f32) f32 {
     const magic: f32 = 8388608.0; // 0x4B000000
     const bits: u32 = @bitCast(a);
@@ -211,6 +203,34 @@ inline fn RoundCurrentDirection_f32(a: f32) f32 {
     return if (pred) a else @as(f32, @bitCast(res));
 }
 
+/// Round using the current rounding mode
+/// See: Henry S. Warren, Hacker's Delight 2nd Edition, pp. 378-380
+// TODO: does roundpd change NaNs ?
+inline fn RoundCurrentDirection_pd(a: __m128d) __m128d {
+    const magic: __m128d = @bitCast(@as(u64x2, @splat(0x4330000000000000)));
+    const bits = bitCast_u64x2(a);
+    const sign = bits & @as(u64x2, @splat(0x8000000000000000));
+    const abs = bits ^ sign;
+    const round = (@as(__m128d, @bitCast(abs)) + magic) - magic; // force rounding using default mode...
+    const res = sign | bitCast_u64x2(round); // restore sign
+    const pred = (abs >= bitCast_u64x2(magic)); // NaN or whole number
+    return @select(f64, pred, a, @as(__m128d, @bitCast(res)));
+}
+
+/// Round using the current rounding mode
+/// See: Henry S. Warren, Hacker's Delight 2nd Edition, pp. 378-380
+// TODO: does roundsd change NaNs ?
+inline fn RoundCurrentDirection_f64(a: f64) f64 {
+    const magic: f64 = @bitCast(@as(u64, 0x4330000000000000));
+    const bits: u64 = @bitCast(a);
+    const sign = bits & 0x8000000000000000;
+    const abs = bits ^ sign;
+    const round = (@as(f64, @bitCast(abs)) + magic) - magic; // force rounding using default mode...
+    const res = sign | @as(u64, @bitCast(round)); // restore sign
+    const pred = (abs >= @as(u64, @bitCast(magic))); // NaN or whole number
+    return if (pred) a else @as(f64, @bitCast(res));
+}
+
 inline fn RoundEven_f32(a: f32) f32 {
     // TODO: currently, using the default rounding, which is hopefully RoundEven
     return RoundCurrentDirection_f32(a);
@@ -219,6 +239,16 @@ inline fn RoundEven_f32(a: f32) f32 {
 inline fn RoundEven_ps(a: __m128) __m128 {
     // TODO: currently, using the default rounding, which is hopefully RoundEven
     return RoundCurrentDirection_ps(a);
+}
+
+inline fn RoundEven_f64(a: f64) f64 {
+    // TODO: currently, using the default rounding, which is hopefully RoundEven
+    return RoundCurrentDirection_f64(a);
+}
+
+inline fn RoundEven_pd(a: __m128d) __m128d {
+    // TODO: currently, using the default rounding, which is hopefully RoundEven
+    return RoundCurrentDirection_pd(a);
 }
 
 // =====================================================================
@@ -3607,7 +3637,13 @@ pub inline fn _mm_round_pd(a: __m128d, comptime imm8: comptime_int) __m128d {
               [c] "N" (imm8),
         );
     } else {
-        @compileError("Error: _mm_round_pd requires SSE4.1");
+        return switch (imm8 & 0x07) {
+            _MM_FROUND_TO_NEAREST_INT => RoundEven_pd(a),
+            _MM_FROUND_TO_NEG_INF => @floor(a),
+            _MM_FROUND_TO_POS_INF => @ceil(a),
+            _MM_FROUND_TO_ZERO => @trunc(a),
+            else => RoundCurrentDirection_pd(a),
+        };
     }
 }
 
@@ -3686,7 +3722,13 @@ pub inline fn _mm_round_sd(a: __m128d, b: __m128d, comptime imm8: comptime_int) 
         );
         return res;
     } else {
-        @compileError("Error: _mm_round_sd requires SSE4.1");
+        return switch (imm8 & 0x07) {
+            _MM_FROUND_TO_NEAREST_INT => .{ RoundEven_f64(b[0]), a[1], a[2], a[3] },
+            _MM_FROUND_TO_NEG_INF => .{ @floor(b[0]), a[1], a[2], a[3] },
+            _MM_FROUND_TO_POS_INF => .{ @ceil(b[0]), a[1], a[2], a[3] },
+            _MM_FROUND_TO_ZERO => .{ @trunc(b[0]), a[1], a[2], a[3] },
+            else => .{ RoundCurrentDirection_f64(b[0]), a[1], a[2], a[3] },
+        };
     }
 }
 
