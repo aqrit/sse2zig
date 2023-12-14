@@ -177,7 +177,7 @@ inline fn isNan_ss(a: __m128) u1 {
 
 /// Round using the current rounding mode
 /// See: Henry S. Warren, Hacker's Delight 2nd Edition, pp. 378-380
-// TODO: roundps seems to change NaNs ( 7F800001 -> 7FC00001 ) ?
+// TODO: roundps changes SNaN to QNaN ( 7F800001 -> 7FC00001 ) ?
 inline fn RoundCurrentDirection_ps(a: __m128) __m128 {
     const magic: __m128 = @splat(8388608.0); // 0x4B000000
     const bits = bitCast_u32x4(a);
@@ -191,7 +191,7 @@ inline fn RoundCurrentDirection_ps(a: __m128) __m128 {
 
 /// Round using the current rounding mode
 /// See: Henry S. Warren, Hacker's Delight 2nd Edition, pp. 378-380
-// TODO: roundps seems to change NaNs ( 7F800001 -> 7FC00001 ) ?
+// TODO: roundps changes SNaN to QNaN ( 7F800001 -> 7FC00001 ) ?
 inline fn RoundCurrentDirection_f32(a: f32) f32 {
     const magic: f32 = 8388608.0; // 0x4B000000
     const bits: u32 = @bitCast(a);
@@ -205,7 +205,7 @@ inline fn RoundCurrentDirection_f32(a: f32) f32 {
 
 /// Round using the current rounding mode
 /// See: Henry S. Warren, Hacker's Delight 2nd Edition, pp. 378-380
-// TODO: does roundpd change NaNs ?
+// TODO: roundpd changes SNaN to QNaN ( 7FF0000000000001 -> 7FF8000000000001 ) ?
 inline fn RoundCurrentDirection_pd(a: __m128d) __m128d {
     const magic: __m128d = @bitCast(@as(u64x2, @splat(0x4330000000000000)));
     const bits = bitCast_u64x2(a);
@@ -219,7 +219,7 @@ inline fn RoundCurrentDirection_pd(a: __m128d) __m128d {
 
 /// Round using the current rounding mode
 /// See: Henry S. Warren, Hacker's Delight 2nd Edition, pp. 378-380
-// TODO: does roundsd change NaNs ?
+// TODO: roundsd changes SNaN to QNaN ( 7FF0000000000001 -> 7FF8000000000001 ) ?
 inline fn RoundCurrentDirection_f64(a: f64) f64 {
     const magic: f64 = @bitCast(@as(u64, 0x4330000000000000));
     const bits: u64 = @bitCast(a);
@@ -752,8 +752,7 @@ pub inline fn _mm_cvtss_f32(a: __m128) f32 {
     return a[0];
 }
 
-/// fallback ignores MXCSR for now...
-/// Round to nearest, halfway "ties" round to even.
+/// Convert lowest f32 to i32.
 pub inline fn _mm_cvtss_si32(a: __m128) i32 {
     if (has_avx) {
         return asm ("vcvtss2si %[a], %[ret]"
@@ -766,20 +765,16 @@ pub inline fn _mm_cvtss_si32(a: __m128) i32 {
             : [a] "x" (a),
         );
     } else {
+        const r = RoundCurrentDirection_f32(a[0]);
         @setRuntimeSafety(false); // intFromFloat is guarded
-        if ((@as(u32, @bitCast(a[0])) & 0x7F800000) >= 0x4F000000) {
-            return -2147483648; // exponent too large
+        if ((@as(u32, @bitCast(r)) & 0x7F800000) >= 0x4F000000) {
+            return @bitCast(@as(u32, 0x80000000)); // exponent too large
         }
-        const r: f32 = @round(a); // ties round away from zero
-        const i: u32 = @bitCast(@as(i32, @intFromFloat(r)));
-        const isTie: u32 = @intFromBool(@abs(a - r) == 0.5);
-        const isNeg: u32 = @intFromBool(@as(i32, @bitCast(a)) < 0);
-        return @bitCast(i -% (((i & isTie) ^ isNeg) -% isNeg));
+        return @intFromFloat(r);
     }
 }
 
-/// fallback ignores MXCSR for now...
-/// Round to nearest, halfway "ties" round to even.
+/// Convert lowest f32 to i64.
 pub inline fn _mm_cvtss_si64(a: __m128) i64 {
     if (has_avx) {
         return asm ("vcvtss2si %[a], %[ret]"
@@ -792,15 +787,13 @@ pub inline fn _mm_cvtss_si64(a: __m128) i64 {
             : [a] "x" (a),
         );
     } else {
+        const r = RoundCurrentDirection_f32(a[0]);
+
         @setRuntimeSafety(false); // intFromFloat is guarded
-        if ((@as(u32, @bitCast(a[0])) & 0x7F800000) >= 0x5F000000) {
-            return -9223372036854775808; // exponent too large
+        if ((@as(u32, @bitCast(r)) & 0x7F800000) >= 0x5F000000) {
+            return @bitCast(@as(u64, 0x8000000000000000)); // exponent too large
         }
-        const r: f32 = @round(a); // ties round away from zero
-        const i: u64 = @bitCast(@as(i64, @intFromFloat(r)));
-        const isTie: u64 = @intFromBool(@abs(a - r) == 0.5);
-        const isNeg: u64 = @intFromBool(@as(i32, @bitCast(a)) < 0);
-        return @bitCast(i -% (((i & isTie) ^ isNeg) -% isNeg));
+        return @intFromFloat(r);
     }
 }
 
@@ -1816,11 +1809,35 @@ pub inline fn _mm_cvtepi32_ps(a: __m128i) __m128 {
     return @floatFromInt(a);
 }
 
-// ## pub inline fn _mm_cvtpd_epi32 (a: __m128d) __m128i {}
+pub inline fn _mm_cvtpd_epi32(a: __m128d) __m128i {
+    if (has_avx) {
+        return asm ("vcvtpd2dq %[a], %[ret]"
+            : [ret] "=x" (-> __m128i),
+            : [a] "x" (a),
+        );
+    } else if (has_sse2) {
+        return asm ("cvtpd2dq %[a], %[ret]"
+            : [ret] "=x" (-> __m128i),
+            : [a] "x" (a),
+        );
+    } else {
+        const r = RoundCurrentDirection_pd(a);
+
+        @setRuntimeSafety(false); // intFromFloat is guarded
+        const mask: u64x2 = @splat(0x7FF0000000000000);
+        const limit: u64x2 = @splat(0x41E0000000000000);
+        const indefinite: __m128d = @bitCast(@as(u64x2, @splat(0xC1E0000000000000)));
+        const predicate = (bitCast_u32x4(r) & mask) >= limit;
+        const clamped = @select(64, predicate, indefinite, r);
+
+        const i = @as(i32x2, @intFromFloat(clamped));
+        return @bitCast(i32x4{ i[0], i[1], 0, 0 });
+    }
+}
+
 // ## pub inline fn _mm_cvtpd_ps (a: __m128d) __m128 {}
 
-/// fallback ignores MXCSR for now...
-/// Round to nearest, halfway "ties" round to even.
+/// Convert floats to integers.
 pub inline fn _mm_cvtps_epi32(a: __m128) __m128i {
     if (has_avx) {
         return asm ("vcvtps2dq %[a], %[ret]"
@@ -1833,18 +1850,16 @@ pub inline fn _mm_cvtps_epi32(a: __m128) __m128i {
             : [a] "x" (a),
         );
     } else {
+        const r = RoundCurrentDirection_ps(a);
+
         @setRuntimeSafety(false); // intFromFloat is guarded
         const mask: u32x4 = @splat(0x7F800000);
         const limit: u32x4 = @splat(0x4F000000);
         const indefinite: __m128 = @bitCast(@as(u32x4, @splat(0xCF000000)));
-        const predicate = (bitCast_u32x4(a) & mask) >= limit;
-        const clamped = @select(f32, predicate, indefinite, a);
+        const predicate = (bitCast_u32x4(r) & mask) >= limit;
+        const clamped = @select(f32, predicate, indefinite, r);
 
-        const rounded = @round(clamped); // ties round away from zero
-        const int = bitCast_u32x4(@as(i32, @intFromFloat(rounded)));
-        const isTie: u32x4 = @intFromBool(@abs(clamped - rounded) == 0.5);
-        const isNeg: u32x4 = @intFromBool(bitCast_i32x4(a) < 0);
-        return @bitCast(int -% (((int & isTie) ^ isNeg) -% isNeg));
+        return @intFromFloat(clamped);
     }
 }
 
@@ -1857,9 +1872,54 @@ pub inline fn _mm_cvtsd_f64(a: __m128d) f64 {
     return a[0];
 }
 
-// ## pub inline fn _mm_cvtsd_si32 (a: __m128d) i32 {}
-// ## pub inline fn _mm_cvtsd_si64 (a: __m128d) i64 {}
-// ## pub inline fn _mm_cvtsd_si64x (a: __m128d) i64 {}
+pub inline fn _mm_cvtsd_si32(a: __m128d) i32 {
+    if (has_avx) {
+        return asm ("vcvtsd2si %[a], %[ret]"
+            : [ret] "=r" (-> i32),
+            : [a] "x" (a),
+        );
+    } else if (has_sse2) {
+        return asm ("cvtsd2si %[a], %[ret]"
+            : [ret] "=r" (-> i32),
+            : [a] "x" (a),
+        );
+    } else {
+        const r = RoundCurrentDirection_f64(a[0]);
+
+        @setRuntimeSafety(false); // intFromFloat is guarded
+        if ((@as(u64, @bitCast(r)) & 0x7FF0000000000000) >= 0x41E0000000000000) {
+            return @bitCast(@as(u32, 0x80000000)); // exponent too large
+        }
+        return @intFromFloat(r);
+    }
+}
+
+pub inline fn _mm_cvtsd_si64(a: __m128d) i64 {
+    return _mm_cvtsd_si64x(a);
+}
+
+pub inline fn _mm_cvtsd_si64x(a: __m128d) i64 {
+    if (has_avx) {
+        return asm ("vcvtsd2si %[a], %[ret]"
+            : [ret] "=r" (-> i64),
+            : [a] "x" (a),
+        );
+    } else if (has_sse2) {
+        return asm ("cvtsd2si %[a], %[ret]"
+            : [ret] "=r" (-> i64),
+            : [a] "x" (a),
+        );
+    } else {
+        const r = RoundCurrentDirection_f64(a[0]);
+
+        @setRuntimeSafety(false); // intFromFloat is guarded
+        if ((@as(u64, @bitCast(r)) & 0x7FF0000000000000) >= 0x43E0000000000000) {
+            return @bitCast(@as(u64, 0x8000000000000000)); // exponent too large
+        }
+        return @intFromFloat(r);
+    }
+}
+
 // ## pub inline fn _mm_cvtsd_ss (a: __m128, b: __m128d) __m128 {}
 
 pub inline fn _mm_cvtsi128_si32(a: __m128i) i32 {
