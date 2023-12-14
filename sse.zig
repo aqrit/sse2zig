@@ -1042,7 +1042,10 @@ pub inline fn _mm_movelh_ps(a: __m128, b: __m128) __m128 {
     return .{ a[0], a[1], b[0], b[1] };
 }
 
-// ## pub inline fn _mm_movemask_ps (a: __m128) i32 {}
+pub inline fn _mm_movemask_ps(a: __m128) i32 {
+    const cmp = @intFromBool(@as(i32x4, @splat(0)) > bitCast_i32x4(a));
+    return @intCast(@as(*const u4, @ptrCast(&cmp)).*);
+}
 
 pub inline fn _mm_mul_ps(a: __m128, b: __m128) __m128 {
     return a * b;
@@ -2291,7 +2294,10 @@ pub inline fn _mm_movemask_epi8(a: __m128i) i32 {
     return @intCast(@as(*const u16, @ptrCast(&cmp)).*);
 }
 
-// ## pub inline fn _mm_movemask_pd (a: __m128d) i32 {}
+pub inline fn _mm_movemask_pd(a: __m128d) i32 {
+    const cmp = @intFromBool(@as(i64x2, @splat(0)) > bitCast_i64x2(a));
+    return @intCast(@as(*const u2, @ptrCast(&cmp)).*);
+}
 
 pub inline fn _mm_mul_epu32(a: __m128i, b: __m128i) __m128i {
     const shuf = i32x2{ 0, 2 };
