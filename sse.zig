@@ -1175,7 +1175,7 @@ pub inline fn _mm_setzero_ps() __m128 {
 }
 
 pub inline fn _mm_sfence() void {
-    if (has_sse2) {
+    if (has_sse) {
         asm volatile ("sfence" ::: "memory");
     } else {
         _mm_mfence();
