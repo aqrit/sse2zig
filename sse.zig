@@ -1060,10 +1060,77 @@ pub inline fn _mm_or_ps(a: __m128, b: __m128) __m128 {
 }
 
 // ## pub inline fn _mm_prefetch (p: *const i8, i: i32) void {}
-// ## pub inline fn _mm_rcp_ps (a: __m128) __m128 {}
-// ## pub inline fn _mm_rcp_ss (a: __m128) __m128 {}
-// ## pub inline fn _mm_rsqrt_ps (a: __m128) __m128 {}
-// ## pub inline fn _mm_rsqrt_ss (a: __m128) __m128 {}
+
+/// Approximate reciprocal
+/// Note: AMD and Intel CPUs produce result that are numerically different.
+/// Note: rcpps should ignore rounding direction, but results only have ~13-bits of precision ?
+pub inline fn _mm_rcp_ps(a: __m128) __m128 {
+    if (has_avx) {
+        return asm ("vrcpps %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+        );
+    } else if (has_sse) {
+        return asm ("rcpps %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+        );
+    } else {
+        return @as(__m128, @splat(1.0)) / a;
+    }
+}
+
+/// Approximate reciprocal
+pub inline fn _mm_rcp_ss(a: __m128) __m128 {
+    if (has_avx) {
+        return asm ("vrcpss %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+        );
+    } else if (has_sse) {
+        return asm ("rcpss %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+        );
+    } else {
+        return .{ 1.0 / a[0], a[1], a[2], a[3] };
+    }
+}
+
+/// Approximate reciprocal square root
+pub inline fn _mm_rsqrt_ps(a: __m128) __m128 {
+    if (has_avx) {
+        return asm ("vrsqrtps %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+        );
+    } else if (has_sse) {
+        return asm ("rsqrtps %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+        );
+    } else {
+        return @as(__m128, @splat(1.0)) / @sqrt(a);
+    }
+}
+
+/// Approximate reciprocal square root of a[0]
+pub inline fn _mm_rsqrt_ss(a: __m128) __m128 {
+    if (has_avx) {
+        return asm ("vrsqrtss %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+        );
+    } else if (has_sse) {
+        return asm ("rsqrtss %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+        );
+    } else {
+        return .{ 1.0 / @sqrt(a[0]), a[1], a[2], a[3] };
+    }
+}
+
 // ## pub inline fn _MM_SET_EXCEPTION_MASK (a: u32) void {}
 // ## pub inline fn _MM_SET_EXCEPTION_STATE (a: u32) void {}
 // ## pub inline fn _MM_SET_FLUSH_ZERO_MODE (a: u32) void {}
