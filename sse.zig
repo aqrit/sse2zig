@@ -285,6 +285,15 @@ inline fn boolMask_u64x2(pred: @Vector(2, u1)) u64x2 {
 
 // SSE =================================================================
 
+/// PREFETCHT0: prefetch data into all levels of the cache hierarchy
+pub const _MM_HINT_T0 = 3;
+/// PREFETCHT1: prefetch data into level 2 cache and higher.
+pub const _MM_HINT_T1 = 2;
+/// PREFETCHT2: prefetch data into level 3 cache and higher.
+pub const _MM_HINT_T2 = 1;
+/// PREFETCHNTA non-temporal, data is likely dropped after access.
+pub const _MM_HINT_NTA = 0;
+
 pub inline fn _mm_add_ps(a: __m128, b: __m128) __m128 {
     return a + b;
 }
@@ -858,7 +867,7 @@ pub inline fn _mm_div_ss(a: __m128, b: __m128) __m128 {
     return .{ a[0] / b[0], a[1], a[2], a[3] };
 }
 
-// ## pub inline fn _mm_free (mem_addr: *void) void {}
+// ## pub inline fn _mm_free (mem_addr: *anyopaque) void {}
 // ## pub inline fn _MM_GET_EXCEPTION_MASK () u32 {}
 // ## pub inline fn _MM_GET_EXCEPTION_STATE () u32 {}
 // ## pub inline fn _MM_GET_FLUSH_ZERO_MODE () u32 {}
@@ -892,7 +901,7 @@ pub inline fn _mm_loadu_ps(mem_addr: *align(1) const f32) __m128 {
     return @as(*align(1) const __m128, @ptrCast(mem_addr)).*;
 }
 
-// ## pub inline fn _mm_malloc (size: usize, align: usize) *void {}
+// ## pub inline fn _mm_malloc (size: usize, align: usize) *anyopaque {}
 
 pub inline fn _mm_max_ps(a: __m128, b: __m128) __m128 {
     if (has_avx) {
@@ -1059,7 +1068,9 @@ pub inline fn _mm_or_ps(a: __m128, b: __m128) __m128 {
     return @bitCast(bitCast_u32x4(a) | bitCast_u32x4(b));
 }
 
-// ## pub inline fn _mm_prefetch (p: *const i8, i: i32) void {}
+pub inline fn _mm_prefetch(p: *const anyopaque, comptime i: comptime_int) void {
+    @prefetch(p, .{ .rw = .read, .locality = i, .cache = .data });
+}
 
 /// Approximate reciprocal
 /// Note: AMD and Intel CPUs produce result that are numerically different.
@@ -1407,7 +1418,7 @@ pub inline fn _mm_castsi128_ps(a: __m128i) __m128 {
     return @bitCast(a);
 }
 
-// ## pub inline fn _mm_clflush (p: *const void) void {}
+// ## pub inline fn _mm_clflush (p: *const anyopaque) void {}
 
 /// dst[n] = if (a[n] == b[n]) -1 else 0;
 pub inline fn _mm_cmpeq_epi16(a: __m128i, b: __m128i) __m128i {
@@ -2208,17 +2219,17 @@ pub inline fn _mm_loadu_si128(mem_addr: *align(1) const __m128i) __m128i {
     return mem_addr.*;
 }
 
-pub inline fn _mm_loadu_si16(mem_addr: *const void) __m128i {
+pub inline fn _mm_loadu_si16(mem_addr: *const anyopaque) __m128i {
     const word = @as(*align(1) const u16, @ptrCast(mem_addr)).*;
     return @bitCast(u16x8{ word, 0, 0, 0, 0, 0, 0, 0 });
 }
 
-pub inline fn _mm_loadu_si32(mem_addr: *const void) __m128i {
+pub inline fn _mm_loadu_si32(mem_addr: *const anyopaque) __m128i {
     const dword = @as(*align(1) const u32, @ptrCast(mem_addr)).*;
     return @bitCast(u32x4{ dword, 0, 0, 0 });
 }
 
-pub inline fn _mm_loadu_si64(mem_addr: *const void) __m128i {
+pub inline fn _mm_loadu_si64(mem_addr: *const anyopaque) __m128i {
     const qword = @as(*align(1) const u64, @ptrCast(mem_addr)).*;
     return @bitCast(u64x2{ qword, 0 });
 }
@@ -2876,15 +2887,15 @@ pub inline fn _mm_storeu_si128(mem_addr: *align(1) __m128i, a: __m128i) void {
     mem_addr.* = a;
 }
 
-pub inline fn _mm_storeu_si16(mem_addr: *void, a: __m128i) void {
+pub inline fn _mm_storeu_si16(mem_addr: *anyopaque, a: __m128i) void {
     @as(*align(1) u16, @ptrCast(mem_addr)).* = bitCast_u16x8(a)[0];
 }
 
-pub inline fn _mm_storeu_si32(mem_addr: *void, a: __m128i) void {
+pub inline fn _mm_storeu_si32(mem_addr: *anyopaque, a: __m128i) void {
     @as(*align(1) u32, @ptrCast(mem_addr)).* = bitCast_u32x4(a)[0];
 }
 
-pub inline fn _mm_storeu_si64(mem_addr: *void, a: __m128i) void {
+pub inline fn _mm_storeu_si64(mem_addr: *anyopaque, a: __m128i) void {
     @as(*align(1) u64, @ptrCast(mem_addr)).* = bitCast_u64x2(a)[0];
 }
 
