@@ -1174,7 +1174,13 @@ pub inline fn _mm_setzero_ps() __m128 {
     return @splat(0);
 }
 
-// ## pub inline fn _mm_sfence () void {}
+pub inline fn _mm_sfence() void {
+    if (has_sse2) {
+        asm volatile ("sfence" ::: "memory");
+    } else {
+        _mm_mfence();
+    }
+}
 
 pub inline fn _mm_shuffle_ps(a: __m128, b: __m128, comptime imm8: comptime_int) __m128 {
     const shuf = [4]i32{ imm8 & 3, (imm8 >> 2) & 3, -((imm8 >> 4) & 3) - 1, -((imm8 >> 6) & 3) - 1 };
@@ -2172,7 +2178,13 @@ pub inline fn _mm_insert_epi16(a: __m128i, i: i16, comptime imm8: comptime_int) 
     return @bitCast(r);
 }
 
-// ## pub inline fn _mm_lfence () void {}
+pub inline fn _mm_lfence() void {
+    if (has_sse2) {
+        asm volatile ("lfence" ::: "memory");
+    } else {
+        _mm_mfence();
+    }
+}
 
 pub inline fn _mm_load_pd(mem_addr: *align(16) const f64) __m128d {
     return @as(*const __m128d, @ptrCast(mem_addr)).*;
@@ -2304,7 +2316,9 @@ pub inline fn _mm_max_sd(a: __m128d, b: __m128d) __m128d {
     }
 }
 
-// ## pub inline fn _mm_mfence () void {}
+pub inline fn _mm_mfence() void {
+    @fence(.SeqCst);
+}
 
 pub inline fn _mm_min_epi16(a: __m128i, b: __m128i) __m128i {
     return @bitCast(@min(bitCast_i16x8(a), bitCast_i16x8(b)));
