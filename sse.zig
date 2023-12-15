@@ -1103,8 +1103,13 @@ pub inline fn _mm_shuffle_ps(a: __m128, b: __m128, comptime imm8: comptime_int) 
     return @shuffle(f32, a, b, shuf);
 }
 
-// ## pub inline fn _mm_sqrt_ps (a: __m128) __m128 {}
-// ## pub inline fn _mm_sqrt_ss (a: __m128) __m128 {}
+pub inline fn _mm_sqrt_ps(a: __m128) __m128 {
+    return @sqrt(a);
+}
+
+pub inline fn _mm_sqrt_ss(a: __m128) __m128 {
+    return .{ @sqrt(a[0]), a[1], a[2], a[3] };
+}
 
 pub inline fn _mm_store_ps(mem_addr: *align(16) f32, a: __m128) void {
     @as(*__m128, @ptrCast(mem_addr)).* = a;
@@ -2598,8 +2603,13 @@ pub inline fn _mm_slli_si128(a: __m128i, comptime imm8: comptime_int) __m128i {
     return _mm_alignr_epi8(a, @splat(0), 16 - imm8);
 }
 
-// ## pub inline fn _mm_sqrt_pd (a: __m128d) __m128d {}
-// ## pub inline fn _mm_sqrt_sd (a: __m128d, b: __m128d) __m128d {}
+pub inline fn _mm_sqrt_pd(a: __m128d) __m128d {
+    return @sqrt(a);
+}
+
+pub inline fn _mm_sqrt_sd(a: __m128d, b: __m128d) __m128d {
+    return .{ @sqrt(b[0]), a[1] };
+}
 
 pub inline fn _mm_sra_epi16(a: __m128i, count: __m128i) __m128i {
     if (has_avx) {
