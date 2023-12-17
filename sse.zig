@@ -3595,13 +3595,13 @@ test "_mm_cvtepu8_epi64" {
 }
 
 pub inline fn _mm_dp_pd(a: __m128d, b: __m128d, comptime imm8: comptime_int) __m128d {
-    const dp: f64 = switch ((imm8 >> 4) & 0x03) {
+    const dp: f64 = switch (@as(u2, imm8 >> 4)) {
         0 => 0.0,
         1 => a[0] * b[0],
         2 => a[1] * b[1],
         3 => (a[0] * b[0]) + (a[1] * b[1]),
     };
-    return switch (imm8 & 0x03) { // broadcast
+    return switch (@as(u2, imm8 & 0x0F)) { // broadcast
         0 => .{ 0.0, 0.0 },
         1 => .{ dp, 0.0 },
         2 => .{ 0.0, dp },
