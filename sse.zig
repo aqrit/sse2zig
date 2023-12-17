@@ -1052,8 +1052,8 @@ pub inline fn _mm_movelh_ps(a: __m128, b: __m128) __m128 {
 }
 
 pub inline fn _mm_movemask_ps(a: __m128) i32 {
-    const cmp = @intFromBool(@as(i32x4, @splat(0)) > bitCast_i32x4(a));
-    return @intCast(@as(*const u4, @ptrCast(&cmp)).*);
+    const cmp = @as(i32x4, @splat(0)) > bitCast_i32x4(a);
+    return @intCast(@as(u4, @bitCast(cmp)));
 }
 
 pub inline fn _mm_mul_ps(a: __m128, b: __m128) __m128 {
@@ -2387,13 +2387,13 @@ pub inline fn _mm_move_sd(a: __m128d, b: __m128d) __m128d {
 }
 
 pub inline fn _mm_movemask_epi8(a: __m128i) i32 {
-    const cmp = @intFromBool(@as(i8x16, @splat(0)) > bitCast_i8x16(a));
-    return @intCast(@as(*const u16, @ptrCast(&cmp)).*);
+    const cmp = @as(i8x16, @splat(0)) > bitCast_i8x16(a);
+    return @intCast(@as(u16, @bitCast(cmp)));
 }
 
 pub inline fn _mm_movemask_pd(a: __m128d) i32 {
-    const cmp = @intFromBool(@as(i64x2, @splat(0)) > bitCast_i64x2(a));
-    return @intCast(@as(*const u2, @ptrCast(&cmp)).*);
+    const cmp = @as(i64x2, @splat(0)) > bitCast_i64x2(a);
+    return @intCast(@as(u2, @bitCast(cmp)));
 }
 
 pub inline fn _mm_mul_epu32(a: __m128i, b: __m128i) __m128i {
@@ -3594,7 +3594,20 @@ test "_mm_cvtepu8_epi64" {
     try std.testing.expectEqual(ref, _mm_cvtepu8_epi64(a));
 }
 
-// ## pub inline fn _mm_dp_pd (a: __m128d, b: __m128d, comptime imm8: comptime_int) __m128d {}
+pub inline fn _mm_dp_pd(a: __m128d, b: __m128d, comptime imm8: comptime_int) __m128d {
+    const dp: f64 = switch ((imm8 >> 4) & 0x03) {
+        0 => 0.0,
+        1 => a[0] * b[0],
+        2 => a[1] * b[1],
+        3 => (a[0] * b[0]) + (a[1] * b[1]),
+    };
+    return switch (imm8 & 0x03) { // broadcast
+        0 => .{ 0.0, 0.0 },
+        1 => .{ dp, 0.0 },
+        2 => .{ 0.0, dp },
+        3 => .{ dp, dp },
+    };
+}
 
 // ## pub inline fn _mm_dp_ps (a: __m128, b: __m128, comptime imm8: comptime_int) __m128 {}
 
