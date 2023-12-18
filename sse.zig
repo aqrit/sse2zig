@@ -3593,7 +3593,32 @@ pub inline fn _mm_dp_pd(a: __m128d, b: __m128d, comptime imm8: comptime_int) __m
     };
 }
 
-// ## pub inline fn _mm_dp_ps (a: __m128, b: __m128, comptime imm8: comptime_int) __m128 {}
+pub inline fn _mm_dp_ps(a: __m128, b: __m128, comptime imm8: comptime_int) __m128 {
+    if (has_avx) {
+        return asm ("vdpps %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (imm8),
+        );
+    } else if (has_sse41) {
+        var res = a;
+        asm ("dpps %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (imm8),
+        );
+        return res;
+    } else {
+        const mask: @Vector(4, bool) = @bitCast(@as(u4, imm8 & 0x0F));
+        const broadcast: @Vector(4, bool) = @bitCast(@as(u4, imm8 >> 4));
+        const a_m = @select(f32, mask, a, @as(__m128, @splat(0)));
+        const b_m = @select(f32, mask, b, @as(__m128, @splat(0)));
+        const product = a_m * b_m;
+        const sum = (product[3] + product[2]) + (product[1] + product[0]);
+        return @select(f32, broadcast, @as(__m128, @splat(sum)), @as(__m128, @splat(0)));
+    }
+}
 
 /// dst = a[imm8];
 pub inline fn _mm_extract_epi32(a: __m128i, comptime imm8: comptime_int) i32 {
