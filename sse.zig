@@ -878,8 +878,8 @@ pub inline fn _mm_div_ss(a: __m128, b: __m128) __m128 {
 
 // TODO: missing load/store and ?... that use mmx __m64 notation
 
-pub inline fn _mm_load_ps(mem_addr: *align(16) const f32) __m128 {
-    return @as(*const __m128, @ptrCast(mem_addr)).*;
+pub inline fn _mm_load_ps(mem_addr: *align(16) const [4]f32) __m128 {
+    return .{ mem_addr[0], mem_addr[1], mem_addr[2], mem_addr[3] };
 }
 
 pub inline fn _mm_load_ps1(mem_addr: *const f32) __m128 {
@@ -891,16 +891,15 @@ pub inline fn _mm_load_ss(mem_addr: *align(1) const f32) __m128 {
 }
 
 pub inline fn _mm_load1_ps(mem_addr: *const f32) __m128 {
-    return .{ mem_addr.*, mem_addr.*, mem_addr.*, mem_addr.* };
+    return @splat(mem_addr.*);
 }
 
-pub inline fn _mm_loadr_ps(mem_addr: *align(16) const f32) __m128 {
-    const a = _mm_load_ps(mem_addr);
-    return @shuffle(f32, a, undefined, [4]i32{ 3, 2, 1, 0 });
+pub inline fn _mm_loadr_ps(mem_addr: *align(16) const [4]f32) __m128 {
+    return .{ mem_addr[3], mem_addr[2], mem_addr[1], mem_addr[0] };
 }
 
-pub inline fn _mm_loadu_ps(mem_addr: *align(1) const f32) __m128 {
-    return @as(*align(1) const __m128, @ptrCast(mem_addr)).*;
+pub inline fn _mm_loadu_ps(mem_addr: *align(1) const [4]f32) __m128 {
+    return .{ mem_addr[0], mem_addr[1], mem_addr[2], mem_addr[3] };
 }
 
 // ## pub inline fn _mm_malloc (size: usize, align: usize) *anyopaque {}
@@ -1197,11 +1196,11 @@ pub inline fn _mm_sqrt_ss(a: __m128) __m128 {
     return .{ @sqrt(a[0]), a[1], a[2], a[3] };
 }
 
-pub inline fn _mm_store_ps(mem_addr: *align(16) f32, a: __m128) void {
-    @as(*__m128, @ptrCast(mem_addr)).* = a;
+pub inline fn _mm_store_ps(mem_addr: *align(16) [4]f32, a: __m128) void {
+    for (0..4) |i| mem_addr[i] = a[i];
 }
 
-pub inline fn _mm_store_ps1(mem_addr: *align(16) f32, a: __m128) void {
+pub inline fn _mm_store_ps1(mem_addr: *align(16) [4]f32, a: __m128) void {
     _mm_store1_ps(mem_addr, a);
 }
 
@@ -1209,19 +1208,19 @@ pub inline fn _mm_store_ss(mem_addr: *align(1) f32, a: __m128) void {
     mem_addr.* = a[0];
 }
 
-pub inline fn _mm_store1_ps(mem_addr: *align(16) f32, a: __m128) void {
-    @as(*__m128, @ptrCast(mem_addr)).* = __m128{ a[0], a[0], a[0], a[0] };
+pub inline fn _mm_store1_ps(mem_addr: *align(16) [4]f32, a: __m128) void {
+    for (0..4) |i| mem_addr[i] = a[0];
 }
 
-pub inline fn _mm_storer_ps(mem_addr: *align(16) f32, a: __m128) void {
-    @as(*__m128, @ptrCast(mem_addr)).* = __m128{ a[3], a[2], a[1], a[0] };
+pub inline fn _mm_storer_ps(mem_addr: *align(16) [4]f32, a: __m128) void {
+    for (0..4) |i| mem_addr[i] = a[3 - i];
 }
 
-pub inline fn _mm_storeu_ps(mem_addr: *align(1) f32, a: __m128) void {
-    @as(*align(1) __m128, @ptrCast(mem_addr)).* = a;
+pub inline fn _mm_storeu_ps(mem_addr: *align(1) [4]f32, a: __m128) void {
+    for (0..4) |i| mem_addr[i] = a[i];
 }
 
-// ## pub inline fn _mm_stream_ps (mem_addr: *align(16) f32, a: __m128) void {}
+// ## pub inline fn _mm_stream_ps (mem_addr: *align(16) [4]f32, a: __m128) void {}
 
 pub inline fn _mm_sub_ps(a: __m128, b: __m128) __m128 {
     return a - b;
@@ -2188,8 +2187,8 @@ pub inline fn _mm_lfence() void {
     }
 }
 
-pub inline fn _mm_load_pd(mem_addr: *align(16) const f64) __m128d {
-    return @as(*const __m128d, @ptrCast(mem_addr)).*;
+pub inline fn _mm_load_pd(mem_addr: *align(16) const [2]f64) __m128d {
+    return .{ mem_addr[0], mem_addr[1] };
 }
 
 pub inline fn _mm_load_pd1(mem_addr: *const f64) __m128d {
@@ -2205,7 +2204,7 @@ pub inline fn _mm_load_si128(mem_addr: *const __m128i) __m128i {
 }
 
 pub inline fn _mm_load1_pd(mem_addr: *const f64) __m128d {
-    return .{ mem_addr.*, mem_addr.* };
+    return @splat(mem_addr.*);
 }
 
 pub inline fn _mm_loadh_pd(a: __m128d, mem_addr: *align(1) const f64) __m128d {
@@ -2221,12 +2220,12 @@ pub inline fn _mm_loadl_pd(a: __m128d, mem_addr: *align(1) const f64) __m128d {
     return .{ mem_addr.*, a[1] };
 }
 
-pub inline fn _mm_loadr_pd(mem_addr: *align(16) const f64) __m128d {
-    return @shuffle(f64, _mm_load_pd(mem_addr), undefined, [2]i32{ 1, 0 });
+pub inline fn _mm_loadr_pd(mem_addr: *align(16) const [2]f64) __m128d {
+    return .{ mem_addr[1], mem_addr[0] };
 }
 
-pub inline fn _mm_loadu_pd(mem_addr: *align(1) const f64) __m128d {
-    return @as(*align(1) const __m128d, @ptrCast(mem_addr)).*;
+pub inline fn _mm_loadu_pd(mem_addr: *align(1) const [2]f64) __m128d {
+    return .{ mem_addr[0], mem_addr[1] };
 }
 
 pub inline fn _mm_loadu_si128(mem_addr: *align(1) const __m128i) __m128i {
@@ -2866,11 +2865,12 @@ pub inline fn _mm_srli_si128(a: __m128i, comptime imm8: comptime_int) __m128i {
     return _mm_alignr_epi8(@splat(0), a, imm8);
 }
 
-pub inline fn _mm_store_pd(mem_addr: *align(16) f64, a: __m128d) void {
-    @as(*__m128d, @ptrCast(mem_addr)).* = a;
+pub inline fn _mm_store_pd(mem_addr: *align(16) [2]f64, a: __m128d) void {
+    mem_addr[0] = a[0];
+    mem_addr[1] = a[1];
 }
 
-pub inline fn _mm_store_pd1(mem_addr: *align(16) f64, a: __m128d) void {
+pub inline fn _mm_store_pd1(mem_addr: *align(16) [2]f64, a: __m128d) void {
     return _mm_store1_pd(mem_addr, a);
 }
 
@@ -2882,8 +2882,9 @@ pub inline fn _mm_store_si128(mem_addr: *__m128i, a: __m128i) void {
     mem_addr.* = a;
 }
 
-pub inline fn _mm_store1_pd(mem_addr: *align(16) f64, a: __m128d) void {
-    @as(*__m128d, @ptrCast(mem_addr)).* = __m128d{ a[0], a[0] };
+pub inline fn _mm_store1_pd(mem_addr: *align(16) [2]f64, a: __m128d) void {
+    mem_addr[0] = a[0];
+    mem_addr[1] = a[0];
 }
 
 pub inline fn _mm_storeh_pd(mem_addr: *f64, a: __m128d) void {
@@ -2899,12 +2900,14 @@ pub inline fn _mm_storel_pd(mem_addr: *f64, a: __m128d) void {
     mem_addr.* = a[0];
 }
 
-pub inline fn _mm_storer_pd(mem_addr: *align(16) f64, a: __m128d) void {
-    @as(*__m128d, @ptrCast(mem_addr)).* = __m128d{ a[1], a[0] };
+pub inline fn _mm_storer_pd(mem_addr: *align(16) [2]f64, a: __m128d) void {
+    mem_addr[0] = a[1];
+    mem_addr[1] = a[0];
 }
 
-pub inline fn _mm_storeu_pd(mem_addr: *align(1) f64, a: __m128d) void {
-    @as(*align(1) __m128d, @ptrCast(mem_addr)).* = a;
+pub inline fn _mm_storeu_pd(mem_addr: *align(1) [2]f64, a: __m128d) void {
+    mem_addr[0] = a[0];
+    mem_addr[1] = a[1];
 }
 
 pub inline fn _mm_storeu_si128(mem_addr: *align(1) __m128i, a: __m128i) void {
@@ -2923,7 +2926,7 @@ pub inline fn _mm_storeu_si64(mem_addr: *anyopaque, a: __m128i) void {
     @as(*align(1) u64, @ptrCast(mem_addr)).* = bitCast_u64x2(a)[0];
 }
 
-// ## pub inline fn _mm_stream_pd (mem_addr: *f64, a: __m128d) void {}
+// ## pub inline fn _mm_stream_pd (mem_addr: *[2]f64, a: __m128d) void {}
 // ## pub inline fn _mm_stream_si128 (mem_addr: *__m128i, a: __m128i) void {}
 // ## pub inline fn _mm_stream_si32 (mem_addr: *i32, a: i32) void {}
 // ## pub inline fn _mm_stream_si64 (mem_addr: *i64, a: i64) void {}
