@@ -3377,32 +3377,16 @@ pub const _MM_FROUND_RINT = _MM_FROUND_RAISE_EXC | _MM_FROUND_CUR_DIRECTION;
 pub const _MM_FROUND_NEARBYINT = _MM_FROUND_NO_EXC | _MM_FROUND_CUR_DIRECTION;
 
 pub inline fn _mm_blend_epi16(a: __m128i, b: __m128i, comptime imm8: comptime_int) __m128i {
-    const mask = comptime blk: { // convert imm8 to vector of bools
-        var m: @Vector(8, bool) = undefined;
-        for (0..8) |i| {
-            m[i] = (((imm8 >> i) & 1) == 1);
-        }
-        break :blk m;
-    };
+    const mask: @Vector(8, bool) = @bitCast(@as(u8, imm8));
     return @bitCast(@select(i16, mask, bitCast_i16x8(b), bitCast_i16x8(a)));
 }
 
 pub inline fn _mm_blend_pd(a: __m128d, b: __m128d, comptime imm8: comptime_int) __m128d {
-    var r = a;
-    if ((imm8 & 1) == 1) r[0] = b[0];
-    if ((imm8 & 2) == 2) r[1] = b[1];
-    return r;
+    return @select(f64, @as(@Vector(2, bool), @bitCast(@as(u2, imm8))), b, a);
 }
 
 pub inline fn _mm_blend_ps(a: __m128, b: __m128, comptime imm8: comptime_int) __m128 {
-    const mask = comptime blk: { // convert imm8 to vector of bools
-        var m: @Vector(4, bool) = undefined;
-        for (0..4) |i| {
-            m[i] = (((imm8 >> i) & 1) == 1);
-        }
-        break :blk m;
-    };
-    return @select(f32, mask, b, a);
+    return @select(f32, @as(@Vector(4, bool), @bitCast(@as(u4, imm8))), b, a);
 }
 
 pub inline fn _mm_blendv_epi8(a: __m128i, b: __m128i, mask: __m128i) __m128i {
