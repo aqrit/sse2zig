@@ -9,6 +9,8 @@ pub const has_sse3 = false;
 pub const has_sse2 = false;
 pub const has_sse = false;
 
+pub const has_neon = false;
+
 pub const __m128 = @Vector(4, f32);
 pub const __m128d = @Vector(2, f64);
 pub const __m128i = @Vector(4, i32);
@@ -2257,7 +2259,7 @@ pub inline fn _mm_madd_epi16(a: __m128i, b: __m128i) __m128i {
     return @bitCast(even +% odd);
 }
 
-// ## pub inline fn _mm_maskmoveu_si128 (a: __m128i, mask: __m128i, mem_addr: *i8) void {}
+// ## pub inline fn _mm_maskmoveu_si128(a: __m128i, mask: __m128i, mem_addr: *[16]u8) void {}
 
 pub inline fn _mm_max_epi16(a: __m128i, b: __m128i) __m128i {
     return @bitCast(@max(bitCast_i16x8(a), bitCast_i16x8(b)));
@@ -2457,7 +2459,15 @@ pub inline fn _mm_packus_epi16(a: __m128i, b: __m128i) __m128i {
     return @bitCast(@as(i8x16, @truncate(ab)));
 }
 
-// ## pub inline fn _mm_pause () void {}
+pub inline fn _mm_pause() void {
+    if (has_sse2) {
+        asm volatile ("pause" ::: "memory");
+    } else if (has_neon) {
+        asm volatile ("isb" ::: "memory"); // https://stackoverflow.com/a/70811680
+    } else {
+        // do nothing
+    }
+}
 
 pub inline fn _mm_sad_epu8(a: __m128i, b: __m128i) __m128i {
     if (has_avx) {
