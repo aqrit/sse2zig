@@ -1,18 +1,18 @@
 # sse2zig
-Intel SSE intrinsics mapped to ziglang vector extensions.
+x86 [SSE intrinsics](https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html#ig_expand=6889,6889,6976,4635,4635&techs=SSE_ALL) mapped to [Zig](https://ziglang.org/) vector extensions.
 
-Optional x86 inline assembly statements are provided for some intrinsics.  
-TODO: currently, `asm` statements must be enabled manually by setting the feature detection flags (`has_avx`, `has_sse2`, etc.) at the top of the `sse.zig` file.
+Currently, most SSE4.1 intrinsics and below are implemented (but not tested).
 
-Warning: Floating point MXCSR is ignored.
+However, there are no plans to implement the following:
+* Floating-point MXCSR: get exceptions, set rounding mode, etc.
+* Non-temporal memory ops: `_mm_maskmoveu_si128`, `_mm_stream_load_si128`, `_mm_clflush`, etc.
+* MMX: any intrinsics referencing the `__m64` data type.
+* Over-aligned allocator: `_mm_malloc`/`_mm_free`.
 
-Warning: Loads/Store will not work correctly on Big-Endian machines.  
-TODO: add auxiliary loads and stores that are endian-agnostic.  
+Optional assembly statements are provided for many intrinsics.
+They can be enabled by manually setting the appropriate flags at the top of `sse.zig` (`has_sse2`, `has_avx`, etc.).
 
-Warning: If you use an `SSE4.1` intrinsic but set a build target for `SSE2` then you'll probably get slow emulation code.  
+Warning:
+* Big-endian architectures won't work.  
+* Using an `SSE4.1` intrinsic in a build targeting `SSE2` will result in slow emulation code.
 
-TODO:
-* add missing intrinsics
-* add tests
-* add compile-time cpu feature detection
-* add asm for neon
