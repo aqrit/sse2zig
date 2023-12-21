@@ -3388,12 +3388,51 @@ pub inline fn _mm_blend_epi16(a: __m128i, b: __m128i, comptime imm8: comptime_in
     return @bitCast(@select(i16, mask, bitCast_i16x8(b), bitCast_i16x8(a)));
 }
 
+test "_mm_blend_epi16" {
+    const a = _mm_set_epi16(-3872, -12096, -20320, -28544, 28768, 20544, 12320, 4096);
+    const b = _mm_set_epi16(3854, 3340, 2826, 2312, 1798, 1284, 770, 256);
+    const ref0 = _mm_set_epi16(-3872, -12096, -20320, -28544, 28768, 20544, 12320, 4096);
+    const ref1 = _mm_set_epi16(3854, 3340, 2826, 2312, 1798, 1284, 770, 4096);
+    const ref2 = _mm_set_epi16(-3872, -12096, 2826, 2312, 28768, 1284, 770, 4096);
+    const ref3 = _mm_set_epi16(-3872, 3340, -20320, 2312, 28768, 1284, 12320, 256);
+    try std.testing.expectEqual(ref0, @bitCast(_mm_blend_epi16(a, b, 0)));
+    try std.testing.expectEqual(ref1, @bitCast(_mm_blend_epi16(b, a, 1)));
+    try std.testing.expectEqual(ref2, @bitCast(_mm_blend_epi16(a, b, 54)));
+    try std.testing.expectEqual(ref3, @bitCast(_mm_blend_epi16(a, b, 85)));
+}
+
 pub inline fn _mm_blend_pd(a: __m128d, b: __m128d, comptime imm8: comptime_int) __m128d {
     return @select(f64, @as(@Vector(2, bool), @bitCast(@as(u2, imm8))), b, a);
 }
 
+test "_mm_blend_pd" {
+    const a: __m128d = @bitCast(_mm_set_epi64x(-1089641583808049024, 8097560366627688448));
+    const b: __m128d = @bitCast(_mm_set_epi64x(1084818905618843912, 506097522914230528));
+    const ref0 = _mm_set_epi64x(-1089641583808049024, 8097560366627688448);
+    const ref1 = _mm_set_epi64x(1084818905618843912, 8097560366627688448);
+    const ref2 = _mm_set_epi64x(1084818905618843912, 8097560366627688448);
+    const ref3 = _mm_set_epi64x(1084818905618843912, 506097522914230528);
+    try std.testing.expectEqual(ref0, @bitCast(_mm_blend_pd(a, b, 0)));
+    try std.testing.expectEqual(ref1, @bitCast(_mm_blend_pd(b, a, 1)));
+    try std.testing.expectEqual(ref2, @bitCast(_mm_blend_pd(a, b, 2)));
+    try std.testing.expectEqual(ref3, @bitCast(_mm_blend_pd(a, b, 3)));
+}
+
 pub inline fn _mm_blend_ps(a: __m128, b: __m128, comptime imm8: comptime_int) __m128 {
     return @select(f32, @as(@Vector(4, bool), @bitCast(@as(u4, imm8))), b, a);
+}
+
+test "_mm_blend_ps" {
+    const a = _mm_set_ps(4.4, 3.3, 2.2, 1.1);
+    const b = _mm_set_ps(8.8, 7.7, 6.6, 5.5);
+    const ref0 = _mm_set_ps(4.4, 3.3, 2.2, 1.1);
+    const ref1 = _mm_set_ps(8.8, 7.7, 6.6, 1.1);
+    const ref2 = _mm_set_ps(8.8, 3.3, 6.6, 1.1);
+    const ref3 = _mm_set_ps(8.8, 7.7, 6.6, 5.5);
+    try std.testing.expectEqual(ref0, _mm_blend_ps(a, b, 0));
+    try std.testing.expectEqual(ref1, _mm_blend_ps(b, a, 1));
+    try std.testing.expectEqual(ref2, _mm_blend_ps(a, b, 10));
+    try std.testing.expectEqual(ref3, _mm_blend_ps(a, b, 15));
 }
 
 pub inline fn _mm_blendv_epi8(a: __m128i, b: __m128i, mask: __m128i) __m128i {
@@ -3401,9 +3440,31 @@ pub inline fn _mm_blendv_epi8(a: __m128i, b: __m128i, mask: __m128i) __m128i {
     return @bitCast(@select(i8, cmp, bitCast_i8x16(b), bitCast_i8x16(a)));
 }
 
+test "_mm_blendv_epi8" {
+    const a = _mm_set_epi8(-1, 127, -128, 0, -1, -1, 1, 2, 127, -1, -128, -1, 68, 51, 34, 17);
+    const b = _mm_set_epi8(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
+    const ref0 = _mm_set_epi8(-1, 127, -128, 0, -1, -1, 1, 2, 127, -1, -128, -1, 68, 51, 34, 17);
+    const ref1 = _mm_set_epi8(-1, 14, -128, 12, -1, -1, 9, 8, 7, -1, -128, -1, 3, 2, 1, 0);
+    const ref2 = _mm_set_epi8(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
+    try std.testing.expectEqual(ref0, _mm_blendv_epi8(a, b, b));
+    try std.testing.expectEqual(ref1, _mm_blendv_epi8(b, a, a));
+    try std.testing.expectEqual(ref2, _mm_blendv_epi8(b, a, b));
+}
+
 pub inline fn _mm_blendv_pd(a: __m128d, b: __m128d, mask: __m128d) __m128d {
     const cmp = @as(i64x2, @splat(0)) > bitCast_i64x2(mask);
     return @select(f64, cmp, b, a);
+}
+
+test "_mm_blendv_pd" {
+    const a: __m128d = @bitCast(_mm_set_epi64x(-9223372036854775808, -9007199254740992));
+    const b: __m128d = @bitCast(_mm_set_epi64x(9223372036854775807, -9007199254740991));
+    const ref0 = _mm_set_epi64x(-9223372036854775808, -9007199254740991);
+    const ref1 = _mm_set_epi64x(-9223372036854775808, -9007199254740992);
+    const ref2 = _mm_set_epi64x(9223372036854775807, -9007199254740992);
+    try std.testing.expectEqual(ref0, @bitCast(_mm_blendv_pd(a, b, b)));
+    try std.testing.expectEqual(ref1, @bitCast(_mm_blendv_pd(b, a, a)));
+    try std.testing.expectEqual(ref2, @bitCast(_mm_blendv_pd(b, a, b)));
 }
 
 pub inline fn _mm_blendv_ps(a: __m128, b: __m128, mask: __m128) __m128 {
