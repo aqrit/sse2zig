@@ -178,23 +178,29 @@ inline fn isNan_f32(a: f32) u1 {
 // Zig doesn't expose a way to change the current rounding mode?
 
 /// Round using the current rounding mode
-/// See: Henry S. Warren, Hacker's Delight 2nd Edition, pp. 378-380
-// TODO: roundps changes SNaN to QNaN ( 7F800001 -> 7FC00001 ) ?
 inline fn RoundCurrentDirection_ps(a: __m128) __m128 {
-    const magic: __m128 = @splat(8388608.0); // 0x4B000000
-    const bits = bitCast_u32x4(a);
-    const sign = bits & @as(u32x4, @splat(0x80000000));
-    const abs = bits ^ sign;
-    const round = (@as(__m128, @bitCast(abs)) + magic) - magic; // force rounding using current mode...
-    const res = sign | bitCast_u32x4(round); // restore sign
-    const pred = (abs >= bitCast_u32x4(magic)); // NaN or whole number
-    return @select(f32, pred, a, @as(__m128, @bitCast(res)));
+    return RoundEven_ps(a); // TODO: assumes current mode is round even
 }
 
 /// Round using the current rounding mode
-/// See: Henry S. Warren, Hacker's Delight 2nd Edition, pp. 378-380
-// TODO: roundps changes SNaN to QNaN ( 7F800001 -> 7FC00001 ) ?
 inline fn RoundCurrentDirection_f32(a: f32) f32 {
+    return RoundEven_f32(a); // TODO: assumes current mode is round even
+}
+
+/// Round using the current rounding mode
+inline fn RoundCurrentDirection_pd(a: __m128d) __m128d {
+    return RoundEven_pd(a); // TODO: assumes current mode is round even
+}
+
+/// Round using the current rounding mode
+inline fn RoundCurrentDirection_f64(a: f64) f64 {
+    return RoundEven_f64(a); // TODO: assumes current mode is round even
+}
+
+// See: Henry S. Warren, Hacker's Delight 2nd Edition, pp. 378-380
+// TODO: round changes SNaN to QNaN ( 7FF0000000000001 -> 7FF8000000000001 ) ?
+inline fn RoundEven_f32(a: f32) f32 {
+    // TODO: currently, depends on current rounding mode being RoundEven
     const magic: f32 = 8388608.0; // 0x4B000000
     const bits: u32 = @bitCast(a);
     const sign = bits & 0x80000000;
@@ -205,24 +211,20 @@ inline fn RoundCurrentDirection_f32(a: f32) f32 {
     return if (pred) a else @as(f32, @bitCast(res));
 }
 
-/// Round using the current rounding mode
-/// See: Henry S. Warren, Hacker's Delight 2nd Edition, pp. 378-380
-// TODO: roundpd changes SNaN to QNaN ( 7FF0000000000001 -> 7FF8000000000001 ) ?
-inline fn RoundCurrentDirection_pd(a: __m128d) __m128d {
-    const magic: __m128d = @bitCast(@as(u64x2, @splat(0x4330000000000000)));
-    const bits = bitCast_u64x2(a);
-    const sign = bits & @as(u64x2, @splat(0x8000000000000000));
+inline fn RoundEven_ps(a: __m128) __m128 {
+    // TODO: currently, depends on current rounding mode being RoundEven
+    const magic: __m128 = @splat(8388608.0); // 0x4B000000
+    const bits = bitCast_u32x4(a);
+    const sign = bits & @as(u32x4, @splat(0x80000000));
     const abs = bits ^ sign;
-    const round = (@as(__m128d, @bitCast(abs)) + magic) - magic; // force rounding using current mode...
-    const res = sign | bitCast_u64x2(round); // restore sign
-    const pred = (abs >= bitCast_u64x2(magic)); // NaN or whole number
-    return @select(f64, pred, a, @as(__m128d, @bitCast(res)));
+    const round = (@as(__m128, @bitCast(abs)) + magic) - magic; // force rounding using current mode...
+    const res = sign | bitCast_u32x4(round); // restore sign
+    const pred = (abs >= bitCast_u32x4(magic)); // NaN or whole number
+    return @select(f32, pred, a, @as(__m128, @bitCast(res)));
 }
 
-/// Round using the current rounding mode
-/// See: Henry S. Warren, Hacker's Delight 2nd Edition, pp. 378-380
-// TODO: roundsd changes SNaN to QNaN ( 7FF0000000000001 -> 7FF8000000000001 ) ?
-inline fn RoundCurrentDirection_f64(a: f64) f64 {
+inline fn RoundEven_f64(a: f64) f64 {
+    // TODO: currently, depends on current rounding mode being RoundEven
     const magic: f64 = @bitCast(@as(u64, 0x4330000000000000));
     const bits: u64 = @bitCast(a);
     const sign = bits & 0x8000000000000000;
@@ -233,24 +235,16 @@ inline fn RoundCurrentDirection_f64(a: f64) f64 {
     return if (pred) a else @as(f64, @bitCast(res));
 }
 
-inline fn RoundEven_f32(a: f32) f32 {
-    // TODO: currently, using the default rounding, which is hopefully RoundEven
-    return RoundCurrentDirection_f32(a);
-}
-
-inline fn RoundEven_ps(a: __m128) __m128 {
-    // TODO: currently, using the default rounding, which is hopefully RoundEven
-    return RoundCurrentDirection_ps(a);
-}
-
-inline fn RoundEven_f64(a: f64) f64 {
-    // TODO: currently, using the default rounding, which is hopefully RoundEven
-    return RoundCurrentDirection_f64(a);
-}
-
 inline fn RoundEven_pd(a: __m128d) __m128d {
-    // TODO: currently, using the default rounding, which is hopefully RoundEven
-    return RoundCurrentDirection_pd(a);
+    // TODO: currently, depends on current rounding mode being RoundEven
+    const magic: __m128d = @bitCast(@as(u64x2, @splat(0x4330000000000000)));
+    const bits = bitCast_u64x2(a);
+    const sign = bits & @as(u64x2, @splat(0x8000000000000000));
+    const abs = bits ^ sign;
+    const round = (@as(__m128d, @bitCast(abs)) + magic) - magic; // force rounding using current mode...
+    const res = sign | bitCast_u64x2(round); // restore sign
+    const pred = (abs >= bitCast_u64x2(magic)); // NaN or whole number
+    return @select(f64, pred, a, @as(__m128d, @bitCast(res)));
 }
 
 // =====================================================================
@@ -3415,6 +3409,17 @@ pub inline fn _mm_blendv_pd(a: __m128d, b: __m128d, mask: __m128d) __m128d {
 pub inline fn _mm_blendv_ps(a: __m128, b: __m128, mask: __m128) __m128 {
     const cmp = @as(i32x4, @splat(0)) > bitCast_i32x4(mask);
     return @select(f32, cmp, b, a);
+}
+
+test "_mm_blendv_ps" {
+    const a: __m128 = @bitCast(_mm_set_epi32(1065353216, 1073741824, 1077936128, 1082130432));
+    const b: __m128 = @bitCast(_mm_set_epi32(-8388608, 2139095041, -2147483648, -33488897));
+    const ref0 = _mm_set_epi32(-8388608, 1073741824, -2147483648, -33488897);
+    const ref1 = _mm_set_epi32(-8388608, 2139095041, -2147483648, -33488897);
+    const ref2 = _mm_set_epi32(1065353216, 2139095041, 1077936128, 1082130432);
+    try std.testing.expectEqual(ref0, @bitCast(_mm_blendv_ps(a, b, b)));
+    try std.testing.expectEqual(ref1, @bitCast(_mm_blendv_ps(b, a, a)));
+    try std.testing.expectEqual(ref2, @bitCast(_mm_blendv_ps(b, a, b)));
 }
 
 pub inline fn _mm_ceil_pd(a: __m128d) __m128d {
