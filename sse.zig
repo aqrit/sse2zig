@@ -3395,10 +3395,10 @@ test "_mm_blend_epi16" {
     const ref1 = _mm_set_epi16(3854, 3340, 2826, 2312, 1798, 1284, 770, 4096);
     const ref2 = _mm_set_epi16(-3872, -12096, 2826, 2312, 28768, 1284, 770, 4096);
     const ref3 = _mm_set_epi16(-3872, 3340, -20320, 2312, 28768, 1284, 12320, 256);
-    try std.testing.expectEqual(ref0, @bitCast(_mm_blend_epi16(a, b, 0)));
-    try std.testing.expectEqual(ref1, @bitCast(_mm_blend_epi16(b, a, 1)));
-    try std.testing.expectEqual(ref2, @bitCast(_mm_blend_epi16(a, b, 54)));
-    try std.testing.expectEqual(ref3, @bitCast(_mm_blend_epi16(a, b, 85)));
+    try std.testing.expectEqual(ref0, _mm_blend_epi16(a, b, 0));
+    try std.testing.expectEqual(ref1, _mm_blend_epi16(b, a, 1));
+    try std.testing.expectEqual(ref2, _mm_blend_epi16(a, b, 54));
+    try std.testing.expectEqual(ref3, _mm_blend_epi16(a, b, 85));
 }
 
 pub inline fn _mm_blend_pd(a: __m128d, b: __m128d, comptime imm8: comptime_int) __m128d {
