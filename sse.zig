@@ -1,5 +1,19 @@
 const std = @import("std"); // for std.testing.expectEqual
 
+// // use asm if supported by the target machine
+// const builtin = @import("builtin");
+// pub const has_avx2 = std.Target.x86.featureSetHas(builtin.cpu.features, .avx2);
+// pub const has_avx = std.Target.x86.featureSetHas(builtin.cpu.features, .avx);
+// pub const has_sse42 = std.Target.x86.featureSetHas(builtin.cpu.features, .sse4_2);
+// pub const has_sse41 = std.Target.x86.featureSetHas(builtin.cpu.features, .sse4_1);
+// pub const has_ssse3 = std.Target.x86.featureSetHas(builtin.cpu.features, .ssse3);
+// pub const has_sse3 = std.Target.x86.featureSetHas(builtin.cpu.features, .sse3);
+// pub const has_sse2 = std.Target.x86.featureSetHas(builtin.cpu.features, .sse2);
+// pub const has_sse = std.Target.x86.featureSetHas(builtin.cpu.features, .sse);
+//
+// todo: figure out how to pass options on the command line:
+// https://github.com/ziglang/zig/issues/2613
+
 pub const has_avx2 = false;
 pub const has_avx = false;
 pub const has_sse42 = false;
