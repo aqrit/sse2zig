@@ -149,6 +149,28 @@ inline fn intCast_i8x32(a: anytype) i8x32 {
 }
 
 // =====================================================================
+
+/// For setting test values (using hex literals).
+inline fn set_epu16(e7: u16, e6: u16, e5: u16, e4: u16, e3: u16, e2: u16, e1: u16, e0: u16) __m128i {
+    return @bitCast(u16x8{ e0, e1, e2, e3, e4, e5, e6, e7 });
+}
+
+/// For setting test values (using hex literals).
+inline fn set_epu32(e3: u32, e2: u32, e1: u32, e0: u32) __m128i {
+    return @bitCast(u32x4{ e0, e1, e2, e3 });
+}
+
+/// For setting test values (using hex literals).
+inline fn set_epu64x(e1: u64, e0: u64) __m128i {
+    return @bitCast(u64x2{ e0, e1 });
+}
+
+/// For setting test values (using hex literals).
+inline fn set_epu8(e15: u16, e14: u16, e13: u16, e12: u16, e11: u16, e10: u16, e9: u16, e8: u16, e7: u16, e6: u16, e5: u16, e4: u16, e3: u16, e2: u16, e1: u16, e0: u16) __m128i {
+    return @bitCast(u8x16{ e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15 });
+}
+
+// =====================================================================
 // Note: `nan = (x != x)` code gen seems good.
 // However, it somehow fails under test. comptime_float?
 // `@setFloatMode(std.builtin.FloatMode.Strict)` doesn't help.
@@ -3961,9 +3983,9 @@ pub inline fn _mm_packus_epi32(a: __m128i, b: __m128i) __m128i {
 }
 
 test "_mm_packus_epi32" {
-    const a = _mm_set_epi32(1, 65535, 32768, 0);
-    const b = _mm_set_epi32(2147483647, -2147483648, -1, 131071);
-    const ref = _mm_set_epi16(-1, 0, 0, -1, 1, -1, -32768, 0);
+    const a = set_epu32(0x00000001, 0x0000FFFF, 0x00008000, 0x00000000);
+    const b = set_epu32(0x7FFFFFFF, 0x80000000, 0xFFFFFFFF, 0x0001FFFF);
+    const ref = set_epu16(0xFFFF, 0, 0, 0xFFFF, 1, 0xFFFF, 0x8000, 0);
     try std.testing.expectEqual(ref, _mm_packus_epi32(a, b));
 }
 
@@ -4250,10 +4272,10 @@ pub inline fn _mm_cmpgt_epi64(a: __m128i, b: __m128i) __m128i {
 }
 
 test "_mm_cmpgt_epi64" {
-    const a = _mm_set_epi64x(-9223372036854775807, 1);
-    const b = _mm_set_epi64x(0, 2);
-    const ref0 = _mm_set_epi64x(0, 0);
-    const ref1 = _mm_set_epi64x(-1, -1);
+    const a = set_epu64x(0x8000000000000001, 2);
+    const b = _mm_set_epi64x(2, 1);
+    const ref0 = _mm_set_epi64x(0, -1);
+    const ref1 = _mm_set_epi64x(-1, 0);
     try std.testing.expectEqual(ref0, _mm_cmpgt_epi64(a, b));
     try std.testing.expectEqual(ref1, _mm_cmpgt_epi64(b, a));
 }
