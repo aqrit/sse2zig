@@ -2359,6 +2359,13 @@ pub inline fn _mm_min_epu8(a: __m128i, b: __m128i) __m128i {
     return @bitCast(@min(bitCast_u8x16(a), bitCast_u8x16(b)));
 }
 
+test "_mm_min_epu8" {
+    const a = set_epu8(0xFF, 0x80, 0x7F, 0x01, 0x81, 0x7E, 0x7F, 0x80, 0xFE, 0x80, 0x7F, 0x01, 0x81, 0x7E, 0x7F, 0x80);
+    const b = set_epu8(0x80, 0x00, 0x80, 0x80, 0x80, 0x7F, 0xFF, 0xFF, 0xFF, 0x55, 0x44, 0x22, 0x82, 0x66, 0x77, 0x88);
+    const ref = set_epu8(0x80, 0x00, 0x7F, 0x01, 0x80, 0x7E, 0x7F, 0x80, 0xFE, 0x55, 0x44, 0x01, 0x81, 0x66, 0x77, 0x80);
+    try std.testing.expectEqual(ref, _mm_min_epu8(a, b));
+}
+
 pub inline fn _mm_min_pd(a: __m128d, b: __m128d) __m128d {
     if (has_avx) {
         return asm ("vminpd %[b], %[a], %[ret]"
@@ -3962,7 +3969,51 @@ test "_mm_minpos_epu16" {
     try std.testing.expectEqual(ref, _mm_minpos_epu16(a));
 }
 
-// ## pub inline fn _mm_mpsadbw_epu8 (a: __m128i, b: __m128i, comptime imm8: comptime_int) __m128i {}
+pub inline fn _mm_mpsadbw_epu8(a: __m128i, b: __m128i, comptime imm8: comptime_int) __m128i {
+    if (has_avx) {
+        return asm ("vmpsadbw %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128i),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (imm8),
+        );
+    } else if (has_sse41) {
+        var res = a;
+        asm ("mpsadbw %[c], %[b], %[a]"
+            : [a] "+x" (res),
+            : [b] "x" (b),
+              [c] "N" (imm8),
+        );
+        return res;
+    } else {
+        const s0: __m128i = _mm_unpacklo_epi32(_mm_srli_si128(a, 0 + (imm8 & 4)), _mm_srli_si128(a, 2 + (imm8 & 4)));
+        const s1: __m128i = _mm_unpacklo_epi32(_mm_srli_si128(a, 1 + (imm8 & 4)), _mm_srli_si128(a, 3 + (imm8 & 4)));
+        const s2: __m128i = _mm_shuffle_epi32(b, _MM_SHUFFLE(imm8 & 3, imm8 & 3, imm8 & 3, imm8 & 3));
+
+        const abd0 = _mm_sub_epi8(_mm_max_epu8(s0, s2), _mm_min_epu8(s0, s2));
+        const abd1 = _mm_sub_epi8(_mm_max_epu8(s1, s2), _mm_min_epu8(s1, s2));
+
+        const mask = _mm_set1_epi16(0x00FF);
+        const hsum0 = _mm_add_epi16(_mm_srli_epi16(abd0, 8), _mm_and_si128(abd0, mask));
+        const hsum1 = _mm_add_epi16(_mm_srli_epi16(abd1, 8), _mm_and_si128(abd1, mask));
+
+        const lo = _mm_srli_epi32(_mm_add_epi16(hsum0, _mm_slli_epi32(hsum0, 16)), 16);
+        const hi = _mm_slli_epi32(_mm_add_epi16(hsum1, _mm_srli_epi32(hsum1, 16)), 16);
+
+        return _mm_or_si128(lo, hi);
+    }
+}
+
+test "_mm_mpsadbw_epu8" {
+    const a = set_epu32(0x07018593, 0x56312665, 0xFFFFFFFF, 0);
+    const b = set_epu32(3, 0xFA57C0DE, 1, 0);
+    const ref1 = _mm_set_epi16(476, 456, 431, 477, 374, 322, 413, 269);
+    try std.testing.expectEqual(ref1, _mm_mpsadbw_epu8(a, b, 6));
+
+    // https://github.com/ziglang/zig/issues/18365
+    // const ref0 = _mm_set_epi16(443, 649, 866, 1020, 765, 510, 255, 0);
+    // try std.testing.expectEqual(ref0, _mm_mpsadbw_epu8(a, b, 0));
+}
 
 pub inline fn _mm_mul_epi32(a: __m128i, b: __m128i) __m128i {
     const x = intCast_i64x4(a);
@@ -4287,7 +4338,7 @@ pub inline fn _mm_cmpgt_epi64(a: __m128i, b: __m128i) __m128i {
 
 test "_mm_cmpgt_epi64" {
     const a = set_epu64x(0x8000000000000001, 2);
-    const b = _mm_set_epi64x(2, 1);
+    const b = _mm_set_epi64x(0, 1);
     const ref0 = _mm_set_epi64x(0, -1);
     const ref1 = _mm_set_epi64x(-1, 0);
     try std.testing.expectEqual(ref0, _mm_cmpgt_epi64(a, b));
