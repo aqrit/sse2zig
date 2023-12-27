@@ -185,6 +185,76 @@ inline fn set_epu8(e15: u16, e14: u16, e13: u16, e12: u16, e11: u16, e10: u16, e
 }
 
 // =====================================================================
+// Zig has a "feature" where @min sometimes returns a random unrelated type.
+// These helper functions make sure we've got an implicit cast back to the expected return type.
+// https://github.com/ziglang/zig/issues/18365
+// I assume @max is similarly affected.
+
+inline fn min_i32x4(a: i32x4, b: i32x4) i32x4 {
+    return @min(a, b);
+}
+
+inline fn min_i32x8(a: i32x8, b: i32x8) i32x8 {
+    return @min(a, b);
+}
+
+inline fn min_u32x4(a: u32x4, b: u32x4) u32x4 {
+    return @min(a, b);
+}
+
+inline fn min_i16x8(a: i16x8, b: i16x8) i16x8 {
+    return @min(a, b);
+}
+
+inline fn min_i16x16(a: i16x16, b: i16x16) i16x16 {
+    return @min(a, b);
+}
+
+inline fn min_u16x8(a: u16x8, b: u16x8) u16x8 {
+    return @min(a, b);
+}
+
+inline fn min_u8x16(a: u8x16, b: u8x16) u8x16 {
+    return @min(a, b);
+}
+
+inline fn min_i8x16(a: i8x16, b: i8x16) i8x16 {
+    return @min(a, b);
+}
+
+inline fn max_i32x4(a: i32x4, b: i32x4) i32x4 {
+    return @max(a, b);
+}
+
+inline fn max_i32x8(a: i32x8, b: i32x8) i32x8 {
+    return @max(a, b);
+}
+
+inline fn max_u32x4(a: u32x4, b: u32x4) u32x4 {
+    return @max(a, b);
+}
+
+inline fn max_i16x8(a: i16x8, b: i16x8) i16x8 {
+    return @max(a, b);
+}
+
+inline fn max_i16x16(a: i16x16, b: i16x16) i16x16 {
+    return @max(a, b);
+}
+
+inline fn max_u16x8(a: u16x8, b: u16x8) u16x8 {
+    return @max(a, b);
+}
+
+inline fn max_u8x16(a: u8x16, b: u8x16) u8x16 {
+    return @max(a, b);
+}
+
+inline fn max_i8x16(a: i8x16, b: i8x16) i8x16 {
+    return @max(a, b);
+}
+
+// =====================================================================
 // Note: `nan = (x != x)` code gen seems good.
 // However, it somehow fails under test. comptime_float?
 // `@setFloatMode(std.builtin.FloatMode.Strict)` doesn't help.
@@ -2291,11 +2361,11 @@ pub inline fn _mm_madd_epi16(a: __m128i, b: __m128i) __m128i {
 // ## pub inline fn _mm_maskmoveu_si128(a: __m128i, mask: __m128i, mem_addr: *[16]u8) void {}
 
 pub inline fn _mm_max_epi16(a: __m128i, b: __m128i) __m128i {
-    return @bitCast(@max(bitCast_i16x8(a), bitCast_i16x8(b)));
+    return @bitCast(max_i16x8(bitCast_i16x8(a), bitCast_i16x8(b)));
 }
 
 pub inline fn _mm_max_epu8(a: __m128i, b: __m128i) __m128i {
-    return @bitCast(@max(bitCast_u8x16(a), bitCast_u8x16(b)));
+    return @bitCast(max_u8x16(bitCast_u8x16(a), bitCast_u8x16(b)));
 }
 
 pub inline fn _mm_max_pd(a: __m128d, b: __m128d) __m128d {
@@ -2352,11 +2422,11 @@ pub inline fn _mm_mfence() void {
 }
 
 pub inline fn _mm_min_epi16(a: __m128i, b: __m128i) __m128i {
-    return @bitCast(@min(bitCast_i16x8(a), bitCast_i16x8(b)));
+    return @bitCast(min_i16x8(bitCast_i16x8(a), bitCast_i16x8(b)));
 }
 
 pub inline fn _mm_min_epu8(a: __m128i, b: __m128i) __m128i {
-    return @bitCast(@min(bitCast_u8x16(a), bitCast_u8x16(b)));
+    return @bitCast(min_u8x16(bitCast_u8x16(a), bitCast_u8x16(b)));
 }
 
 test "_mm_min_epu8" {
@@ -2474,24 +2544,24 @@ pub inline fn _mm_or_si128(a: __m128i, b: __m128i) __m128i {
 pub inline fn _mm_packs_epi16(a: __m128i, b: __m128i) __m128i {
     const shuf = i32x16{ 0, 1, 2, 3, 4, 5, 6, 7, -1, -2, -3, -4, -5, -6, -7, -8 };
     var ab = @shuffle(i16, bitCast_i16x8(a), bitCast_i16x8(b), shuf);
-    ab = @min(ab, @as(i16x16, @splat(127)));
-    ab = @max(ab, @as(i16x16, @splat(-128)));
+    ab = min_i16x16(ab, @splat(127));
+    ab = max_i16x16(ab, @splat(-128));
     return @bitCast(@as(i8x16, @truncate(ab)));
 }
 
 pub inline fn _mm_packs_epi32(a: __m128i, b: __m128i) __m128i {
     const shuf = i32x8{ 0, 1, 2, 3, -1, -2, -3, -4 };
     var ab = @shuffle(i32, bitCast_i32x4(a), bitCast_i32x4(b), shuf);
-    ab = @min(ab, @as(i32x8, @splat(32767)));
-    ab = @max(ab, @as(i32x8, @splat(-32768)));
+    ab = min_i32x8(ab, @splat(32767));
+    ab = max_i32x8(ab, @splat(-32768));
     return @bitCast(@as(i16x8, @truncate(ab)));
 }
 
 pub inline fn _mm_packus_epi16(a: __m128i, b: __m128i) __m128i {
     const shuf = i32x16{ 0, 1, 2, 3, 4, 5, 6, 7, -1, -2, -3, -4, -5, -6, -7, -8 };
     var ab = @shuffle(i16, bitCast_i16x8(a), bitCast_i16x8(b), shuf);
-    ab = @min(ab, @as(i16x16, @splat(255)));
-    ab = @max(ab, @as(i16x16, @splat(0)));
+    ab = min_i16x16(ab, @splat(255));
+    ab = max_i16x16(ab, @splat(0));
     return @bitCast(@as(i8x16, @truncate(ab)));
 }
 
@@ -2523,8 +2593,8 @@ pub inline fn _mm_sad_epu8(a: __m128i, b: __m128i) __m128i {
         const shuf_lo = i32x8{ 0, 1, 2, 3, 4, 5, 6, 7 };
         const shuf_hi = i32x8{ 8, 9, 10, 11, 12, 13, 14, 15 };
 
-        const max = @max(bitCast_u8x16(a), bitCast_u8x16(b));
-        const min = @min(bitCast_u8x16(a), bitCast_u8x16(b));
+        const max = max_u8x16(bitCast_u8x16(a), bitCast_u8x16(b));
+        const min = min_u8x16(bitCast_u8x16(a), bitCast_u8x16(b));
         const abd = intCast_u16x16(max - min);
 
         const lo = @reduce(.Add, @shuffle(u16, abd, undefined, shuf_lo));
@@ -3855,7 +3925,7 @@ test "_mm_insert_ps" {
 }
 
 pub inline fn _mm_max_epi32(a: __m128i, b: __m128i) __m128i {
-    return @bitCast(@max(bitCast_i32x4(a), bitCast_i32x4(b)));
+    return @bitCast(max_i32x4(bitCast_i32x4(a), bitCast_i32x4(b)));
 }
 
 test "_mm_max_epi32" {
@@ -3866,7 +3936,7 @@ test "_mm_max_epi32" {
 }
 
 pub inline fn _mm_max_epi8(a: __m128i, b: __m128i) __m128i {
-    return @bitCast(@max(bitCast_i8x16(a), bitCast_i8x16(b)));
+    return @bitCast(max_i8x16(bitCast_i8x16(a), bitCast_i8x16(b)));
 }
 
 test "_mm_max_epi8" {
@@ -3877,7 +3947,7 @@ test "_mm_max_epi8" {
 }
 
 pub inline fn _mm_max_epu16(a: __m128i, b: __m128i) __m128i {
-    return @bitCast(@max(bitCast_u16x8(a), bitCast_u16x8(b)));
+    return @bitCast(max_u16x8(bitCast_u16x8(a), bitCast_u16x8(b)));
 }
 
 test "_mm_max_epu16" {
@@ -3888,7 +3958,7 @@ test "_mm_max_epu16" {
 }
 
 pub inline fn _mm_max_epu32(a: __m128i, b: __m128i) __m128i {
-    return @bitCast(@max(bitCast_u32x4(a), bitCast_u32x4(b)));
+    return @bitCast(max_u32x4(bitCast_u32x4(a), bitCast_u32x4(b)));
 }
 
 test "_mm_max_epu32" {
@@ -3899,7 +3969,7 @@ test "_mm_max_epu32" {
 }
 
 pub inline fn _mm_min_epi32(a: __m128i, b: __m128i) __m128i {
-    return @bitCast(@min(bitCast_i32x4(a), bitCast_i32x4(b)));
+    return @bitCast(min_i32x4(bitCast_i32x4(a), bitCast_i32x4(b)));
 }
 
 test "_mm_min_epi32" {
@@ -3910,7 +3980,7 @@ test "_mm_min_epi32" {
 }
 
 pub inline fn _mm_min_epi8(a: __m128i, b: __m128i) __m128i {
-    return @bitCast(@min(bitCast_i8x16(a), bitCast_i8x16(b)));
+    return @bitCast(min_i8x16(bitCast_i8x16(a), bitCast_i8x16(b)));
 }
 
 test "_mm_min_epi8" {
@@ -3921,7 +3991,7 @@ test "_mm_min_epi8" {
 }
 
 pub inline fn _mm_min_epu16(a: __m128i, b: __m128i) __m128i {
-    return @bitCast(@min(bitCast_u16x8(a), bitCast_u16x8(b)));
+    return @bitCast(min_u16x8(bitCast_u16x8(a), bitCast_u16x8(b)));
 }
 
 test "_mm_min_epu16" {
@@ -3932,7 +4002,7 @@ test "_mm_min_epu16" {
 }
 
 pub inline fn _mm_min_epu32(a: __m128i, b: __m128i) __m128i {
-    return @bitCast(@min(bitCast_u32x4(a), bitCast_u32x4(b)));
+    return @bitCast(min_u32x4(bitCast_u32x4(a), bitCast_u32x4(b)));
 }
 
 test "_mm_min_epu32" {
@@ -4007,12 +4077,10 @@ pub inline fn _mm_mpsadbw_epu8(a: __m128i, b: __m128i, comptime imm8: comptime_i
 test "_mm_mpsadbw_epu8" {
     const a = set_epu32(0x07018593, 0x56312665, 0xFFFFFFFF, 0);
     const b = set_epu32(3, 0xFA57C0DE, 1, 0);
+    const ref0 = _mm_set_epi16(443, 649, 866, 1020, 765, 510, 255, 0);
     const ref1 = _mm_set_epi16(476, 456, 431, 477, 374, 322, 413, 269);
+    try std.testing.expectEqual(ref0, _mm_mpsadbw_epu8(a, b, 0));
     try std.testing.expectEqual(ref1, _mm_mpsadbw_epu8(a, b, 6));
-
-    // https://github.com/ziglang/zig/issues/18365
-    // const ref0 = _mm_set_epi16(443, 649, 866, 1020, 765, 510, 255, 0);
-    // try std.testing.expectEqual(ref0, _mm_mpsadbw_epu8(a, b, 0));
 }
 
 pub inline fn _mm_mul_epi32(a: __m128i, b: __m128i) __m128i {
@@ -4042,8 +4110,8 @@ test "_mm_mullo_epi32" {
 pub inline fn _mm_packus_epi32(a: __m128i, b: __m128i) __m128i {
     const shuf: [8]i32 = .{ 0, 1, 2, 3, -1, -2, -3, -4 };
     var ab = @shuffle(i32, bitCast_i32x4(a), bitCast_i32x4(b), shuf);
-    ab = @min(ab, @as(i32x8, @splat(65535)));
-    ab = @max(ab, @as(i32x8, @splat(0)));
+    ab = min_i32x8(ab, @splat(65535));
+    ab = max_i32x8(ab, @splat(0));
     return @bitCast(@as(i16x8, @truncate(ab)));
 }
 
