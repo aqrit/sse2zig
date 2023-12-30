@@ -1,27 +1,21 @@
-const std = @import("std"); // for std.testing.expectEqual
+const builtin = @import("builtin");
+const root = @import("root");
+const std = @import("std");
 
-// // use asm if supported by the target machine
-// const builtin = @import("builtin");
-// pub const has_avx2 = std.Target.x86.featureSetHas(builtin.cpu.features, .avx2);
-// pub const has_avx = std.Target.x86.featureSetHas(builtin.cpu.features, .avx);
-// pub const has_sse42 = std.Target.x86.featureSetHas(builtin.cpu.features, .sse4_2);
-// pub const has_sse41 = std.Target.x86.featureSetHas(builtin.cpu.features, .sse4_1);
-// pub const has_ssse3 = std.Target.x86.featureSetHas(builtin.cpu.features, .ssse3);
-// pub const has_sse3 = std.Target.x86.featureSetHas(builtin.cpu.features, .sse3);
-// pub const has_sse2 = std.Target.x86.featureSetHas(builtin.cpu.features, .sse2);
-// pub const has_sse = std.Target.x86.featureSetHas(builtin.cpu.features, .sse);
-//
-// todo: figure out how to pass options on the command line:
-// https://github.com/ziglang/zig/issues/2613
+/// Enable the use of inline assembly statements by default.
+/// Disable asm statements by declaring in the root src file:
+/// `pub const sse2zig_useAsm = false;`
+/// You could also just edit this line to set `use_asm` to true/false...
+const use_asm = if (@hasDecl(root, "sse2zig_useAsm")) root.sse2zig_useAsm else true;
 
-pub const has_avx2 = false;
-pub const has_avx = false;
-pub const has_sse42 = false;
-pub const has_sse41 = false;
-pub const has_ssse3 = false;
-pub const has_sse3 = false;
-pub const has_sse2 = false;
-pub const has_sse = false;
+const has_avx2 = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .avx2);
+const has_avx = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .avx);
+const has_sse4_2 = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .sse4_2);
+const has_sse4_1 = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .sse4_1);
+const has_ssse3 = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .ssse3);
+const has_sse3 = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .sse3);
+const has_sse2 = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .sse2);
+const has_sse = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .sse);
 
 pub const has_neon = false;
 
@@ -185,10 +179,9 @@ inline fn set_epu8(e15: u16, e14: u16, e13: u16, e12: u16, e11: u16, e10: u16, e
 }
 
 // =====================================================================
-// Zig has a "feature" where @min sometimes returns a random unrelated type.
-// These helper functions make sure we've got an implicit cast back to the expected return type.
-// https://github.com/ziglang/zig/issues/18365
-// I assume @max is similarly affected.
+// @min will @truncate the type, if it can.
+// @max is probably similarly.
+// These helper functions implicit cast back to the expected return type.
 
 inline fn min_i32x4(a: i32x4, b: i32x4) i32x4 {
     return @min(a, b);
@@ -3793,7 +3786,7 @@ pub inline fn _mm_dp_ps(a: __m128, b: __m128, comptime imm8: comptime_int) __m12
               [b] "x" (b),
               [c] "N" (imm8),
         );
-    } else if (has_sse41) {
+    } else if (has_sse4_1) {
         var res = a;
         asm ("dpps %[c], %[b], %[a]"
             : [a] "+x" (res),
@@ -4018,7 +4011,7 @@ pub inline fn _mm_minpos_epu16(a: __m128i) __m128i {
             : [ret] "=x" (-> __m128i),
             : [a] "x" (a),
         );
-    } else if (has_sse41) {
+    } else if (has_sse4_1) {
         return asm ("phminposuw %[a], %[ret]"
             : [ret] "=x" (-> __m128i),
             : [a] "x" (a),
@@ -4047,7 +4040,7 @@ pub inline fn _mm_mpsadbw_epu8(a: __m128i, b: __m128i, comptime imm8: comptime_i
               [b] "x" (b),
               [c] "N" (imm8),
         );
-    } else if (has_sse41) {
+    } else if (has_sse4_1) {
         var res = a;
         asm ("mpsadbw %[c], %[b], %[a]"
             : [a] "+x" (res),
@@ -4129,7 +4122,7 @@ pub inline fn _mm_round_pd(a: __m128d, comptime imm8: comptime_int) __m128d {
             : [a] "x" (a),
               [c] "N" (imm8),
         );
-    } else if (has_sse41) {
+    } else if (has_sse4_1) {
         return asm ("roundpd %[c], %[a], %[ret]"
             : [ret] "=x" (-> __m128d),
             : [a] "x" (a),
@@ -4153,7 +4146,7 @@ pub inline fn _mm_round_ps(a: __m128, comptime imm8: comptime_int) __m128 {
             : [a] "x" (a),
               [c] "N" (imm8),
         );
-    } else if (has_sse41) {
+    } else if (has_sse4_1) {
         return asm ("roundps %[c], %[a], %[ret]"
             : [ret] "=x" (-> __m128),
             : [a] "x" (a),
@@ -4212,7 +4205,7 @@ pub inline fn _mm_round_sd(a: __m128d, b: __m128d, comptime imm8: comptime_int) 
               [b] "x" (b),
               [c] "N" (imm8),
         );
-    } else if (has_sse41) {
+    } else if (has_sse4_1) {
         var res = a;
         asm ("roundsd %[c], %[b], %[a]"
             : [a] "+x" (res),
@@ -4245,7 +4238,7 @@ pub inline fn _mm_round_ss(a: __m128, b: __m128, comptime imm8: comptime_int) __
               [b] "x" (b),
               [c] "N" (imm8),
         );
-    } else if (has_sse41) {
+    } else if (has_sse4_1) {
         var res = a;
         asm ("roundss %[c], %[b], %[a]"
             : [a] "+x" (res),
@@ -4363,7 +4356,7 @@ pub inline fn _mm_testnzc_si128(a: __m128i, b: __m128i) i32 {
             : [a] "x" (a),
               [b] "x" (b),
         );
-    } else if (has_sse41) {
+    } else if (has_sse4_1) {
         return asm ("ptest %[b],%[a]"
             : [_] "={@cca}" (-> i32),
             : [a] "x" (a),
