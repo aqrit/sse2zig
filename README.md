@@ -11,7 +11,7 @@ However, there are no plans to implement the following:
 
 Optional assembly statements are provided for many intrinsics. They are enabled by default.
 
-Use of assembly statements can be controled in the root source file:    
+Use of assembly statements can be controlled in the root source file:    
 ```pub const sse2zig_useAsm = false;```
 
 
