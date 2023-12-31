@@ -2325,9 +2325,25 @@ pub inline fn _mm_loadu_si128(mem_addr: *align(1) const __m128i) __m128i {
     return mem_addr.*;
 }
 
+test "_mm_loadu_si128" {
+    const arr: [17]u8 = .{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+    const ref0 = _mm_set_epi8(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
+    const ref1 = _mm_set_epi8(16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1);
+    try std.testing.expectEqual(ref0, _mm_loadu_si128(@ptrCast(&arr[0])));
+    try std.testing.expectEqual(ref1, _mm_loadu_si128(@ptrCast(&arr[1])));
+}
+
 pub inline fn _mm_loadu_si16(mem_addr: *const anyopaque) __m128i {
     const word = @as(*align(1) const u16, @ptrCast(mem_addr)).*;
     return @bitCast(u16x8{ word, 0, 0, 0, 0, 0, 0, 0 });
+}
+
+test "_mm_loadu_si16" {
+    const arr: [3]u8 = .{ 1, 2, 3 };
+    const ref0 = _mm_set_epi8(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1);
+    const ref1 = _mm_set_epi16(0, 0, 0, 0, 0, 0, 0, 0x0302);
+    try std.testing.expectEqual(ref0, _mm_loadu_si16(&arr[0]));
+    try std.testing.expectEqual(ref1, _mm_loadu_si16(&arr[1]));
 }
 
 pub inline fn _mm_loadu_si32(mem_addr: *const anyopaque) __m128i {
@@ -2335,20 +2351,42 @@ pub inline fn _mm_loadu_si32(mem_addr: *const anyopaque) __m128i {
     return @bitCast(u32x4{ dword, 0, 0, 0 });
 }
 
+test "_mm_loadu_si32" {
+    const arr: [5]u8 = .{ 1, 2, 3, 4, 5 };
+    const ref0 = _mm_set_epi32(0, 0, 0, 0x04030201);
+    const ref1 = _mm_set_epi32(0, 0, 0, 0x05040302);
+    try std.testing.expectEqual(ref0, _mm_loadu_si32(&arr[0]));
+    try std.testing.expectEqual(ref1, _mm_loadu_si32(&arr[1]));
+}
+
 pub inline fn _mm_loadu_si64(mem_addr: *const anyopaque) __m128i {
     const qword = @as(*align(1) const u64, @ptrCast(mem_addr)).*;
     return @bitCast(u64x2{ qword, 0 });
+}
+
+test "_mm_loadu_si64" {
+    const arr: [9]u8 = .{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+    const ref0 = _mm_set_epi64x(0, 0x0807060504030201);
+    const ref1 = _mm_set_epi64x(0, 0x0908070605040302);
+    try std.testing.expectEqual(ref0, _mm_loadu_si64(&arr[0]));
+    try std.testing.expectEqual(ref1, _mm_loadu_si64(&arr[1]));
 }
 
 pub inline fn _mm_madd_epi16(a: __m128i, b: __m128i) __m128i {
     const r = intCast_i32x8(bitCast_i16x8(a)) *%
         intCast_i32x8(bitCast_i16x8(b));
 
-    const shuf_even = i32x4{ 0, 2, 4, 6 };
-    const shuf_odd = i32x4{ 1, 3, 5, 7 };
-    const even = @shuffle(i32, r, undefined, shuf_even);
-    const odd = @shuffle(i32, r, undefined, shuf_odd);
+    const even = @shuffle(i32, r, undefined, [4]i32{ 0, 2, 4, 6 });
+    const odd = @shuffle(i32, r, undefined, [4]i32{ 1, 3, 5, 7 });
     return @bitCast(even +% odd);
+}
+
+test "_mm_madd_epi16" {
+    const a = set_epu16(0x8000, 0x7FFF, 0x8000, 0x0000, 0xFFFF, 0x8000, 0x7FFF, 0x7FFF);
+    const b = _mm_set_epi16(2, 3, -32768, 4, 128, 32767, 255, 5);
+    const ref = _mm_set_epi32(32765, 1073741824, -1073709184, 8519420);
+    try std.testing.expectEqual(ref, _mm_madd_epi16(a, b));
+    try std.testing.expectEqual(ref, _mm_madd_epi16(b, a));
 }
 
 // ## pub inline fn _mm_maskmoveu_si128(a: __m128i, mask: __m128i, mem_addr: *[16]u8) void {}
@@ -2357,8 +2395,26 @@ pub inline fn _mm_max_epi16(a: __m128i, b: __m128i) __m128i {
     return @bitCast(max_i16x8(bitCast_i16x8(a), bitCast_i16x8(b)));
 }
 
+test "_mm_max_epi16" {
+    const a = _mm_set_epi16(-32768, 32767, -32768, 0, -1, -32768, 1, 32767);
+    const b = _mm_set_epi16(-1, -32768, -32767, -1, 32767, -32768, -2, 32494);
+    const ref = _mm_set_epi16(-1, 32767, -32767, 0, 32767, -32768, 1, 32767);
+    try std.testing.expectEqual(ref, _mm_max_epi16(a, b));
+    try std.testing.expectEqual(ref, _mm_max_epi16(b, a));
+}
+
 pub inline fn _mm_max_epu8(a: __m128i, b: __m128i) __m128i {
     return @bitCast(max_u8x16(bitCast_u8x16(a), bitCast_u8x16(b)));
+}
+
+test "_mm_max_epu8" {
+    const a = set_epu8(0x80, 0x7F, 0x80, 0x00, 0xFF, 0x80, 0x01, 0x7F, 0x05, 0x00, 0x00, 0x00, 0x80, 0x04, 0x03, 0x02);
+    const b = set_epu8(0xFF, 0x80, 0x81, 0xFF, 0x7F, 0x80, 0xFE, 0x7E, 0x04, 0x01, 0xFF, 0x02, 0x7F, 0x05, 0x06, 0x07);
+    const ref = set_epu8(0xFF, 0x80, 0x81, 0xFF, 0xFF, 0x80, 0xFE, 0x7F, 0x05, 0x01, 0xFF, 0x02, 0x80, 0x05, 0x06, 0x07);
+    try std.testing.expectEqual(ref, _mm_max_epu8(a, b));
+
+    const c = _mm_set1_epi8(1);
+    try std.testing.expectEqual(c, _mm_max_epu8(c, c));
 }
 
 pub inline fn _mm_max_pd(a: __m128d, b: __m128d) __m128d {
@@ -3385,6 +3441,10 @@ pub inline fn _mm_mulhrs_epi16(a: __m128i, b: __m128i) __m128i {
     }
 }
 
+/// Gathers bytes from `a` according to `b` (the shuffle control index)
+/// The low 4-bits of each lane of `b` index into `a`
+/// Bits 4,5,6 are ignored.
+/// If Bit_7 is set then make the destintion zero.
 pub inline fn _mm_shuffle_epi8(a: __m128i, b: __m128i) __m128i {
     if (has_avx) {
         return asm ("vpshufb %[b], %[a], %[ret]"
@@ -3399,15 +3459,22 @@ pub inline fn _mm_shuffle_epi8(a: __m128i, b: __m128i) __m128i {
             : [b] "x" (b),
         );
         return res;
-    } else { // !NOT TESTED!
-        var r: i8x16 = undefined;
+    } else {
+        var r: u8x16 = undefined;
         const shuf = bitCast_i8x16(b) & @as(i8x16, @splat(0x0F));
-        const mask = bitCast_i8x16(b) >> @as(i8x16, @splat(7));
+        const mask = @intFromBool(bitCast_i8x16(b) < @as(i8x16, @splat(0)));
         for (0..16) |i| {
-            r[i] = bitCast_i8x16(a)[@intCast(shuf[i])];
+            r[i] = bitCast_u8x16(a)[@intCast(shuf[i])];
         }
-        return @bitCast(~mask & r);
+        return @bitCast(~boolMask_u8x16(mask) & r);
     }
+}
+
+test "_mm_shuffle_epi8" {
+    const a = _mm_set_epi8(-128, -1, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1);
+    const b = _mm_set_epi8(15, 14, 13, 12, 11, 10, 9, 8, -1, -128, -116, 77, 47, 30, 5, 1);
+    const ref = _mm_set_epi8(-128, -1, 14, 13, 12, 11, 10, 9, 0, 0, 0, 14, -128, -1, 6, 2);
+    try std.testing.expectEqual(ref, _mm_shuffle_epi8(a, b));
 }
 
 pub inline fn _mm_sign_epi16(a: __m128i, b: __m128i) __m128i {
