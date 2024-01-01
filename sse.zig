@@ -22,6 +22,9 @@ pub const has_neon = false;
 pub const __m128 = @Vector(4, f32);
 pub const __m128d = @Vector(2, f64);
 pub const __m128i = @Vector(4, i32);
+pub const __m256 = @Vector(8, f32);
+pub const __m256d = @Vector(4, f64);
+pub const __m256i = @Vector(8, i32);
 
 // helpers to reduce verbosity =========================================
 
@@ -53,6 +56,8 @@ const i16x16 = @Vector(16, i16);
 const i8x32 = @Vector(32, i8);
 //
 const i32x16 = @Vector(16, i32);
+const u32x16 = @Vector(16, u32);
+const u16x32 = @Vector(32, u16);
 // =====================================================================
 
 inline fn bitCast_u64x2(a: anytype) u64x2 {
@@ -155,7 +160,12 @@ inline fn intCast_i16x16(a: anytype) i16x16 {
 inline fn intCast_i8x32(a: anytype) i8x32 {
     return @intCast(a);
 }
-
+inline fn intCast_u32x16(a: anytype) u32x16 {
+    return @intCast(a);
+}
+inline fn intCast_u16x32(a: anytype) u16x32 {
+    return @intCast(a);
+}
 // =====================================================================
 
 /// For setting test values (using hex literals).
@@ -376,6 +386,26 @@ inline fn boolMask_u32x4(pred: @Vector(4, u1)) u32x4 {
 /// Fill a lane with all set bits or all zeros
 inline fn boolMask_u64x2(pred: @Vector(2, u1)) u64x2 {
     return @bitCast(intCast_i64x2(@as(@Vector(2, i1), @bitCast(pred))));
+}
+
+/// Fill a lane with all set bits or all zeros
+inline fn boolMask_u8x32(pred: @Vector(32, u1)) u8x32 {
+    return @bitCast(intCast_i8x32(@as(@Vector(32, i1), @bitCast(pred))));
+}
+
+/// Fill a lane with all set bits or all zeros
+inline fn boolMask_u16x16(pred: @Vector(16, u1)) u16x16 {
+    return @bitCast(intCast_i16x16(@as(@Vector(16, i1), @bitCast(pred))));
+}
+
+/// Fill a lane with all set bits or all zeros
+inline fn boolMask_u32x8(pred: @Vector(8, u1)) u32x8 {
+    return @bitCast(intCast_i32x8(@as(@Vector(8, i1), @bitCast(pred))));
+}
+
+/// Fill a lane with all set bits or all zeros
+inline fn boolMask_u64x4(pred: @Vector(4, u1)) u64x4 {
+    return @bitCast(intCast_i64x4(@as(@Vector(4, i1), @bitCast(pred))));
 }
 
 // SSE =================================================================
@@ -4471,4 +4501,246 @@ test "_mm_cmpgt_epi64" {
     const ref1 = _mm_set_epi64x(-1, 0);
     try std.testing.expectEqual(ref0, _mm_cmpgt_epi64(a, b));
     try std.testing.expectEqual(ref1, _mm_cmpgt_epi64(b, a));
+}
+
+// AVX2 ==============================================================
+
+pub inline fn _mm256_abs_epi16(a: __m256i) __m256i {
+    return @bitCast(@abs(bitCast_i16x16(a)));
+}
+
+pub inline fn _mm256_abs_epi32(a: __m256i) __m256i {
+    return @bitCast(@abs(bitCast_i32x8(a)));
+}
+
+pub inline fn _mm256_abs_epi8(a: __m256i) __m256i {
+    return @bitCast(@abs(bitCast_i8x32(a)));
+}
+
+pub inline fn _mm256_add_epi16(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(bitCast_u16x16(a) +% bitCast_u16x16(b));
+}
+
+pub inline fn _mm256_add_epi32(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(bitCast_u32x8(a) +% bitCast_u32x8(b));
+}
+
+pub inline fn _mm256_add_epi64(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(bitCast_u64x4(a) +% bitCast_u64x4(b));
+}
+
+pub inline fn _mm256_add_epi8(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(bitCast_u8x32(a) +% bitCast_u8x32(b));
+}
+
+pub inline fn _mm256_adds_epi16(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(bitCast_i16x16(a) +| bitCast_i16x16(b));
+}
+
+pub inline fn _mm256_adds_epi8(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(bitCast_i8x32(a) +| bitCast_i8x32(b));
+}
+
+pub inline fn _mm256_adds_epu16(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(bitCast_u16x16(a) +| bitCast_u16x16(b));
+}
+
+pub inline fn _mm256_adds_epu8(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(bitCast_u8x32(a) +| bitCast_u8x32(b));
+}
+
+pub inline fn _mm256_alignr_epi8(a: __m256i, b: __m256i, comptime imm8: comptime_int) __m256i {
+    if (@as(u8, @intCast(imm8)) > 31) {
+        return @splat(0);
+    }
+    if (@as(u8, @intCast(imm8)) > 15) {
+        return _mm256_alignr_epi8(@splat(0), a, imm8 - 16);
+    }
+
+    const shuf = comptime blk: {
+        var indices: [32]i32 = undefined;
+        for (0..16) |i| {
+            var x: i32 = @as(i32, @intCast(i)) + imm8;
+            if (x > 15) {
+                x = -x + 15;
+            }
+            indices[i] = x;
+            indices[i ^ 16] = x ^ 16;
+        }
+        break :blk indices;
+    };
+
+    return @bitCast(@shuffle(u8, bitCast_u8x32(b), bitCast_u8x32(a), shuf));
+}
+
+pub inline fn _mm256_and_si256(a: __m256i, b: __m256i) __m256i {
+    return a & b;
+}
+
+pub inline fn _mm256_andnot_si256(a: __m256i, b: __m256i) __m256i {
+    return ~a & b;
+}
+
+pub inline fn _mm256_avg_epu16(a: __m256i, b: __m256i) __m256i {
+    // `r = (a | b) - ((a ^ b) >> 1)` isn't optimized to vpavgw
+    const one: u32x16 = @splat(1);
+    const c = intCast_u32x16(bitCast_u16x16(a));
+    const d = intCast_u32x16(bitCast_u16x16(b));
+    const e = (c +% d +% one) >> one;
+    return @bitCast(@as(u16x16, @truncate(e)));
+}
+
+pub inline fn _mm256_avg_epu8(a: __m256i, b: __m256i) __m256i {
+    // `r = (a | b) - ((a ^ b) >> 1)` isn't optimized to vpavgb
+    const one: u16x32 = @splat(1);
+    const c = intCast_u16x32(bitCast_u8x32(a));
+    const d = intCast_u16x32(bitCast_u8x32(b));
+    const e = (c +% d +% one) >> one;
+    return @bitCast(@as(u8x32, @truncate(e)));
+}
+
+pub inline fn _mm256_blend_epi16(a: __m256i, b: __m256i, comptime imm8: comptime_int) __m256i {
+    const mask: @Vector(16, bool) = @bitCast(@as(u16, (imm8 << 8) | imm8));
+    return @bitCast(@select(i16, mask, bitCast_i16x16(b), bitCast_i16x16(a)));
+}
+
+pub inline fn _mm_blend_epi32(a: __m128i, b: __m128i, comptime imm8: comptime_int) __m128i {
+    const mask: @Vector(4, bool) = @bitCast(@as(u4, imm8));
+    return @bitCast(@select(i32, mask, bitCast_i32x4(b), bitCast_i32x4(a)));
+}
+
+pub inline fn _mm256_blend_epi32(a: __m256i, b: __m256i, comptime imm8: comptime_int) __m256i {
+    const mask: @Vector(8, bool) = @bitCast(@as(u8, imm8));
+    return @bitCast(@select(i32, mask, bitCast_i32x8(b), bitCast_i32x8(a)));
+}
+
+pub inline fn _mm256_blendv_epi8(a: __m256i, b: __m256i, mask: __m256i) __m256i {
+    const cmp = @as(i8x32, @splat(0)) > bitCast_i8x32(mask);
+    return @bitCast(@select(i8, cmp, bitCast_i8x32(b), bitCast_i8x32(a)));
+}
+
+pub inline fn _mm_broadcastb_epi8(a: __m128i) __m128i {
+    return @bitCast(@as(i8x16, @splat(bitCast_i8x16(a)[0])));
+}
+
+pub inline fn _mm256_broadcastb_epi8(a: __m128i) __m256i {
+    return @bitCast(@as(i8x32, @splat(bitCast_i8x16(a)[0])));
+}
+
+pub inline fn _mm_broadcastd_epi32(a: __m128i) __m128i {
+    return @bitCast(@as(i32x4, @splat(bitCast_i32x4(a)[0])));
+}
+
+pub inline fn _mm256_broadcastd_epi32(a: __m128i) __m256i {
+    return @bitCast(@as(i32x8, @splat(bitCast_i32x4(a)[0])));
+}
+
+pub inline fn _mm_broadcastq_epi64(a: __m128i) __m128i {
+    return @bitCast(@as(i64x2, @splat(bitCast_i64x2(a)[0])));
+}
+
+pub inline fn _mm256_broadcastq_epi64(a: __m128i) __m256i {
+    return @bitCast(@as(i64x4, @splat(bitCast_i64x2(a)[0])));
+}
+
+pub inline fn _mm_broadcastsd_pd(a: __m128d) __m128d {
+    return @splat(a[0]);
+}
+
+pub inline fn _mm256_broadcastsd_pd(a: __m128d) __m256d {
+    return @splat(a[0]);
+}
+
+pub inline fn _mm_broadcastsi128_si256(a: __m128i) __m256i {
+    return _mm256_broadcastsi128_si256(a);
+}
+
+pub inline fn _mm256_broadcastsi128_si256(a: __m128i) __m256i {
+    const e = bitCast_i32x4(a);
+    return @bitCast(i32x8{ e[0], e[1], e[2], e[3], e[0], e[1], e[2], e[3] });
+}
+
+pub inline fn _mm_broadcastss_ps(a: __m128) __m128 {
+    return @splat(a[0]);
+}
+
+pub inline fn _mm256_broadcastss_ps(a: __m128) __m256 {
+    return @splat(a[0]);
+}
+
+pub inline fn _mm_broadcastw_epi16(a: __m128i) __m128i {
+    return @bitCast(@as(i16x8, @splat(bitCast_i16x8(a)[0])));
+}
+
+pub inline fn _mm256_broadcastw_epi16(a: __m128i) __m256i {
+    return @bitCast(@as(i16x16, @splat(bitCast_i16x8(a)[0])));
+}
+
+pub inline fn _mm256_bslli_epi128(a: __m256i, comptime imm8: comptime_int) __m256i {
+    return _mm256_slli_si256(a, imm8);
+}
+
+pub inline fn _mm256_bsrli_epi128(a: __m256i, comptime imm8: comptime_int) __m256i {
+    return _mm256_srli_si256(a, imm8);
+}
+
+/// dst[n] = if (a[n] == b[n]) -1 else 0;
+pub inline fn _mm256_cmpeq_epi16(a: __m256i, b: __m256i) __m256i {
+    const pred = @intFromBool(bitCast_u16x16(a) == bitCast_u16x16(b));
+    return @bitCast(boolMask_u16x16(pred));
+}
+
+/// dst[n] = if (a[n] == b[n]) -1 else 0;
+pub inline fn _mm256_cmpeq_epi32(a: __m256i, b: __m256i) __m256i {
+    const pred = @intFromBool(bitCast_u32x8(a) == bitCast_u32x8(b));
+    return @bitCast(boolMask_u32x8(pred));
+}
+
+/// dst[n] = if (a[n] == b[n]) -1 else 0;
+pub inline fn _mm256_cmpeq_epi64(a: __m256i, b: __m256i) __m256i {
+    const pred = @intFromBool(bitCast_u64x4(a) == bitCast_u64x4(b));
+    return @bitCast(boolMask_u64x4(pred));
+}
+
+/// dst[n] = if (a[n] == b[n]) -1 else 0;
+pub inline fn _mm256_cmpeq_epi8(a: __m256i, b: __m256i) __m256i {
+    const pred = @intFromBool(bitCast_u8x32(a) == bitCast_u8x32(b));
+    return @bitCast(boolMask_u8x32(pred));
+}
+
+/// dst[n] = if (a[n] > b[n]) -1 else 0;
+pub inline fn _mm256_cmpgt_epi16(a: __m256i, b: __m256i) __m256i {
+    const pred = @intFromBool(bitCast_i16x16(a) > bitCast_i16x16(b));
+    return @bitCast(boolMask_u16x16(pred));
+}
+
+/// dst[n] = if (a[n] > b[n]) -1 else 0;
+pub inline fn _mm256_cmpgt_epi32(a: __m256i, b: __m256i) __m256i {
+    const pred = @intFromBool(bitCast_i32x8(a) > bitCast_i32x8(b));
+    return @bitCast(boolMask_u32x8(pred));
+}
+
+/// dst[n] = if (a[n] > b[n]) -1 else 0;
+pub inline fn _mm256_cmpgt_epi64(a: __m256i, b: __m256i) __m256i {
+    const pred = @intFromBool(bitCast_i64x4(a) > bitCast_i64x4(b));
+    return @bitCast(boolMask_u64x4(pred));
+}
+
+/// dst[n] = if (a[n] > b[n]) -1 else 0;
+pub inline fn _mm256_cmpgt_epi8(a: __m256i, b: __m256i) __m256i {
+    const pred = @intFromBool(bitCast_i8x32(a) > bitCast_i8x32(b));
+    return @bitCast(boolMask_u8x32(pred));
+}
+
+//
+
+pub inline fn _mm256_slli_si256(a: __m256i, comptime imm8: comptime_int) __m256i {
+    if (@as(u8, @intCast(imm8)) > 15) {
+        return @splat(0);
+    }
+    return _mm256_alignr_epi8(a, @splat(0), 16 - imm8);
+}
+
+pub inline fn _mm256_srli_si256(a: __m256i, comptime imm8: comptime_int) __m256i {
+    return _mm256_alignr_epi8(@splat(0), a, imm8);
 }
