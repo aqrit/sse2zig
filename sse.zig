@@ -4503,6 +4503,24 @@ test "_mm_cmpgt_epi64" {
     try std.testing.expectEqual(ref1, _mm_cmpgt_epi64(b, a));
 }
 
+// AVX ==============================================================
+
+pub inline fn _mm256_set_epi16(e15: i16, e14: i16, e13: i16, e12: i16, e11: i16, e10: i16, e9: i16, e8: i16, e7: i16, e6: i16, e5: i16, e4: i16, e3: i16, e2: i16, e1: i16, e0: i16) __m256i {
+    return @bitCast(i16x16{ e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15 });
+}
+
+pub inline fn _mm256_set_epi32(e7: i32, e6: i32, e5: i32, e4: i32, e3: i32, e2: i32, e1: i32, e0: i32) __m256i {
+    return @bitCast(i32x8{ e0, e1, e2, e3, e4, e5, e6, e7 });
+}
+
+pub inline fn _mm256_set_epi64x(e3: i64, e2: i64, e1: i64, e0: i64) __m256i {
+    return @bitCast(i64x4{ e0, e1, e2, e3 });
+}
+
+pub inline fn _mm256_set_epi8(e31: i8, e30: i8, e29: i8, e28: i8, e27: i8, e26: i8, e25: i8, e24: i8, e23: i8, e22: i8, e21: i8, e20: i8, e19: i8, e18: i8, e17: i8, e16: i8, e15: i8, e14: i8, e13: i8, e12: i8, e11: i8, e10: i8, e9: i8, e8: i8, e7: i8, e6: i8, e5: i8, e4: i8, e3: i8, e2: i8, e1: i8, e0: i8) __m256i {
+    return @bitCast(i8x32{ e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19, e20, e21, e22, e23, e24, e25, e26, e27, e28, e29, e30, e31 });
+}
+
 // AVX2 ==============================================================
 
 pub inline fn _mm256_abs_epi16(a: __m256i) __m256i {
@@ -4730,6 +4748,151 @@ pub inline fn _mm256_cmpgt_epi64(a: __m256i, b: __m256i) __m256i {
 pub inline fn _mm256_cmpgt_epi8(a: __m256i, b: __m256i) __m256i {
     const pred = @intFromBool(bitCast_i8x32(a) > bitCast_i8x32(b));
     return @bitCast(boolMask_u8x32(pred));
+}
+
+/// Sign-Extend the low 8 words
+pub inline fn _mm256_cvtepi16_epi32(a: __m128i) __m256i {
+    const x = bitCast_i16x8(a);
+    return @bitCast(i32x8{ x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7] });
+}
+
+test "_mm256_cvtepi16_epi32" {
+    const a = _mm_set_epi16(7, 6, 5, 4, 3, 2, -1, 0);
+    const ref = _mm256_set_epi32(7, 6, 5, 4, 3, 2, -1, 0);
+    try std.testing.expectEqual(ref, _mm256_cvtepi16_epi32(a));
+}
+
+/// Sign-Extend the low 4 words
+pub inline fn _mm256_cvtepi16_epi64(a: __m128i) __m256i {
+    const x = bitCast_i16x8(a);
+    return @bitCast(i64x4{ x[0], x[1], x[2], x[3] });
+}
+
+test "_mm256_cvtepi16_epi64" {
+    const a = _mm_set_epi16(7, 6, 5, 4, 3, 2, -1, 0);
+    const ref = _mm256_set_epi64x(3, 2, -1, 0);
+    try std.testing.expectEqual(ref, _mm256_cvtepi16_epi64(a));
+}
+
+/// Sign-Extend the low 4 dwords
+pub inline fn _mm256_cvtepi32_epi64(a: __m128i) __m256i {
+    const x = bitCast_i32x4(a);
+    return @bitCast(i64x4{ x[0], x[1], x[2], x[3] });
+}
+
+test "_mm256_cvtepi32_epi64" {
+    const a = _mm_set_epi32(3, 2, -1, 0);
+    const ref = _mm256_set_epi64x(3, 2, -1, 0);
+    try std.testing.expectEqual(ref, _mm256_cvtepi32_epi64(a));
+}
+
+/// Sign-Extend the low 16 bytes
+pub inline fn _mm256_cvtepi8_epi16(a: __m128i) __m256i {
+    const x = bitCast_i8x16(a);
+    return @bitCast(i16x16{ x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8], x[9], x[10], x[11], x[12], x[13], x[14], x[15] });
+}
+
+test "_mm256_cvtepi8_epi16" {
+    const a = _mm_set_epi8(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, -1, 0);
+    const ref = _mm256_set_epi16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, -1, 0);
+    try std.testing.expectEqual(ref, _mm256_cvtepi8_epi16(a));
+}
+
+/// Sign-Extend the low 8 bytes
+pub inline fn _mm256_cvtepi8_epi32(a: __m128i) __m256i {
+    const x = bitCast_i8x16(a);
+    return @bitCast(i32x8{ x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7] });
+}
+
+test "_mm256_cvtepi8_epi32" {
+    const a = _mm_set_epi8(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, -1, 0);
+    const ref = _mm256_set_epi32(7, 6, 5, 4, 3, 2, -1, 0);
+    try std.testing.expectEqual(ref, _mm256_cvtepi8_epi32(a));
+}
+
+/// Sign-Extend the low 4 bytes
+// note: error in intel intrinsic guide v3.6.7
+pub inline fn _mm256_cvtepi8_epi64(a: __m128i) __m256i {
+    const x = bitCast_i8x16(a);
+    return @bitCast(i64x4{ x[0], x[1], x[2], x[3] });
+}
+
+test "_mm256_cvtepi8_epi64" {
+    const a = _mm_set_epi8(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, -1, 0);
+    const ref = _mm256_set_epi64x(3, 2, -1, 0);
+    try std.testing.expectEqual(ref, _mm256_cvtepi8_epi64(a));
+}
+
+/// Zero-Extend the low 8 words
+pub inline fn _mm256_cvtepu16_epi32(a: __m128i) __m256i {
+    const x = bitCast_u16x8(a);
+    return @bitCast(u32x8{ x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7] });
+}
+
+test "_mm256_cvtepu16_epi32" {
+    const a = _mm_set_epi16(7, 6, 5, 4, 3, 2, -1, 0);
+    const ref = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 65535, 0);
+    try std.testing.expectEqual(ref, _mm256_cvtepu16_epi32(a));
+}
+
+/// Zero-Extend the low 4 words
+pub inline fn _mm256_cvtepu16_epi64(a: __m128i) __m256i {
+    const x = bitCast_u16x8(a);
+    return @bitCast(u64x4{ x[0], x[1], x[2], x[3] });
+}
+
+test "_mm256_cvtepu16_epi64" {
+    const a = _mm_set_epi16(7, 6, 5, 4, 3, 2, -1, 0);
+    const ref = _mm256_set_epi64x(3, 2, 65535, 0);
+    try std.testing.expectEqual(ref, _mm256_cvtepu16_epi64(a));
+}
+
+/// Zero-Extend the low 4 dwords
+pub inline fn _mm256_cvtepu32_epi64(a: __m128i) __m256i {
+    const x = bitCast_u32x4(a);
+    return @bitCast(u64x4{ x[0], x[1], x[2], x[3] });
+}
+
+test "_mm256_cvtepu32_epi64" {
+    const a = _mm_set_epi32(3, 2, -1, 0);
+    const ref = _mm256_set_epi64x(3, 2, 4294967295, 0);
+    try std.testing.expectEqual(ref, _mm256_cvtepu32_epi64(a));
+}
+
+/// Zero-Extend the low 16 bytes
+pub inline fn _mm256_cvtepu8_epi16(a: __m128i) __m256i {
+    const x = bitCast_u8x16(a);
+    return @bitCast(u16x16{ x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8], x[9], x[10], x[11], x[12], x[13], x[14], x[15] });
+}
+
+test "_mm256_cvtepu8_epi16" {
+    const a = _mm_set_epi8(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, -1, 0);
+    const ref = _mm256_set_epi16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 255, 0);
+    try std.testing.expectEqual(ref, _mm256_cvtepu8_epi16(a));
+}
+
+/// Zero-Extend the low 8 bytes
+pub inline fn _mm256_cvtepu8_epi32(a: __m128i) __m256i {
+    const x = bitCast_u8x16(a);
+    return @bitCast(u32x8{ x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7] });
+}
+
+test "_mm256_cvtepu8_epi32" {
+    const a = _mm_set_epi8(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, -1, 0);
+    const ref = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 255, 0);
+    try std.testing.expectEqual(ref, _mm256_cvtepu8_epi32(a));
+}
+
+/// Zero-Extend the low 4 bytes
+pub inline fn _mm256_cvtepu8_epi64(a: __m128i) __m256i {
+    const x = bitCast_u8x16(a);
+    return @bitCast(u64x4{ x[0], x[1], x[2], x[3] });
+}
+
+test "_mm256_cvtepu8_epi64" {
+    const a = _mm_set_epi8(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, -1, 0);
+    const ref = _mm256_set_epi64x(3, 2, 255, 0);
+    try std.testing.expectEqual(ref, _mm256_cvtepu8_epi64(a));
 }
 
 //
