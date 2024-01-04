@@ -169,23 +169,43 @@ inline fn intCast_u16x32(a: anytype) u16x32 {
 // =====================================================================
 
 /// For setting test values (using hex literals).
-inline fn set_epu16(e7: u16, e6: u16, e5: u16, e4: u16, e3: u16, e2: u16, e1: u16, e0: u16) __m128i {
+inline fn _xx_set_epu16(e7: u16, e6: u16, e5: u16, e4: u16, e3: u16, e2: u16, e1: u16, e0: u16) __m128i {
     return @bitCast(u16x8{ e0, e1, e2, e3, e4, e5, e6, e7 });
 }
 
 /// For setting test values (using hex literals).
-inline fn set_epu32(e3: u32, e2: u32, e1: u32, e0: u32) __m128i {
+inline fn _xx_set_epu32(e3: u32, e2: u32, e1: u32, e0: u32) __m128i {
     return @bitCast(u32x4{ e0, e1, e2, e3 });
 }
 
 /// For setting test values (using hex literals).
-inline fn set_epu64x(e1: u64, e0: u64) __m128i {
+inline fn _xx_set_epu64x(e1: u64, e0: u64) __m128i {
     return @bitCast(u64x2{ e0, e1 });
 }
 
 /// For setting test values (using hex literals).
-inline fn set_epu8(e15: u16, e14: u16, e13: u16, e12: u16, e11: u16, e10: u16, e9: u16, e8: u16, e7: u16, e6: u16, e5: u16, e4: u16, e3: u16, e2: u16, e1: u16, e0: u16) __m128i {
+inline fn _xx_set_epu8(e15: u8, e14: u8, e13: u8, e12: u8, e11: u8, e10: u8, e9: u8, e8: u8, e7: u8, e6: u8, e5: u8, e4: u8, e3: u8, e2: u8, e1: u8, e0: u8) __m128i {
     return @bitCast(u8x16{ e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15 });
+}
+
+/// For setting test values (using hex literals).
+inline fn _xx256_set_epu16(e15: u16, e14: u16, e13: u16, e12: u16, e11: u16, e10: u16, e9: u16, e8: u16, e7: u16, e6: u16, e5: u16, e4: u16, e3: u16, e2: u16, e1: u16, e0: u16) __m256i {
+    return @bitCast(u16x16{ e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15 });
+}
+
+/// For setting test values (using hex literals).
+inline fn _xx256_set_epu32(e7: u32, e6: u32, e5: u32, e4: u32, e3: u32, e2: u32, e1: u32, e0: u32) __m256i {
+    return @bitCast(u32x8{ e0, e1, e2, e3, e4, e5, e6, e7 });
+}
+
+/// For setting test values (using hex literals).
+inline fn _xx256_set_epu64x(e3: u64, e2: u64, e1: u64, e0: u64) __m256i {
+    return @bitCast(u64x4{ e0, e1, e2, e3 });
+}
+
+/// For setting test values (using hex literals).
+inline fn _xx256_set_epu8(e31: u8, e30: u8, e29: u8, e28: u8, e27: u8, e26: u8, e25: u8, e24: u8, e23: u8, e22: u8, e21: u8, e20: u8, e19: u8, e18: u8, e17: u8, e16: u8, e15: u8, e14: u8, e13: u8, e12: u8, e11: u8, e10: u8, e9: u8, e8: u8, e7: u8, e6: u8, e5: u8, e4: u8, e3: u8, e2: u8, e1: u8, e0: u8) __m256i {
+    return @bitCast(u8x32{ e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19, e20, e21, e22, e23, e24, e25, e26, e27, e28, e29, e30, e31 });
 }
 
 // =====================================================================
@@ -2412,7 +2432,7 @@ pub inline fn _mm_madd_epi16(a: __m128i, b: __m128i) __m128i {
 }
 
 test "_mm_madd_epi16" {
-    const a = set_epu16(0x8000, 0x7FFF, 0x8000, 0x0000, 0xFFFF, 0x8000, 0x7FFF, 0x7FFF);
+    const a = _xx_set_epu16(0x8000, 0x7FFF, 0x8000, 0x0000, 0xFFFF, 0x8000, 0x7FFF, 0x7FFF);
     const b = _mm_set_epi16(2, 3, -32768, 4, 128, 32767, 255, 5);
     const ref = _mm_set_epi32(32765, 1073741824, -1073709184, 8519420);
     try std.testing.expectEqual(ref, _mm_madd_epi16(a, b));
@@ -2438,9 +2458,9 @@ pub inline fn _mm_max_epu8(a: __m128i, b: __m128i) __m128i {
 }
 
 test "_mm_max_epu8" {
-    const a = set_epu8(0x80, 0x7F, 0x80, 0x00, 0xFF, 0x80, 0x01, 0x7F, 0x05, 0x00, 0x00, 0x00, 0x80, 0x04, 0x03, 0x02);
-    const b = set_epu8(0xFF, 0x80, 0x81, 0xFF, 0x7F, 0x80, 0xFE, 0x7E, 0x04, 0x01, 0xFF, 0x02, 0x7F, 0x05, 0x06, 0x07);
-    const ref = set_epu8(0xFF, 0x80, 0x81, 0xFF, 0xFF, 0x80, 0xFE, 0x7F, 0x05, 0x01, 0xFF, 0x02, 0x80, 0x05, 0x06, 0x07);
+    const a = _xx_set_epu8(0x80, 0x7F, 0x80, 0x00, 0xFF, 0x80, 0x01, 0x7F, 0x05, 0x00, 0x00, 0x00, 0x80, 0x04, 0x03, 0x02);
+    const b = _xx_set_epu8(0xFF, 0x80, 0x81, 0xFF, 0x7F, 0x80, 0xFE, 0x7E, 0x04, 0x01, 0xFF, 0x02, 0x7F, 0x05, 0x06, 0x07);
+    const ref = _xx_set_epu8(0xFF, 0x80, 0x81, 0xFF, 0xFF, 0x80, 0xFE, 0x7F, 0x05, 0x01, 0xFF, 0x02, 0x80, 0x05, 0x06, 0x07);
     try std.testing.expectEqual(ref, _mm_max_epu8(a, b));
 
     const c = _mm_set1_epi8(1);
@@ -2509,9 +2529,9 @@ pub inline fn _mm_min_epu8(a: __m128i, b: __m128i) __m128i {
 }
 
 test "_mm_min_epu8" {
-    const a = set_epu8(0xFF, 0x80, 0x7F, 0x01, 0x81, 0x7E, 0x7F, 0x80, 0xFE, 0x80, 0x7F, 0x01, 0x81, 0x7E, 0x7F, 0x80);
-    const b = set_epu8(0x80, 0x00, 0x80, 0x80, 0x80, 0x7F, 0xFF, 0xFF, 0xFF, 0x55, 0x44, 0x22, 0x82, 0x66, 0x77, 0x88);
-    const ref = set_epu8(0x80, 0x00, 0x7F, 0x01, 0x80, 0x7E, 0x7F, 0x80, 0xFE, 0x55, 0x44, 0x01, 0x81, 0x66, 0x77, 0x80);
+    const a = _xx_set_epu8(0xFF, 0x80, 0x7F, 0x01, 0x81, 0x7E, 0x7F, 0x80, 0xFE, 0x80, 0x7F, 0x01, 0x81, 0x7E, 0x7F, 0x80);
+    const b = _xx_set_epu8(0x80, 0x00, 0x80, 0x80, 0x80, 0x7F, 0xFF, 0xFF, 0xFF, 0x55, 0x44, 0x22, 0x82, 0x66, 0x77, 0x88);
+    const ref = _xx_set_epu8(0x80, 0x00, 0x7F, 0x01, 0x80, 0x7E, 0x7F, 0x80, 0xFE, 0x55, 0x44, 0x01, 0x81, 0x66, 0x77, 0x80);
     try std.testing.expectEqual(ref, _mm_min_epu8(a, b));
 }
 
@@ -4165,8 +4185,8 @@ pub inline fn _mm_mpsadbw_epu8(a: __m128i, b: __m128i, comptime imm8: comptime_i
 }
 
 test "_mm_mpsadbw_epu8" {
-    const a = set_epu32(0x07018593, 0x56312665, 0xFFFFFFFF, 0);
-    const b = set_epu32(3, 0xFA57C0DE, 1, 0);
+    const a = _xx_set_epu32(0x07018593, 0x56312665, 0xFFFFFFFF, 0);
+    const b = _xx_set_epu32(3, 0xFA57C0DE, 1, 0);
     const ref0 = _mm_set_epi16(443, 649, 866, 1020, 765, 510, 255, 0);
     const ref1 = _mm_set_epi16(476, 456, 431, 477, 374, 322, 413, 269);
     try std.testing.expectEqual(ref0, _mm_mpsadbw_epu8(a, b, 0));
@@ -4206,9 +4226,9 @@ pub inline fn _mm_packus_epi32(a: __m128i, b: __m128i) __m128i {
 }
 
 test "_mm_packus_epi32" {
-    const a = set_epu32(0x00000001, 0x0000FFFF, 0x00008000, 0x00000000);
-    const b = set_epu32(0x7FFFFFFF, 0x80000000, 0xFFFFFFFF, 0x0001FFFF);
-    const ref = set_epu16(0xFFFF, 0, 0, 0xFFFF, 1, 0xFFFF, 0x8000, 0);
+    const a = _xx_set_epu32(0x00000001, 0x0000FFFF, 0x00008000, 0x00000000);
+    const b = _xx_set_epu32(0x7FFFFFFF, 0x80000000, 0xFFFFFFFF, 0x0001FFFF);
+    const ref = _xx_set_epu16(0xFFFF, 0, 0, 0xFFFF, 1, 0xFFFF, 0x8000, 0);
     try std.testing.expectEqual(ref, _mm_packus_epi32(a, b));
 }
 
@@ -4495,7 +4515,7 @@ pub inline fn _mm_cmpgt_epi64(a: __m128i, b: __m128i) __m128i {
 }
 
 test "_mm_cmpgt_epi64" {
-    const a = set_epu64x(0x8000000000000001, 2);
+    const a = _xx_set_epu64x(0x8000000000000001, 2);
     const b = _mm_set_epi64x(0, 1);
     const ref0 = _mm_set_epi64x(0, -1);
     const ref1 = _mm_set_epi64x(-1, 0);
@@ -4708,10 +4728,24 @@ pub inline fn _mm256_cmpeq_epi16(a: __m256i, b: __m256i) __m256i {
     return @bitCast(boolMask_u16x16(pred));
 }
 
+test "_mm256_cmpeq_epi16" {
+    const a = _xx256_set_epu16(0x8002, 0x8000, 0x8000, 5, 0xFFFF, 0xFFFE, 0, 127, 0, 6, 5, 4, 3, 2, 0xFFFF, 0);
+    const b = _xx256_set_epu16(0x8001, 0x8001, 0x7FFF, 5, 0xFFFF, 3, 0, 126, 0x8000, 5, 0xCCCC, 0x7F00, 6, 5, 1, 0);
+    const ref = _mm256_set_epi16(0, 0, 0, -1, -1, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, -1);
+    try std.testing.expectEqual(ref, _mm256_cmpeq_epi16(a, b));
+}
+
 /// dst[n] = if (a[n] == b[n]) -1 else 0;
 pub inline fn _mm256_cmpeq_epi32(a: __m256i, b: __m256i) __m256i {
     const pred = @intFromBool(bitCast_u32x8(a) == bitCast_u32x8(b));
     return @bitCast(boolMask_u32x8(pred));
+}
+
+test "_mm256_cmpeq_epi32" {
+    const a = _xx256_set_epu32(0x80000001, 0x80000006, 0x80000000, 2, 3, 4, 2, 1);
+    const b = _xx256_set_epu32(0x80000001, 0x80000005, 0x00000000, 1, 2, 4, 0, 0xFFFFFFFF);
+    const ref = _mm256_set_epi32(-1, 0, 0, 0, 0, -1, 0, 0);
+    try std.testing.expectEqual(ref, _mm256_cmpeq_epi32(a, b));
 }
 
 /// dst[n] = if (a[n] == b[n]) -1 else 0;
@@ -4720,10 +4754,24 @@ pub inline fn _mm256_cmpeq_epi64(a: __m256i, b: __m256i) __m256i {
     return @bitCast(boolMask_u64x4(pred));
 }
 
+test "_mm256_cmpeq_epi64" {
+    const a = _xx256_set_epu64x(0x8000000000000001, 0x8000000000000006, 0x8000000000000000, 2);
+    const b = _xx256_set_epu64x(0x8000000000000001, 0x8000000000000005, 0, 1);
+    const ref = _mm256_set_epi64x(-1, 0, 0, 0);
+    try std.testing.expectEqual(ref, _mm256_cmpeq_epi64(a, b));
+}
+
 /// dst[n] = if (a[n] == b[n]) -1 else 0;
 pub inline fn _mm256_cmpeq_epi8(a: __m256i, b: __m256i) __m256i {
     const pred = @intFromBool(bitCast_u8x32(a) == bitCast_u8x32(b));
     return @bitCast(boolMask_u8x32(pred));
+}
+
+test "_mm256_cmpeq_epi8" {
+    const a = _mm256_set_epi8(-128, 2, -128, 0, -128, 5, -1, -2, 0, 0, 0, 0, 0, 0, 0, 1, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
+    const b = _mm256_set_epi8(-128, 1, 0, 1, 127, 4, -2, 3, 0, 0, 0, 0, 0, 0, 0, 2, 15, 14, 13, 99, 11, 10, 99, 8, 8, 8, 8, 4, 3, 2, -1, 0);
+    const ref = _mm256_set_epi8(-1, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1, -1, 0, -1, -1, -1, 0, -1, -1, 0, -1, 0, 0, 0, -1, -1, -1, 0, -1);
+    try std.testing.expectEqual(ref, _mm256_cmpeq_epi8(a, b));
 }
 
 /// dst[n] = if (a[n] > b[n]) -1 else 0;
@@ -4732,10 +4780,28 @@ pub inline fn _mm256_cmpgt_epi16(a: __m256i, b: __m256i) __m256i {
     return @bitCast(boolMask_u16x16(pred));
 }
 
+test "_mm256_cmpgt_epi16" {
+    const a = _xx256_set_epu16(0x8002, 0x8000, 0x8000, 5, 0xFFFF, 0xFFFE, 0, 127, 7, 6, 5, 4, 3, 2, 1, 0);
+    const b = _xx256_set_epu16(0x8001, 0x8001, 0x7FFF, 4, 0xFFFE, 3, 0, 126, 8, 5, 0xCCCC, 0x7F00, 6, 5, 1, 0xFFFF);
+    const ref0 = _mm256_set_epi16(-1, 0, 0, -1, -1, 0, 0, -1, 0, -1, -1, 0, 0, 0, 0, -1);
+    const ref1 = _mm256_set_epi16(0, -1, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, -1, -1, 0, 0);
+    try std.testing.expectEqual(ref0, _mm256_cmpgt_epi16(a, b));
+    try std.testing.expectEqual(ref1, _mm256_cmpgt_epi16(b, a));
+}
+
 /// dst[n] = if (a[n] > b[n]) -1 else 0;
 pub inline fn _mm256_cmpgt_epi32(a: __m256i, b: __m256i) __m256i {
     const pred = @intFromBool(bitCast_i32x8(a) > bitCast_i32x8(b));
     return @bitCast(boolMask_u32x8(pred));
+}
+
+test "_mm256_cmpgt_epi32" {
+    const a = _xx256_set_epu32(0x80002000, 0x80000000, 0x80000000, 5, 0xFFFFFFFF, 0xFFFFFFFE, 0, 127);
+    const b = _xx256_set_epu32(0x80001000, 0x80000001, 0x7FFFFFFF, 4, 0xFFFFFFFE, 3, 0, 126);
+    const ref0 = _mm256_set_epi32(-1, 0, 0, -1, -1, 0, 0, -1);
+    const ref1 = _mm256_set_epi32(0, -1, -1, 0, 0, -1, 0, 0);
+    try std.testing.expectEqual(ref0, _mm256_cmpgt_epi32(a, b));
+    try std.testing.expectEqual(ref1, _mm256_cmpgt_epi32(b, a));
 }
 
 /// dst[n] = if (a[n] > b[n]) -1 else 0;
@@ -4744,10 +4810,28 @@ pub inline fn _mm256_cmpgt_epi64(a: __m256i, b: __m256i) __m256i {
     return @bitCast(boolMask_u64x4(pred));
 }
 
+test "_mm256_cmpgt_epi64" {
+    const a = _xx256_set_epu64x(0x8000000000000001, 0x8000000000000006, 0x8000000000000001, 2);
+    const b = _xx256_set_epu64x(0x8000000000000001, 2, 0, 1);
+    const ref0 = _mm256_set_epi64x(0, 0, 0, -1);
+    const ref1 = _mm256_set_epi64x(0, -1, -1, 0);
+    try std.testing.expectEqual(ref0, _mm256_cmpgt_epi64(a, b));
+    try std.testing.expectEqual(ref1, _mm256_cmpgt_epi64(b, a));
+}
+
 /// dst[n] = if (a[n] > b[n]) -1 else 0;
 pub inline fn _mm256_cmpgt_epi8(a: __m256i, b: __m256i) __m256i {
     const pred = @intFromBool(bitCast_i8x32(a) > bitCast_i8x32(b));
     return @bitCast(boolMask_u8x32(pred));
+}
+
+test "_mm256_cmpgt_epi8" {
+    const a = _mm256_set_epi8(5, 4, 8, 12, 45, 54, 65, 8, 7, 6, 5, 4, 3, 2, 1, -128, -128, -127, 127, 127, -1, 10, 9, 8, 7, 6, 5, 4, 3, 9, 2, 1);
+    const b = _mm256_set_epi8(65, 46, 54, 1, 3, 45, 46, 75, -8, -35, -80, 19, 0, 0, -128, 127, -128, 12, -1, -1, 7, 10, -2, 7, 6, 5, 4, 3, 10, 2, 1, -1);
+    const ref0 = _mm256_set_epi8(0, 0, 0, -1, -1, -1, -1, 0, -1, -1, -1, 0, -1, -1, -1, 0, 0, 0, -1, -1, 0, 0, -1, -1, -1, -1, -1, -1, 0, -1, -1, -1);
+    const ref1 = _mm256_set_epi8(-1, -1, -1, 0, 0, 0, 0, -1, 0, 0, 0, -1, 0, 0, 0, -1, 0, -1, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0);
+    try std.testing.expectEqual(ref0, _mm256_cmpgt_epi8(a, b));
+    try std.testing.expectEqual(ref1, _mm256_cmpgt_epi8(b, a));
 }
 
 /// Sign-Extend the low 8 words
