@@ -1294,6 +1294,21 @@ pub inline fn _mm_set_ps(e3: f32, e2: f32, e1: f32, e0: f32) __m128 {
     return .{ e0, e1, e2, e3 };
 }
 
+test "_mm_set_ps" {
+    var a = _mm_set_ps(4.0, 3.0, 2.0, 1.0);
+    try std.testing.expectEqual(@as(f32, 1.0), a[0]);
+    try std.testing.expectEqual(@as(f32, 2.0), a[1]);
+    try std.testing.expectEqual(@as(f32, 3.0), a[2]);
+    try std.testing.expectEqual(@as(f32, 4.0), a[3]);
+
+    // test assigning to self (https://github.com/ziglang/zig/issues/18082)
+    a = _mm_set_ps(a[3], a[1], a[0], a[2]);
+    try std.testing.expectEqual(@as(f32, 3.0), a[0]);
+    try std.testing.expectEqual(@as(f32, 1.0), a[1]);
+    try std.testing.expectEqual(@as(f32, 2.0), a[2]);
+    try std.testing.expectEqual(@as(f32, 4.0), a[3]);
+}
+
 pub inline fn _mm_set_ps1(a: f32) __m128 {
     return _mm_set1_ps(a);
 }
@@ -4529,28 +4544,119 @@ pub inline fn _mm256_set_epi16(e15: i16, e14: i16, e13: i16, e12: i16, e11: i16,
     return @bitCast(i16x16{ e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15 });
 }
 
+test "_mm256_set_epi16" {
+    const a = _mm256_set_epi16(1500, -32768, 13, 12, -11, 10, 9, 8, -7, -6, -5, -4, -3, -2, -1, 0);
+    try std.testing.expectEqual(@as(i16, 0), bitCast_i16x16(a)[0]);
+    try std.testing.expectEqual(@as(i16, -1), bitCast_i16x16(a)[1]);
+    try std.testing.expectEqual(@as(i16, -2), bitCast_i16x16(a)[2]);
+    try std.testing.expectEqual(@as(i16, -3), bitCast_i16x16(a)[3]);
+    try std.testing.expectEqual(@as(i16, -4), bitCast_i16x16(a)[4]);
+    try std.testing.expectEqual(@as(i16, -5), bitCast_i16x16(a)[5]);
+    try std.testing.expectEqual(@as(i16, -6), bitCast_i16x16(a)[6]);
+    try std.testing.expectEqual(@as(i16, -7), bitCast_i16x16(a)[7]);
+    try std.testing.expectEqual(@as(i16, 8), bitCast_i16x16(a)[8]);
+    try std.testing.expectEqual(@as(i16, 9), bitCast_i16x16(a)[9]);
+    try std.testing.expectEqual(@as(i16, 10), bitCast_i16x16(a)[10]);
+    try std.testing.expectEqual(@as(i16, -11), bitCast_i16x16(a)[11]);
+    try std.testing.expectEqual(@as(i16, 12), bitCast_i16x16(a)[12]);
+    try std.testing.expectEqual(@as(i16, 13), bitCast_i16x16(a)[13]);
+    try std.testing.expectEqual(@as(i16, -32768), bitCast_i16x16(a)[14]);
+    try std.testing.expectEqual(@as(i16, 1500), bitCast_i16x16(a)[15]);
+}
+
 pub inline fn _mm256_set_epi32(e7: i32, e6: i32, e5: i32, e4: i32, e3: i32, e2: i32, e1: i32, e0: i32) __m256i {
     return @bitCast(i32x8{ e0, e1, e2, e3, e4, e5, e6, e7 });
+}
+
+test "_mm256_set_epi32" {
+    const a = _mm256_set_epi32(-2147483648, 1610612736, -5, -4, -3, -2, -1, 0);
+    try std.testing.expectEqual(@as(i32, 0), bitCast_i32x8(a)[0]);
+    try std.testing.expectEqual(@as(i32, -1), bitCast_i32x8(a)[1]);
+    try std.testing.expectEqual(@as(i32, -2), bitCast_i32x8(a)[2]);
+    try std.testing.expectEqual(@as(i32, -3), bitCast_i32x8(a)[3]);
+    try std.testing.expectEqual(@as(i32, -4), bitCast_i32x8(a)[4]);
+    try std.testing.expectEqual(@as(i32, -5), bitCast_i32x8(a)[5]);
+    try std.testing.expectEqual(@as(i32, 1610612736), bitCast_i32x8(a)[6]);
+    try std.testing.expectEqual(@as(i32, -2147483648), bitCast_i32x8(a)[7]);
 }
 
 pub inline fn _mm256_set_epi64x(e3: i64, e2: i64, e1: i64, e0: i64) __m256i {
     return @bitCast(i64x4{ e0, e1, e2, e3 });
 }
 
+test "_mm256_set_epi64x" {
+    const a = _mm256_set_epi64x(6917529027641081856, -9223372036854775808, -2, -1);
+    try std.testing.expectEqual(@as(i64, -1), bitCast_i64x4(a)[0]);
+    try std.testing.expectEqual(@as(i64, -2), bitCast_i64x4(a)[1]);
+    try std.testing.expectEqual(@as(i64, -9223372036854775808), bitCast_i64x4(a)[2]);
+    try std.testing.expectEqual(@as(i64, 6917529027641081856), bitCast_i64x4(a)[3]);
+}
+
 pub inline fn _mm256_set_epi8(e31: i8, e30: i8, e29: i8, e28: i8, e27: i8, e26: i8, e25: i8, e24: i8, e23: i8, e22: i8, e21: i8, e20: i8, e19: i8, e18: i8, e17: i8, e16: i8, e15: i8, e14: i8, e13: i8, e12: i8, e11: i8, e10: i8, e9: i8, e8: i8, e7: i8, e6: i8, e5: i8, e4: i8, e3: i8, e2: i8, e1: i8, e0: i8) __m256i {
     return @bitCast(i8x32{ e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19, e20, e21, e22, e23, e24, e25, e26, e27, e28, e29, e30, e31 });
 }
 
+test "_mm256_set_epi8" {
+    const a = _mm256_set_epi8(31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, -128, 127, 14, 13, 12, -11, 10, 9, 8, -7, -6, -5, -4, -3, -2, -1, 0);
+    try std.testing.expectEqual(@as(i8, 0), bitCast_i8x32(a)[0]);
+    try std.testing.expectEqual(@as(i8, -1), bitCast_i8x32(a)[1]);
+    try std.testing.expectEqual(@as(i8, -2), bitCast_i8x32(a)[2]);
+    try std.testing.expectEqual(@as(i8, -3), bitCast_i8x32(a)[3]);
+    try std.testing.expectEqual(@as(i8, -4), bitCast_i8x32(a)[4]);
+    try std.testing.expectEqual(@as(i8, -5), bitCast_i8x32(a)[5]);
+    try std.testing.expectEqual(@as(i8, -6), bitCast_i8x32(a)[6]);
+    try std.testing.expectEqual(@as(i8, -7), bitCast_i8x32(a)[7]);
+    try std.testing.expectEqual(@as(i8, 8), bitCast_i8x32(a)[8]);
+    try std.testing.expectEqual(@as(i8, 9), bitCast_i8x32(a)[9]);
+    try std.testing.expectEqual(@as(i8, 10), bitCast_i8x32(a)[10]);
+    try std.testing.expectEqual(@as(i8, -11), bitCast_i8x32(a)[11]);
+    try std.testing.expectEqual(@as(i8, 12), bitCast_i8x32(a)[12]);
+    try std.testing.expectEqual(@as(i8, 13), bitCast_i8x32(a)[13]);
+    try std.testing.expectEqual(@as(i8, 14), bitCast_i8x32(a)[14]);
+    try std.testing.expectEqual(@as(i8, 127), bitCast_i8x32(a)[15]);
+    try std.testing.expectEqual(@as(i8, -128), bitCast_i8x32(a)[16]);
+    try std.testing.expectEqual(@as(i8, 17), bitCast_i8x32(a)[17]);
+    try std.testing.expectEqual(@as(i8, 18), bitCast_i8x32(a)[18]);
+    try std.testing.expectEqual(@as(i8, 19), bitCast_i8x32(a)[19]);
+    try std.testing.expectEqual(@as(i8, 20), bitCast_i8x32(a)[20]);
+    try std.testing.expectEqual(@as(i8, 21), bitCast_i8x32(a)[21]);
+    try std.testing.expectEqual(@as(i8, 22), bitCast_i8x32(a)[22]);
+    try std.testing.expectEqual(@as(i8, 23), bitCast_i8x32(a)[23]);
+    try std.testing.expectEqual(@as(i8, 24), bitCast_i8x32(a)[24]);
+    try std.testing.expectEqual(@as(i8, 25), bitCast_i8x32(a)[25]);
+    try std.testing.expectEqual(@as(i8, 26), bitCast_i8x32(a)[26]);
+    try std.testing.expectEqual(@as(i8, 27), bitCast_i8x32(a)[27]);
+    try std.testing.expectEqual(@as(i8, 28), bitCast_i8x32(a)[28]);
+    try std.testing.expectEqual(@as(i8, 29), bitCast_i8x32(a)[29]);
+    try std.testing.expectEqual(@as(i8, 30), bitCast_i8x32(a)[30]);
+    try std.testing.expectEqual(@as(i8, 31), bitCast_i8x32(a)[31]);
+}
+
 // AVX2 ==============================================================
 
+/// dst[n] = @abs(a[n]);
 pub inline fn _mm256_abs_epi16(a: __m256i) __m256i {
     return @bitCast(@abs(bitCast_i16x16(a)));
 }
 
+test "_mm256_abs_epi16" {
+    const a = _mm256_set_epi16(15, 14, 13, 12, 11, 10, 9, -6554, 1, -2, -255, 255, -32768, 32767, 0, -1);
+    const ref = _mm256_set_epi16(15, 14, 13, 12, 11, 10, 9, 6554, 1, 2, 255, 255, -32768, 32767, 0, 1);
+    try std.testing.expectEqual(ref, _mm256_abs_epi16(a));
+}
+
+/// dst[n] = @abs(a[n]);
 pub inline fn _mm256_abs_epi32(a: __m256i) __m256i {
     return @bitCast(@abs(bitCast_i32x8(a)));
 }
 
+test "_mm256_abs_epi32" {
+    const a = _mm256_set_epi32(-2147483648, -2147483647, -255, 255, -32768, 32767, 0, -1);
+    const ref = _mm256_set_epi32(-2147483648, 2147483647, 255, 255, 32768, 32767, 0, 1);
+    try std.testing.expectEqual(ref, _mm256_abs_epi32(a));
+}
+
+/// dst[n] = @abs(a[n]);
 pub inline fn _mm256_abs_epi8(a: __m256i) __m256i {
     return @bitCast(@abs(bitCast_i8x32(a)));
 }
@@ -4979,6 +5085,78 @@ test "_mm256_cvtepu8_epi64" {
     try std.testing.expectEqual(ref, _mm256_cvtepu8_epi64(a));
 }
 
+/// extract u16 then zero-extend to i32
+pub inline fn _mm256_extract_epi16(a: __m256i, comptime imm8: comptime_int) i32 {
+    return bitCast_u16x16(a)[imm8];
+}
+
+test "_mm256_extract_epi16" {
+    const a = _mm256_set_epi16(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, -2, 1, 0);
+    try std.testing.expectEqual(@as(i32, 65534), _mm256_extract_epi16(a, 2));
+    try std.testing.expectEqual(@as(i32, 15), _mm256_extract_epi16(a, 15));
+}
+
+/// Extract u8 then zero-extend to i32.
+pub inline fn _mm256_extract_epi8(a: __m256i, comptime imm8: comptime_int) i32 {
+    return bitCast_u8x32(a)[imm8];
+}
+
+test "_mm256_extract_epi8" {
+    const a = _mm256_set_epi8(31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, -2, 1, 0);
+    try std.testing.expectEqual(@as(i32, 254), _mm256_extract_epi8(a, 2));
+    try std.testing.expectEqual(@as(i32, 31), _mm256_extract_epi8(a, 31));
+}
+
+/// Extract (high or low) __m128i from __m256i
+pub inline fn _mm256_extracti128_si256(a: __m256i, comptime imm8: comptime_int) __m128i {
+    const e = bitCast_i32x8(a);
+    return @bitCast(i32x4{ e[imm8 * 4 + 0], e[imm8 * 4 + 1], e[imm8 * 4 + 2], e[imm8 * 4 + 3] });
+}
+
+test "_mm256_extracti128_si256" {
+    const a = _mm256_set_epi32(7, 6, -5, 4, -2147483648, 2, 1, 0);
+    const ref0 = _mm_set_epi32(-2147483648, 2, 1, 0);
+    const ref1 = _mm_set_epi32(7, 6, -5, 4);
+    try std.testing.expectEqual(ref0, _mm256_extracti128_si256(a, 0));
+    try std.testing.expectEqual(ref1, _mm256_extracti128_si256(a, 1));
+}
+
+pub inline fn _mm256_hadd_epi16(a: __m256i, b: __m256i) __m256i {
+    const shuf_even: [16]i32 = .{ 0, 2, 4, 6, -1, -3, -5, -7, 8, 10, 12, 14, -9, -11, -13, -15 };
+    const shuf_odd: [16]i32 = .{ 1, 3, 5, 7, -2, -4, -6, -8, 9, 11, 13, 15, -10, -12, -14, -16 };
+    const even = @shuffle(u16, bitCast_u16x16(a), bitCast_u16x16(b), shuf_even);
+    const odd = @shuffle(u16, bitCast_u16x16(a), bitCast_u16x16(b), shuf_odd);
+    return @bitCast(even +% odd);
+}
+
+pub inline fn _mm256_hadd_epi32(a: __m256i, b: __m256i) __m256 {
+    const shuf_even: [8]i32 = .{ 0, 2, -1, -3, 4, 6, -5, -7 };
+    const shuf_odd: [8]i32 = .{ 1, 3, -2, -4, 5, 7, -6, -8 };
+    const even = @shuffle(u32, bitCast_u32x8(a), bitCast_u32x8(b), shuf_even);
+    const odd = @shuffle(u32, bitCast_u32x8(a), bitCast_u32x8(b), shuf_odd);
+    return @bitCast(even +% odd);
+}
+
+// ## pub inline fn _mm256_hadds_epi16 (a: __m256i, b: __m256i)  __m256i {}
+
+pub inline fn _mm256_hsub_epi16(a: __m256i, b: __m256i) __m256i {
+    const shuf_even: [16]i32 = .{ 0, 2, 4, 6, -1, -3, -5, -7, 8, 10, 12, 14, -9, -11, -13, -15 };
+    const shuf_odd: [16]i32 = .{ 1, 3, 5, 7, -2, -4, -6, -8, 9, 11, 13, 15, -10, -12, -14, -16 };
+    const even = @shuffle(u16, bitCast_u16x16(a), bitCast_u16x16(b), shuf_even);
+    const odd = @shuffle(u16, bitCast_u16x16(a), bitCast_u16x16(b), shuf_odd);
+    return @bitCast(even -% odd);
+}
+
+pub inline fn _mm256_hsub_epi32(a: __m256i, b: __m256i) __m256 {
+    const shuf_even: [8]i32 = .{ 0, 2, -1, -3, 4, 6, -5, -7 };
+    const shuf_odd: [8]i32 = .{ 1, 3, -2, -4, 5, 7, -6, -8 };
+    const even = @shuffle(u32, bitCast_u32x8(a), bitCast_u32x8(b), shuf_even);
+    const odd = @shuffle(u32, bitCast_u32x8(a), bitCast_u32x8(b), shuf_odd);
+    return @bitCast(even -% odd);
+}
+
+// ## pub inline fn _mm256_hsubs_epi16 (a: __m256i, b: __m256i)  __m256i {}
+
 //
 
 pub inline fn _mm256_slli_si256(a: __m256i, comptime imm8: comptime_int) __m256i {
@@ -4990,4 +5168,84 @@ pub inline fn _mm256_slli_si256(a: __m256i, comptime imm8: comptime_int) __m256i
 
 pub inline fn _mm256_srli_si256(a: __m256i, comptime imm8: comptime_int) __m256i {
     return _mm256_alignr_epi8(@splat(0), a, imm8);
+}
+
+//
+
+// ## pub inline fn _mm256_stream_load_si256 (mem_addr: *const anyopaque) __m256i {}
+
+pub inline fn _mm256_sub_epi16(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(bitCast_u16x16(a) -% bitCast_u16x16(b));
+}
+
+pub inline fn _mm256_sub_epi32(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(bitCast_u32x8(a) -% bitCast_u32x8(b));
+}
+
+pub inline fn _mm256_sub_epi64(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(bitCast_u64x4(a) -% bitCast_u64x4(b));
+}
+
+pub inline fn _mm256_sub_epi8(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(bitCast_u8x32(a) -% bitCast_u8x32(b));
+}
+
+pub inline fn _mm256_subs_epi16(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(bitCast_i16x16(a) -| bitCast_i16x16(b));
+}
+
+pub inline fn _mm256_subs_epi8(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(bitCast_i8x32(a) -| bitCast_i8x32(b));
+}
+
+pub inline fn _mm256_subs_epu16(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(bitCast_u16x16(a) -| bitCast_u16x16(b));
+}
+
+pub inline fn _mm256_subs_epu8(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(bitCast_u8x32(a) -| bitCast_u8x32(b));
+}
+
+pub inline fn _mm256_unpackhi_epi16(a: __m256i, b: __m256i) __m256i {
+    const shuf: [16]i32 = .{ 4, -5, 5, -6, 6, -7, 7, -8, 12, -13, 13, -14, 14, -15, 15, -16 };
+    return @bitCast(@shuffle(u16, bitCast_u16x16(a), bitCast_u16x16(b), shuf));
+}
+
+pub inline fn _mm256_unpackhi_epi32(a: __m256i, b: __m256i) __m256i {
+    const shuf: [8]i32 = .{ 2, -3, 3, -4, 6, -7, 7, -8 };
+    return @bitCast(@shuffle(u32, bitCast_u32x8(a), bitCast_u32x8(b), shuf));
+}
+
+pub inline fn _mm256_unpackhi_epi64(a: __m256i, b: __m256i) __m256i {
+    const shuf: [4]i32 = .{ 1, -2, 3, -4 };
+    return @bitCast(@shuffle(u64, bitCast_u64x4(a), bitCast_u64x4(b), shuf));
+}
+
+pub inline fn _mm256_unpackhi_epi8(a: __m256i, b: __m256i) __m256i {
+    const shuf: [32]i32 = .{ 8, -9, 9, -10, 10, -11, 11, -12, 12, -13, 13, -14, 14, -15, 15, -16, 24, -25, 25, -26, 26, -27, 27, -28, 28, -29, 29, -30, 30, -31, 31, -32 };
+    return @bitCast(@shuffle(u8, bitCast_u8x32(a), bitCast_u8x32(b), shuf));
+}
+
+pub inline fn _mm256_unpacklo_epi16(a: __m256i, b: __m256i) __m256i {
+    const shuf: [16]i32 = .{ 0, -1, 1, -2, 2, -3, 3, -4, 8, -9, 9, -10, 10, -11, 11, -12 };
+    return @bitCast(@shuffle(u16, bitCast_u16x16(a), bitCast_u16x16(b), shuf));
+}
+
+pub inline fn _mm256_unpacklo_epi32(a: __m256i, b: __m256i) __m256i {
+    const shuf: [8]i32 = .{ 0, -1, 1, -2, 4, -5, 5, -6 };
+    return @bitCast(@shuffle(u32, bitCast_u32x8(a), bitCast_u32x8(b), shuf));
+}
+
+pub inline fn _mm256_unpacklo_epi64(a: __m256i, b: __m256i) __m256i {
+    const shuf: [4]i32 = .{ 0, -1, 2, -3 };
+    return @bitCast(@shuffle(u64, bitCast_u64x4(a), bitCast_u64x4(b), shuf));
+}
+
+pub inline fn _mm256_unpacklo_epi8(a: __m256i, b: __m256i) __m256i {
+    const shuf: [32]i32 = .{ 0, -1, 1, -2, 2, -3, 3, -4, 4, -5, 5, -6, 6, -7, 7, -8, 16, -17, 17, -18, 18, -19, 19, -20, 20, -21, 21, -22, 22, -23, 23, -24 };
+    return @bitCast(@shuffle(u8, bitCast_u8x32(a), bitCast_u8x32(b), shuf));
+}
+
+pub inline fn _mm256_xor_si256(a: __m256i, b: __m256i) __m256i {
+    return a ^ b;
 }
