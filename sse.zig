@@ -3650,10 +3650,10 @@ test "_mm_blend_pd" {
     const ref1 = _mm_set_epi64x(1084818905618843912, 8097560366627688448);
     const ref2 = _mm_set_epi64x(1084818905618843912, 8097560366627688448);
     const ref3 = _mm_set_epi64x(1084818905618843912, 506097522914230528);
-    try std.testing.expectEqual(ref0, @bitCast(_mm_blend_pd(a, b, 0)));
-    try std.testing.expectEqual(ref1, @bitCast(_mm_blend_pd(b, a, 1)));
-    try std.testing.expectEqual(ref2, @bitCast(_mm_blend_pd(a, b, 2)));
-    try std.testing.expectEqual(ref3, @bitCast(_mm_blend_pd(a, b, 3)));
+    try std.testing.expectEqual(ref0, @as(__m128i, @bitCast(_mm_blend_pd(a, b, 0))));
+    try std.testing.expectEqual(ref1, @as(__m128i, @bitCast(_mm_blend_pd(b, a, 1))));
+    try std.testing.expectEqual(ref2, @as(__m128i, @bitCast(_mm_blend_pd(a, b, 2))));
+    try std.testing.expectEqual(ref3, @as(__m128i, @bitCast(_mm_blend_pd(a, b, 3))));
 }
 
 pub inline fn _mm_blend_ps(a: __m128, b: __m128, comptime imm8: comptime_int) __m128 {
@@ -3700,9 +3700,9 @@ test "_mm_blendv_pd" {
     const ref0 = _mm_set_epi64x(-9223372036854775808, -9007199254740991);
     const ref1 = _mm_set_epi64x(-9223372036854775808, -9007199254740992);
     const ref2 = _mm_set_epi64x(9223372036854775807, -9007199254740992);
-    try std.testing.expectEqual(ref0, @bitCast(_mm_blendv_pd(a, b, b)));
-    try std.testing.expectEqual(ref1, @bitCast(_mm_blendv_pd(b, a, a)));
-    try std.testing.expectEqual(ref2, @bitCast(_mm_blendv_pd(b, a, b)));
+    try std.testing.expectEqual(ref0, @as(__m128i, @bitCast(_mm_blendv_pd(a, b, b))));
+    try std.testing.expectEqual(ref1, @as(__m128i, @bitCast(_mm_blendv_pd(b, a, a))));
+    try std.testing.expectEqual(ref2, @as(__m128i, @bitCast(_mm_blendv_pd(b, a, b))));
 }
 
 pub inline fn _mm_blendv_ps(a: __m128, b: __m128, mask: __m128) __m128 {
@@ -3716,9 +3716,9 @@ test "_mm_blendv_ps" {
     const ref0 = _mm_set_epi32(-8388608, 1073741824, -2147483648, -33488897);
     const ref1 = _mm_set_epi32(-8388608, 2139095041, -2147483648, -33488897);
     const ref2 = _mm_set_epi32(1065353216, 2139095041, 1077936128, 1082130432);
-    try std.testing.expectEqual(ref0, @bitCast(_mm_blendv_ps(a, b, b)));
-    try std.testing.expectEqual(ref1, @bitCast(_mm_blendv_ps(b, a, a)));
-    try std.testing.expectEqual(ref2, @bitCast(_mm_blendv_ps(b, a, b)));
+    try std.testing.expectEqual(ref0, @as(__m128i, @bitCast(_mm_blendv_ps(a, b, b))));
+    try std.testing.expectEqual(ref1, @as(__m128i, @bitCast(_mm_blendv_ps(b, a, a))));
+    try std.testing.expectEqual(ref2, @as(__m128i, @bitCast(_mm_blendv_ps(b, a, b))));
 }
 
 pub inline fn _mm_ceil_pd(a: __m128d) __m128d {
@@ -5171,6 +5171,74 @@ pub inline fn _mm256_srli_si256(a: __m256i, comptime imm8: comptime_int) __m256i
 }
 
 //
+
+/// Unsigned shift right of each lane in `a` by corresponding lane in `count`.
+/// The destination is zeroed if the shift amount is greater than lane size.
+pub inline fn _mm_srlv_epi32(a: __m128i, count: __m128i) __m128i {
+    if (has_avx2) {
+        return asm ("vpsrlvd %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128i),
+            : [a] "x" (a),
+              [b] "x" (count),
+        );
+    } else {
+        const count_mod32 = @as(@Vector(4, u5), @truncate(bitCast_u32x4(count)));
+        const pred = bitCast_u32x4(count) == count_mod32;
+        const r = @select(u32, pred, bitCast_u32x4(a), @as(u32x4, @splat(0)));
+        return @bitCast(r >> count_mod32);
+    }
+}
+
+/// Unsigned shift right of each lane in `a` by corresponding lane in `count`.
+/// The destination is zeroed if the shift amount is greater than lane size.
+pub inline fn _mm256_srlv_epi32(a: __m256i, count: __m256i) __m256i {
+    if (has_avx2) {
+        return asm ("vpsrlvd %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m256i),
+            : [a] "x" (a),
+              [b] "x" (count),
+        );
+    } else {
+        const count_mod32 = @as(@Vector(8, u5), @truncate(bitCast_u32x8(count)));
+        const pred = bitCast_u32x8(count) == count_mod32;
+        const r = @select(u32, pred, bitCast_u32x8(a), @as(u32x8, @splat(0)));
+        return @bitCast(r >> count_mod32);
+    }
+}
+
+/// Unsigned shift right of each lane in `a` by corresponding lane in `count`.
+/// The destination is zeroed if the shift amount is greater than lane size.
+pub inline fn _mm_srlv_epi64(a: __m128i, count: __m128i) __m128i {
+    if (has_avx2) {
+        return asm ("vpsrlvq %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128i),
+            : [a] "x" (a),
+              [b] "x" (count),
+        );
+    } else {
+        const count_mod64 = @as(@Vector(2, u6), @truncate(bitCast_u64x2(count)));
+        const pred = bitCast_u64x2(count) == count_mod64;
+        const r = @select(u64, pred, bitCast_u64x2(a), @as(u64x2, @splat(0)));
+        return @bitCast(r >> count_mod64);
+    }
+}
+
+/// Unsigned shift right of each lane in `a` by corresponding lane in `count`.
+/// The destination is zeroed if the shift amount is greater than lane size.
+pub inline fn _mm256_srlv_epi64(a: __m256i, count: __m256i) __m256i {
+    if (has_avx2) {
+        return asm ("vpsrlvq %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m256i),
+            : [a] "x" (a),
+              [b] "x" (count),
+        );
+    } else {
+        const count_mod64 = @as(@Vector(4, u6), @truncate(bitCast_u64x4(count)));
+        const pred = bitCast_u64x4(count) == count_mod64;
+        const r = @select(u64, pred, bitCast_u64x4(a), @as(u64x4, @splat(0)));
+        return @bitCast(r >> count_mod64);
+    }
+}
 
 // ## pub inline fn _mm256_stream_load_si256 (mem_addr: *const anyopaque) __m256i {}
 
