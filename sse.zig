@@ -5159,6 +5159,75 @@ pub inline fn _mm256_hsub_epi32(a: __m256i, b: __m256i) __m256 {
 
 //
 
+pub inline fn _mm256_sll_epi16(a: __m256i, count: __m128i) __m256i {
+    if (has_avx2) {
+        return asm ("vpsllw %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m256i),
+            : [a] "x" (a),
+              [b] "x" (count),
+        );
+    } else {
+        const shift = bitCast_u64x2(count)[0];
+        if (shift > 15) {
+            return @splat(0);
+        }
+        return @bitCast(bitCast_u16x16(a) << @splat(@as(u4, @truncate(shift))));
+    }
+}
+
+pub inline fn _mm256_sll_epi32(a: __m256i, count: __m128i) __m256i {
+    if (has_avx2) {
+        return asm ("vpslld %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m256i),
+            : [a] "x" (a),
+              [b] "x" (count),
+        );
+    } else {
+        const shift = bitCast_u64x2(count)[0];
+        if (shift > 31) {
+            return @splat(0);
+        }
+        return @bitCast(bitCast_u32x8(a) << @splat(@as(u5, @truncate(shift))));
+    }
+}
+
+pub inline fn _mm256_sll_epi64(a: __m256i, count: __m128i) __m256i {
+    if (has_avx2) {
+        return asm ("vpsllq %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m256i),
+            : [a] "x" (a),
+              [b] "x" (count),
+        );
+    } else {
+        const shift = bitCast_u64x2(count)[0];
+        if (shift > 63) {
+            return @splat(0);
+        }
+        return @bitCast(bitCast_u64x4(a) << @splat(@as(u6, @truncate(shift))));
+    }
+}
+
+pub inline fn _mm256_slli_epi16(a: __m256i, comptime imm8: comptime_int) __m256i {
+    if (@as(u8, @intCast(imm8)) > 15) {
+        return @splat(0);
+    }
+    return @bitCast(bitCast_u16x16(a) << @splat(imm8));
+}
+
+pub inline fn _mm256_slli_epi32(a: __m256i, comptime imm8: comptime_int) __m256i {
+    if (@as(u8, @intCast(imm8)) > 31) {
+        return @splat(0);
+    }
+    return @bitCast(bitCast_u32x8(a) << @splat(imm8));
+}
+
+pub inline fn _mm256_slli_epi64(a: __m256i, comptime imm8: comptime_int) __m256i {
+    if (@as(u8, @intCast(imm8)) > 63) {
+        return @splat(0);
+    }
+    return @bitCast(bitCast_u64x4(a) << @splat(imm8));
+}
+
 pub inline fn _mm256_slli_si256(a: __m256i, comptime imm8: comptime_int) __m256i {
     if (@as(u8, @intCast(imm8)) > 15) {
         return @splat(0);
@@ -5166,14 +5235,211 @@ pub inline fn _mm256_slli_si256(a: __m256i, comptime imm8: comptime_int) __m256i
     return _mm256_alignr_epi8(a, @splat(0), 16 - imm8);
 }
 
+/// Shift left each lane in `a` by corresponding lane in `count`.
+/// The destination lane is zeroed if the shift amount is greater than lane size.
+pub inline fn _mm_sllv_epi32(a: __m128i, count: __m128i) __m128i {
+    if (has_avx2) {
+        return asm ("vpsllvd %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128i),
+            : [a] "x" (a),
+              [b] "x" (count),
+        );
+    } else {
+        const count_mod32 = @as(@Vector(4, u5), @truncate(bitCast_u32x4(count)));
+        const pred = bitCast_u32x4(count) == count_mod32;
+        const r = @select(u32, pred, bitCast_u32x4(a), @as(u32x4, @splat(0)));
+        return @bitCast(r << count_mod32);
+    }
+}
+
+/// Shift left each lane in `a` by corresponding lane in `count`.
+/// The destination lane is zeroed if the shift amount is greater than lane size.
+pub inline fn _mm256_sllv_epi32(a: __m256i, count: __m256i) __m256i {
+    if (has_avx2) {
+        return asm ("vpsllvd %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m256i),
+            : [a] "x" (a),
+              [b] "x" (count),
+        );
+    } else {
+        const count_mod32 = @as(@Vector(8, u5), @truncate(bitCast_u32x8(count)));
+        const pred = bitCast_u32x8(count) == count_mod32;
+        const r = @select(u32, pred, bitCast_u32x8(a), @as(u32x8, @splat(0)));
+        return @bitCast(r << count_mod32);
+    }
+}
+
+/// Shift left each lane in `a` by corresponding lane in `count`.
+/// The destination lane is zeroed if the shift amount is greater than lane size.
+pub inline fn _mm_sllv_epi64(a: __m128i, count: __m128i) __m128i {
+    if (has_avx2) {
+        return asm ("vpsllvq %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128i),
+            : [a] "x" (a),
+              [b] "x" (count),
+        );
+    } else {
+        const count_mod64 = @as(@Vector(2, u6), @truncate(bitCast_u64x2(count)));
+        const pred = bitCast_u64x2(count) == count_mod64;
+        const r = @select(u64, pred, bitCast_u64x2(a), @as(u64x2, @splat(0)));
+        return @bitCast(r << count_mod64);
+    }
+}
+
+/// Shift left each lane in `a` by corresponding lane in `count`.
+/// The destination lane is zeroed if the shift amount is greater than lane size.
+pub inline fn _mm256_sllv_epi64(a: __m256i, count: __m256i) __m256i {
+    if (has_avx2) {
+        return asm ("vpsllvq %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m256i),
+            : [a] "x" (a),
+              [b] "x" (count),
+        );
+    } else {
+        const count_mod64 = @as(@Vector(4, u6), @truncate(bitCast_u64x4(count)));
+        const pred = bitCast_u64x4(count) == count_mod64;
+        const r = @select(u64, pred, bitCast_u64x4(a), @as(u64x4, @splat(0)));
+        return @bitCast(r << count_mod64);
+    }
+}
+
+pub inline fn _mm256_sra_epi16(a: __m256i, count: __m128i) __m256i {
+    if (has_avx2) {
+        return asm ("vpsraw %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m256i),
+            : [a] "x" (a),
+              [b] "x" (count),
+        );
+    } else {
+        const shift = @min(bitCast_u64x2(count)[0], 15);
+        return @bitCast(bitCast_i16x16(a) >> @splat(shift));
+    }
+}
+
+pub inline fn _mm256_sra_epi32(a: __m256i, count: __m128i) __m256i {
+    if (has_avx2) {
+        return asm ("vpsrad %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m256i),
+            : [a] "x" (a),
+              [b] "x" (count),
+        );
+    } else {
+        const shift = @min(bitCast_u64x2(count)[0], 31);
+        return @bitCast(bitCast_i32x8(a) >> @splat(shift));
+    }
+}
+
+pub inline fn _mm256_srai_epi16(a: __m256i, comptime imm8: comptime_int) __m256i {
+    const shift = @min(@as(u8, @intCast(imm8)), 15);
+    return @bitCast(bitCast_i16x16(a) >> @splat(shift));
+}
+
+pub inline fn _mm256_srai_epi32(a: __m256i, comptime imm8: comptime_int) __m256i {
+    const shift = @min(@as(u8, @intCast(imm8)), 31);
+    return @bitCast(bitCast_i32x8(a) >> @splat(shift));
+}
+
+pub inline fn _mm_srav_epi32(a: __m128i, count: __m128i) __m128i {
+    if (has_avx2) {
+        return asm ("vpsravd %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128i),
+            : [a] "x" (a),
+              [b] "x" (count),
+        );
+    } else {
+        const shift = @min(bitCast_u32x4(count), @as(@Vector(4, u5), @splat(31)));
+        return @bitCast(bitCast_i32x4(a) >> shift);
+    }
+}
+
+pub inline fn _mm256_srav_epi32(a: __m256i, count: __m256i) __m256i {
+    if (has_avx2) {
+        return asm ("vpsravd %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m256i),
+            : [a] "x" (a),
+              [b] "x" (count),
+        );
+    } else {
+        const shift = @min(bitCast_u32x8(count), @as(@Vector(8, u5), @splat(31)));
+        return @bitCast(bitCast_i32x8(a) >> shift);
+    }
+}
+
+pub inline fn _mm256_srl_epi16(a: __m256i, count: __m128i) __m256i {
+    if (has_avx2) {
+        return asm ("vpsrlw %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m256i),
+            : [a] "x" (a),
+              [b] "x" (count),
+        );
+    } else {
+        const shift = bitCast_u64x2(count)[0];
+        if (shift > 15) {
+            return @splat(0);
+        }
+        return @bitCast(bitCast_u16x16(a) >> @splat(@as(u4, @truncate(shift))));
+    }
+}
+
+pub inline fn _mm256_srl_epi32(a: __m256i, count: __m128i) __m256i {
+    if (has_avx2) {
+        return asm ("vpsrld %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m256i),
+            : [a] "x" (a),
+              [b] "x" (count),
+        );
+    } else {
+        const shift = bitCast_u64x2(count)[0];
+        if (shift > 31) {
+            return @splat(0);
+        }
+        return @bitCast(bitCast_u32x8(a) >> @splat(@as(u5, @truncate(shift))));
+    }
+}
+
+pub inline fn _mm256_srl_epi64(a: __m256i, count: __m128i) __m256i {
+    if (has_avx2) {
+        return asm ("vpsrlq %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m256i),
+            : [a] "x" (a),
+              [b] "x" (count),
+        );
+    } else {
+        const shift = bitCast_u64x2(count)[0];
+        if (shift > 63) {
+            return @splat(0);
+        }
+        return @bitCast(bitCast_u64x4(a) >> @splat(@as(u6, @truncate(shift))));
+    }
+}
+
+pub inline fn _mm256_srli_epi16(a: __m256i, comptime imm8: comptime_int) __m256i {
+    if (@as(u8, @intCast(imm8)) > 15) {
+        return @splat(0);
+    }
+    return @bitCast(bitCast_u16x16(a) >> @splat(imm8));
+}
+
+pub inline fn _mm256_srli_epi32(a: __m256i, comptime imm8: comptime_int) __m256i {
+    if (@as(u8, @intCast(imm8)) > 31) {
+        return @splat(0);
+    }
+    return @bitCast(bitCast_u32x8(a) >> @splat(imm8));
+}
+
+pub inline fn _mm256_srli_epi64(a: __m256i, comptime imm8: comptime_int) __m256i {
+    if (@as(u8, @intCast(imm8)) > 63) {
+        return @splat(0);
+    }
+    return @bitCast(bitCast_u64x4(a) >> @splat(imm8));
+}
+
 pub inline fn _mm256_srli_si256(a: __m256i, comptime imm8: comptime_int) __m256i {
     return _mm256_alignr_epi8(@splat(0), a, imm8);
 }
 
-//
-
-/// Unsigned shift right of each lane in `a` by corresponding lane in `count`.
-/// The destination is zeroed if the shift amount is greater than lane size.
+/// Unsigned shift right each lane in `a` by corresponding lane in `count`.
+/// The destination lane is zeroed if the shift amount is greater than lane size.
 pub inline fn _mm_srlv_epi32(a: __m128i, count: __m128i) __m128i {
     if (has_avx2) {
         return asm ("vpsrlvd %[b], %[a], %[ret]"
@@ -5189,8 +5455,8 @@ pub inline fn _mm_srlv_epi32(a: __m128i, count: __m128i) __m128i {
     }
 }
 
-/// Unsigned shift right of each lane in `a` by corresponding lane in `count`.
-/// The destination is zeroed if the shift amount is greater than lane size.
+/// Unsigned shift right each lane in `a` by corresponding lane in `count`.
+/// The destination lane is zeroed if the shift amount is greater than lane size.
 pub inline fn _mm256_srlv_epi32(a: __m256i, count: __m256i) __m256i {
     if (has_avx2) {
         return asm ("vpsrlvd %[b], %[a], %[ret]"
@@ -5206,8 +5472,8 @@ pub inline fn _mm256_srlv_epi32(a: __m256i, count: __m256i) __m256i {
     }
 }
 
-/// Unsigned shift right of each lane in `a` by corresponding lane in `count`.
-/// The destination is zeroed if the shift amount is greater than lane size.
+/// Unsigned shift right each lane in `a` by corresponding lane in `count`.
+/// The destination lane is zeroed if the shift amount is greater than lane size.
 pub inline fn _mm_srlv_epi64(a: __m128i, count: __m128i) __m128i {
     if (has_avx2) {
         return asm ("vpsrlvq %[b], %[a], %[ret]"
@@ -5223,8 +5489,8 @@ pub inline fn _mm_srlv_epi64(a: __m128i, count: __m128i) __m128i {
     }
 }
 
-/// Unsigned shift right of each lane in `a` by corresponding lane in `count`.
-/// The destination is zeroed if the shift amount is greater than lane size.
+/// Unsigned shift right each lane in `a` by corresponding lane in `count`.
+/// The destination lane is zeroed if the shift amount is greater than lane size.
 pub inline fn _mm256_srlv_epi64(a: __m256i, count: __m256i) __m256i {
     if (has_avx2) {
         return asm ("vpsrlvq %[b], %[a], %[ret]"
