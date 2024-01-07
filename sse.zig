@@ -160,6 +160,10 @@ inline fn intCast_i16x16(a: anytype) i16x16 {
 inline fn intCast_i8x32(a: anytype) i8x32 {
     return @intCast(a);
 }
+//
+inline fn intCast_i32x16(a: anytype) i32x16 {
+    return @intCast(a);
+}
 inline fn intCast_u32x16(a: anytype) u32x16 {
     return @intCast(a);
 }
@@ -216,64 +220,73 @@ inline fn _xx256_set_epu8(e31: u8, e30: u8, e29: u8, e28: u8, e27: u8, e26: u8, 
 inline fn min_i32x4(a: i32x4, b: i32x4) i32x4 {
     return @min(a, b);
 }
-
 inline fn min_i32x8(a: i32x8, b: i32x8) i32x8 {
     return @min(a, b);
 }
-
 inline fn min_u32x4(a: u32x4, b: u32x4) u32x4 {
     return @min(a, b);
 }
-
+inline fn min_u32x8(a: u32x8, b: u32x8) u32x8 {
+    return @min(a, b);
+}
 inline fn min_i16x8(a: i16x8, b: i16x8) i16x8 {
     return @min(a, b);
 }
-
 inline fn min_i16x16(a: i16x16, b: i16x16) i16x16 {
     return @min(a, b);
 }
-
 inline fn min_u16x8(a: u16x8, b: u16x8) u16x8 {
     return @min(a, b);
 }
-
-inline fn min_u8x16(a: u8x16, b: u8x16) u8x16 {
+inline fn min_u16x16(a: u16x16, b: u16x16) u16x16 {
     return @min(a, b);
 }
-
 inline fn min_i8x16(a: i8x16, b: i8x16) i8x16 {
     return @min(a, b);
 }
-
+inline fn min_i8x32(a: i8x32, b: i8x32) i8x32 {
+    return @min(a, b);
+}
+inline fn min_u8x16(a: u8x16, b: u8x16) u8x16 {
+    return @min(a, b);
+}
+inline fn min_u8x32(a: u8x32, b: u8x32) u8x32 {
+    return @min(a, b);
+}
 inline fn max_i32x4(a: i32x4, b: i32x4) i32x4 {
     return @max(a, b);
 }
-
 inline fn max_i32x8(a: i32x8, b: i32x8) i32x8 {
     return @max(a, b);
 }
-
 inline fn max_u32x4(a: u32x4, b: u32x4) u32x4 {
     return @max(a, b);
 }
-
+inline fn max_u32x8(a: u32x8, b: u32x8) u32x8 {
+    return @max(a, b);
+}
 inline fn max_i16x8(a: i16x8, b: i16x8) i16x8 {
     return @max(a, b);
 }
-
 inline fn max_i16x16(a: i16x16, b: i16x16) i16x16 {
     return @max(a, b);
 }
-
 inline fn max_u16x8(a: u16x8, b: u16x8) u16x8 {
     return @max(a, b);
 }
-
+inline fn max_u16x16(a: u16x16, b: u16x16) u16x16 {
+    return @max(a, b);
+}
+inline fn max_i8x16(a: i8x16, b: i8x16) i8x16 {
+    return @max(a, b);
+}
+inline fn max_i8x32(a: i8x32, b: i8x32) i8x32 {
+    return @max(a, b);
+}
 inline fn max_u8x16(a: u8x16, b: u8x16) u8x16 {
     return @max(a, b);
 }
-
-inline fn max_i8x16(a: i8x16, b: i8x16) i8x16 {
+inline fn max_u8x32(a: u8x32, b: u8x32) u8x32 {
     return @max(a, b);
 }
 
@@ -5109,8 +5122,8 @@ test "_mm256_extract_epi8" {
 
 /// Extract (high or low) __m128i from __m256i
 pub inline fn _mm256_extracti128_si256(a: __m256i, comptime imm8: comptime_int) __m128i {
-    const e = bitCast_i32x8(a);
-    return @bitCast(i32x4{ e[imm8 * 4 + 0], e[imm8 * 4 + 1], e[imm8 * 4 + 2], e[imm8 * 4 + 3] });
+    const x = bitCast_i32x8(a);
+    return @bitCast(i32x4{ x[imm8 * 4 + 0], x[imm8 * 4 + 1], x[imm8 * 4 + 2], x[imm8 * 4 + 3] });
 }
 
 test "_mm256_extracti128_si256" {
@@ -5137,7 +5150,21 @@ pub inline fn _mm256_hadd_epi32(a: __m256i, b: __m256i) __m256 {
     return @bitCast(even +% odd);
 }
 
-// ## pub inline fn _mm256_hadds_epi16 (a: __m256i, b: __m256i)  __m256i {}
+pub inline fn _mm256_hadds_epi16(a: __m256i, b: __m256i) __m256i {
+    if (has_avx2) {
+        return asm ("vphaddsw %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m256i),
+            : [a] "x" (a),
+              [b] "x" (b),
+        );
+    } else {
+        const shuf_even: [16]i32 = .{ 0, 2, 4, 6, -1, -3, -5, -7, 8, 10, 12, 14, -9, -11, -13, -15 };
+        const shuf_odd: [16]i32 = .{ 1, 3, 5, 7, -2, -4, -6, -8, 9, 11, 13, 15, -10, -12, -14, -16 };
+        const even = @shuffle(u16, bitCast_u16x16(a), bitCast_u16x16(b), shuf_even);
+        const odd = @shuffle(u16, bitCast_u16x16(a), bitCast_u16x16(b), shuf_odd);
+        return @bitCast(even +| odd);
+    }
+}
 
 pub inline fn _mm256_hsub_epi16(a: __m256i, b: __m256i) __m256i {
     const shuf_even: [16]i32 = .{ 0, 2, 4, 6, -1, -3, -5, -7, 8, 10, 12, 14, -9, -11, -13, -15 };
@@ -5155,7 +5182,83 @@ pub inline fn _mm256_hsub_epi32(a: __m256i, b: __m256i) __m256 {
     return @bitCast(even -% odd);
 }
 
-// ## pub inline fn _mm256_hsubs_epi16 (a: __m256i, b: __m256i)  __m256i {}
+pub inline fn _mm256_hsubs_epi16(a: __m256i, b: __m256i) __m256i {
+    if (has_avx2) {
+        return asm ("vphsubsw %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m256i),
+            : [a] "x" (a),
+              [b] "x" (b),
+        );
+    } else {
+        const shuf_even: [16]i32 = .{ 0, 2, 4, 6, -1, -3, -5, -7, 8, 10, 12, 14, -9, -11, -13, -15 };
+        const shuf_odd: [16]i32 = .{ 1, 3, 5, 7, -2, -4, -6, -8, 9, 11, 13, 15, -10, -12, -14, -16 };
+        const even = @shuffle(u16, bitCast_u16x16(a), bitCast_u16x16(b), shuf_even);
+        const odd = @shuffle(u16, bitCast_u16x16(a), bitCast_u16x16(b), shuf_odd);
+        return @bitCast(even -| odd);
+    }
+}
+
+pub inline fn _mm256_inserti128_si256(a: __m256i, b: __m128i, comptime imm8: comptime_int) __m256i {
+    if (@as(u1, imm8) == 1) {
+        return @bitCast(u64x4{ bitCast_u64x4(a)[0], bitCast_u64x4(a)[1], bitCast_u64x2(b)[0], bitCast_u64x2(b)[1] });
+    } else {
+        return @bitCast(u64x4{ bitCast_u64x2(b)[0], bitCast_u64x2(b)[1], bitCast_u64x4(a)[2], bitCast_u64x4(a)[3] });
+    }
+}
+
+pub inline fn _mm256_madd_epi16(a: __m256i, b: __m256i) __m256i {
+    const r = intCast_i32x16(bitCast_i16x16(a)) *%
+        intCast_i32x16(bitCast_i16x16(b));
+
+    const even = @shuffle(i32, r, undefined, [8]i32{ 0, 2, 4, 6, 8, 10, 12, 14 });
+    const odd = @shuffle(i32, r, undefined, [8]i32{ 1, 3, 5, 7, 9, 11, 13, 15 });
+    return @bitCast(even +% odd);
+}
+
+// ## pub inline fn _mm256_maddubs_epi16 (a: __m256i, b: __m256i) __m256i {}
+
+pub inline fn _mm256_max_epi16(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(max_i16x16(bitCast_i16x16(a), bitCast_i16x16(b)));
+}
+pub inline fn _mm256_max_epi32(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(max_i32x8(bitCast_i32x8(a), bitCast_i32x8(b)));
+}
+pub inline fn _mm256_max_epi8(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(max_i8x32(bitCast_i8x32(a), bitCast_i8x32(b)));
+}
+pub inline fn _mm256_max_epu16(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(max_u16x16(bitCast_u16x16(a), bitCast_u16x16(b)));
+}
+pub inline fn _mm256_max_epu32(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(max_u32x8(bitCast_u32x8(a), bitCast_u32x8(b)));
+}
+pub inline fn _mm256_max_epu8(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(max_u8x32(bitCast_u8x32(a), bitCast_u8x32(b)));
+}
+
+pub inline fn _mm256_min_epi16(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(min_i16x16(bitCast_i16x16(a), bitCast_i16x16(b)));
+}
+pub inline fn _mm256_min_epi32(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(min_i32x8(bitCast_i32x8(a), bitCast_i32x8(b)));
+}
+pub inline fn _mm256_min_epi8(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(min_i8x32(bitCast_i8x32(a), bitCast_i8x32(b)));
+}
+pub inline fn _mm256_min_epu16(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(min_u16x16(bitCast_u16x16(a), bitCast_u16x16(b)));
+}
+pub inline fn _mm256_min_epu32(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(min_u32x8(bitCast_u32x8(a), bitCast_u32x8(b)));
+}
+pub inline fn _mm256_min_epu8(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(min_u8x32(bitCast_u8x32(a), bitCast_u8x32(b)));
+}
+
+pub inline fn _mm256_movemask_epi8(a: __m256i) i32 {
+    const cmp = @as(i8x32, @splat(0)) > bitCast_i8x32(a);
+    return @intCast(@as(u32, @bitCast(cmp)));
+}
 
 //
 
