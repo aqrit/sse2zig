@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 const builtin = @import("builtin");
 const root = @import("root");
 const std = @import("std");
@@ -10,6 +12,7 @@ const use_asm = if (@hasDecl(root, "sse2zig_useAsm")) root.sse2zig_useAsm else t
 
 const has_avx2 = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .avx2);
 const has_avx = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .avx);
+const has_pclmul = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .pclmul);
 const has_sse4_2 = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .sse4_2);
 const has_sse4_1 = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .sse4_1);
 const has_ssse3 = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .ssse3);
@@ -4551,6 +4554,131 @@ test "_mm_cmpgt_epi64" {
     try std.testing.expectEqual(ref1, _mm_cmpgt_epi64(b, a));
 }
 
+// CLMUL ============================================================
+
+/// Software carryless multiplication of two 64-bit integers using native 128-bit registers.
+// Modified from: https://github.com/ziglang/zig/blob/8fd15c6ca8b93fa9888e2641ebec149f6d600643/lib/std/crypto/ghash_polyval.zig#L168
+// Copyright (c) Zig contributors
+fn clmulSoft128(x: u64, y: u64) u128 {
+    const x0 = x & 0x1111111111111110;
+    const x1 = x & 0x2222222222222220;
+    const x2 = x & 0x4444444444444440;
+    const x3 = x & 0x8888888888888880;
+    const y0 = y & 0x1111111111111111;
+    const y1 = y & 0x2222222222222222;
+    const y2 = y & 0x4444444444444444;
+    const y3 = y & 0x8888888888888888;
+    const z0 = (x0 * @as(u128, y0)) ^ (x1 * @as(u128, y3)) ^ (x2 * @as(u128, y2)) ^ (x3 * @as(u128, y1));
+    const z1 = (x0 * @as(u128, y1)) ^ (x1 * @as(u128, y0)) ^ (x2 * @as(u128, y3)) ^ (x3 * @as(u128, y2));
+    const z2 = (x0 * @as(u128, y2)) ^ (x1 * @as(u128, y1)) ^ (x2 * @as(u128, y0)) ^ (x3 * @as(u128, y3));
+    const z3 = (x0 * @as(u128, y3)) ^ (x1 * @as(u128, y2)) ^ (x2 * @as(u128, y1)) ^ (x3 * @as(u128, y0));
+
+    const x0_mask = @as(u64, 0) -% (x & 1);
+    const x1_mask = @as(u64, 0) -% ((x >> 1) & 1);
+    const x2_mask = @as(u64, 0) -% ((x >> 2) & 1);
+    const x3_mask = @as(u64, 0) -% ((x >> 3) & 1);
+    const extra = (x0_mask & y) ^ (@as(u128, x1_mask & y) << 1) ^
+        (@as(u128, x2_mask & y) << 2) ^ (@as(u128, x3_mask & y) << 3);
+
+    return (z0 & 0x11111111111111111111111111111111) ^
+        (z1 & 0x22222222222222222222222222222222) ^
+        (z2 & 0x44444444444444444444444444444444) ^
+        (z3 & 0x88888888888888888888888888888888) ^ extra;
+}
+
+pub inline fn _mm_clmulepi64_si128(a: __m128i, b: __m128i, comptime imm8: comptime_int) __m128i {
+    if (has_pclmul) {
+        if (has_avx) {
+            return asm ("vpclmulqdq %[c], %[b], %[a], %[out]"
+                : [out] "=x" (-> __m128i),
+                : [a] "x" (a),
+                  [b] "x" (b),
+                  [c] "N" (imm8),
+            );
+        } else {
+            var res = a;
+            asm ("pclmulqdq %[c], %[b], %[a]"
+                : [a] "+x" (res),
+                : [b] "x" (b),
+                  [c] "N" (imm8),
+            );
+            return res;
+        }
+    } else {
+        const x = bitCast_u64x2(a)[imm8 & 1];
+        const y = bitCast_u64x2(b)[(imm8 >> 4) & 1];
+        const r = clmulSoft128(x, y);
+        return _mm_set_epi64x(@bitCast(@as(u64, @truncate(r >> 64))), @bitCast(@as(u64, @truncate(r))));
+    }
+}
+
+test "_mm_clmulepi64_si128" {
+    const a = _mm_set_epi64x(0, 2605358807087617882);
+    const b = _mm_set_epi64x(1180018182692381252, 0);
+    const ref = _mm_set_epi64x(166359506906855238, 3930956087838474216);
+    try std.testing.expectEqual(ref, _mm_clmulepi64_si128(a, b, 16));
+}
+
+// POPCNT ===========================================================
+
+pub inline fn _mm_popcnt_u32(a: u32) i32 {
+    return @popCount(a);
+}
+
+test "_mm_popcnt_u32" {
+    const a: u32 = 2863311530;
+    try std.testing.expectEqual(@as(i32, 16), _mm_popcnt_u32(a));
+}
+
+pub inline fn _mm_popcnt_u64(a: u64) i64 {
+    return @popCount(a);
+}
+
+test "_mm_popcnt_u64" {
+    const a: u64 = 12297829382473034410;
+    try std.testing.expectEqual(@as(i64, 32), _mm_popcnt_u64(a));
+}
+
+pub inline fn _popcnt32(a: i32) i32 {
+    return @popCount(a);
+}
+
+test "_popcnt32" {
+    const a: i32 = -1431655766;
+    try std.testing.expectEqual(@as(i32, 16), _popcnt32(a));
+}
+
+pub inline fn _popcnt64(a: i64) i32 {
+    return @popCount(a);
+}
+
+test "_popcnt64" {
+    const a: i64 = -6148914691236517206;
+    try std.testing.expectEqual(@as(i32, 32), _popcnt64(a));
+}
+
+// LZCNT ============================================================
+
+pub inline fn _lzcnt_u32(a: u32) u32 {
+    return @clz(a);
+}
+
+test "_lzcnt_u32" {
+    try std.testing.expectEqual(@as(u32, 32), _lzcnt_u32(@as(u32, 0x00000000)));
+    try std.testing.expectEqual(@as(u32, 15), _lzcnt_u32(@as(u32, 0x00011000)));
+    try std.testing.expectEqual(@as(u32, 0), _lzcnt_u32(@as(u32, 0x80000000)));
+}
+
+pub inline fn _lzcnt_u64(a: u64) u64 {
+    return @clz(a);
+}
+
+test "_lzcnt_u64" {
+    try std.testing.expectEqual(@as(u64, 64), _lzcnt_u64(@as(u64, 0x0000000000000000)));
+    try std.testing.expectEqual(@as(u64, 15), _lzcnt_u64(@as(u64, 0x0001100000000200)));
+    try std.testing.expectEqual(@as(u64, 0), _lzcnt_u64(@as(u64, 0x8000000000000000)));
+}
+
 // AVX ==============================================================
 
 pub inline fn _mm256_set_epi16(e15: i16, e14: i16, e13: i16, e12: i16, e11: i16, e10: i16, e9: i16, e8: i16, e7: i16, e6: i16, e5: i16, e4: i16, e3: i16, e2: i16, e1: i16, e0: i16) __m256i {
@@ -5257,7 +5385,7 @@ pub inline fn _mm256_min_epu8(a: __m256i, b: __m256i) __m256i {
 
 pub inline fn _mm256_movemask_epi8(a: __m256i) i32 {
     const cmp = @as(i8x32, @splat(0)) > bitCast_i8x32(a);
-    return @intCast(@as(u32, @bitCast(cmp)));
+    return @bitCast(@as(u32, @bitCast(cmp)));
 }
 
 //
