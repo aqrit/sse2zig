@@ -58,9 +58,11 @@ const i32x8 = @Vector(8, i32);
 const i16x16 = @Vector(16, i16);
 const i8x32 = @Vector(32, i8);
 //
+const i64x8 = @Vector(8, i64);
 const i32x16 = @Vector(16, i32);
 const u32x16 = @Vector(16, u32);
 const u16x32 = @Vector(32, u16);
+
 // =====================================================================
 
 inline fn bitCast_u64x2(a: anytype) u64x2 {
@@ -164,7 +166,11 @@ inline fn intCast_i8x32(a: anytype) i8x32 {
     return @intCast(a);
 }
 //
+
 inline fn intCast_i32x16(a: anytype) i32x16 {
+    return @intCast(a);
+}
+inline fn intCast_i64x8(a: anytype) i64x8 {
     return @intCast(a);
 }
 inline fn intCast_u32x16(a: anytype) u32x16 {
@@ -291,6 +297,13 @@ inline fn max_u8x16(a: u8x16, b: u8x16) u8x16 {
 }
 inline fn max_u8x32(a: u8x32, b: u8x32) u8x32 {
     return @max(a, b);
+}
+//
+inline fn min_i32x16(a: i32x16, b: i32x16) i32x16 {
+    return @min(a, b);
+}
+inline fn max_i32x16(a: i32x16, b: i32x16) i32x16 {
+    return @min(a, b);
 }
 
 // =====================================================================
@@ -4225,9 +4238,9 @@ test "_mm_mpsadbw_epu8" {
 }
 
 pub inline fn _mm_mul_epi32(a: __m128i, b: __m128i) __m128i {
-    const x = intCast_i64x4(a);
-    const y = intCast_i64x4(b);
-    return @bitCast(i64x2{ x[0] *% y[0], x[2] *% y[2] });
+    const x = bitCast_i32x4(a);
+    const y = bitCast_i32x4(b);
+    return @bitCast(i64x2{ @as(i64, x[0]) *% y[0], @as(i64, x[2]) *% y[2] });
 }
 
 test "_mm_mul_epi32" {
@@ -4771,6 +4784,12 @@ test "_mm256_set_epi8" {
     try std.testing.expectEqual(@as(i8, 29), bitCast_i8x32(a)[29]);
     try std.testing.expectEqual(@as(i8, 30), bitCast_i8x32(a)[30]);
     try std.testing.expectEqual(@as(i8, 31), bitCast_i8x32(a)[31]);
+}
+
+pub inline fn _mm256_set_m128i(hi: __m128i, lo: __m128i) __m256i {
+    const l = bitCast_u64x2(lo);
+    const h = bitCast_u64x2(hi);
+    return @bitCast(u64x4{ l[0], l[1], h[0], h[1] });
 }
 
 // AVX2 ==============================================================
@@ -5386,6 +5405,96 @@ pub inline fn _mm256_min_epu8(a: __m256i, b: __m256i) __m256i {
 pub inline fn _mm256_movemask_epi8(a: __m256i) i32 {
     const cmp = @as(i8x32, @splat(0)) > bitCast_i8x32(a);
     return @bitCast(@as(u32, @bitCast(cmp)));
+}
+
+pub inline fn _mm256_mpsadbw_epu8(a: __m256i, b: __m256i, comptime imm8: comptime_int) __m256i {
+    if (has_avx2) {
+        return asm ("vmpsadbw %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m256i),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "N" (imm8),
+        );
+    } else {
+        const a_lo = _mm256_extracti128_si256(a, 0);
+        const a_hi = _mm256_extracti128_si256(a, 1);
+        const b_lo = _mm256_extracti128_si256(b, 0);
+        const b_hi = _mm256_extracti128_si256(b, 1);
+        const r_lo = _mm_mpsadbw_epu8(a_lo, b_lo, imm8 & 7);
+        const r_hi = _mm_mpsadbw_epu8(a_hi, b_hi, imm8 >> 3);
+        return _mm256_set_m128i(r_hi, r_lo);
+    }
+}
+
+test "_mm256_mpsadbw_epu8" {
+    const a = _xx256_set_epu32(0x07018593, 0x56312665, 0xFFFFFFFF, 0, 0x07018593, 0x56312665, 0xFFFFFFFF, 0);
+    const b = _xx256_set_epu32(3, 0xFA57C0DE, 1, 0, 3, 0xFA57C0DE, 1, 0);
+    const ref0 = _mm256_set_epi16(443, 649, 866, 1020, 765, 510, 255, 0, 443, 649, 866, 1020, 765, 510, 255, 0);
+    const ref1 = _mm256_set_epi16(476, 456, 431, 477, 374, 322, 413, 269, 476, 456, 431, 477, 374, 322, 413, 269);
+    try std.testing.expectEqual(ref0, _mm256_mpsadbw_epu8(a, b, 0));
+    try std.testing.expectEqual(ref1, _mm256_mpsadbw_epu8(a, b, 54));
+}
+
+pub inline fn _mm256_mul_epi32(a: __m256i, b: __m256i) __m256i {
+    const x = bitCast_i64x4(a);
+    const y = bitCast_i64x4(b);
+    const shift: @Vector(4, u6) = @splat(32);
+    return @bitCast(((x << shift) >> shift) *% ((y << shift) >> shift));
+}
+
+pub inline fn _mm256_mul_epu32(a: __m256i, b: __m256i) __m256i {
+    const x = bitCast_u64x4(a);
+    const y = bitCast_u64x4(b);
+    const shift: @Vector(4, u6) = @splat(32);
+    return @bitCast(((x << shift) >> shift) *% ((y << shift) >> shift));
+}
+
+pub inline fn _mm256_mulhi_epi16(a: __m256i, b: __m256i) __m256i {
+    const r = (intCast_i32x16(bitCast_i16x16(a)) *% intCast_i32x16(bitCast_i16x16(b)));
+    return @bitCast(@as(i16x16, @truncate(r >> @splat(16))));
+}
+
+pub inline fn _mm256_mulhi_epu16(a: __m256i, b: __m256i) __m256i {
+    const r = (intCast_u32x16(bitCast_u16x16(a)) *% intCast_u32x16(bitCast_u16x16(b)));
+    return @bitCast(@as(u16x16, @truncate(r >> @splat(16))));
+}
+
+// ## pub inline fn _mm256_mulhrs_epi16 (a: __m256i, b: __m256i) __m256i {}
+
+pub inline fn _mm256_mullo_epi16(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(bitCast_i16x16(a) *% bitCast_i16x16(b));
+}
+
+pub inline fn _mm256_mullo_epi32(a: __m256i, b: __m256i) __m256i {
+    return @bitCast(bitCast_i32x8(a) *% bitCast_i32x8(b));
+}
+
+pub inline fn _mm256_or_si256(a: __m256i, b: __m256i) __m256i {
+    return a | b;
+}
+
+pub inline fn _mm256_packs_epi16(a: __m256i, b: __m256i) __m256i {
+    const x = bitCast_u64x2(@as(i8x16, @truncate(max_i16x16(min_i16x16(bitCast_i16x16(a), @splat(127)), @splat(-128)))));
+    const y = bitCast_u64x2(@as(i8x16, @truncate(max_i16x16(min_i16x16(bitCast_i16x16(b), @splat(127)), @splat(-128)))));
+    return @bitCast(u64x4{ x[0], y[0], x[1], y[1] });
+}
+
+pub inline fn _mm256_packs_epi32(a: __m256i, b: __m256i) __m256i {
+    const x: i16x8 = @truncate(max_i32x8(min_i32x8(bitCast_i32x8(a), @splat(32767)), @splat(-32768)));
+    const y: i16x8 = @truncate(max_i32x8(min_i32x8(bitCast_i32x8(b), @splat(32767)), @splat(-32768)));
+    return @bitCast(i16x16{ x[0], x[1], x[2], x[3], y[0], y[1], y[2], y[3], x[4], x[5], x[6], x[7], y[4], y[5], y[6], y[7] });
+}
+
+pub inline fn _mm256_packus_epi16(a: __m256i, b: __m256i) __m256i {
+    const x = bitCast_u64x2(@as(i8x16, @truncate(max_i16x16(min_i16x16(bitCast_i16x16(a), @splat(255)), @splat(0)))));
+    const y = bitCast_u64x2(@as(i8x16, @truncate(max_i16x16(min_i16x16(bitCast_i16x16(b), @splat(255)), @splat(0)))));
+    return @bitCast(u64x4{ x[0], y[0], x[1], y[1] });
+}
+
+pub inline fn _mm256_packus_epi32(a: __m256i, b: __m256i) __m256i {
+    const x: i16x8 = @truncate(max_i32x8(min_i32x8(bitCast_i32x8(a), @splat(65535)), @splat(0)));
+    const y: i16x8 = @truncate(max_i32x8(min_i32x8(bitCast_i32x8(b), @splat(65535)), @splat(0)));
+    return @bitCast(i16x16{ x[0], x[1], x[2], x[3], y[0], y[1], y[2], y[3], x[4], x[5], x[6], x[7], y[4], y[5], y[6], y[7] });
 }
 
 //
