@@ -5497,6 +5497,46 @@ pub inline fn _mm256_packus_epi32(a: __m256i, b: __m256i) __m256i {
     return @bitCast(i16x16{ x[0], x[1], x[2], x[3], y[0], y[1], y[2], y[3], x[4], x[5], x[6], x[7], y[4], y[5], y[6], y[7] });
 }
 
+pub inline fn _mm256_permute2x128_si256(a: __m256i, b: __m256i, comptime imm8: comptime_int) __m256i {
+    if ((imm8 & 0x08) == 0x08) { // optimizer hand-holding when zeroing the low 128-bits
+        return switch (imm8 >> 4) {
+            0, 4 => @bitCast(u64x4{ 0, 0, bitCast_u64x4(a)[0], bitCast_u64x4(a)[1] }),
+            1, 5 => @bitCast(u64x4{ 0, 0, bitCast_u64x4(a)[2], bitCast_u64x4(a)[3] }),
+            2, 6 => @bitCast(u64x4{ 0, 0, bitCast_u64x4(b)[0], bitCast_u64x4(b)[1] }),
+            3, 7 => @bitCast(u64x4{ 0, 0, bitCast_u64x4(b)[2], bitCast_u64x4(b)[3] }),
+            else => @bitCast(u64x4{ 0, 0, 0, 0 }),
+        };
+    }
+
+    const lo: __m128i = switch (imm8 & 0x0F) {
+        0, 4 => _mm256_extracti128_si256(a, 0),
+        1, 5 => _mm256_extracti128_si256(a, 1),
+        2, 6 => _mm256_extracti128_si256(b, 0),
+        3, 7 => _mm256_extracti128_si256(b, 1),
+        else => @splat(0),
+    };
+
+    const hi: __m128i = switch (@as(u8, imm8) >> 4) {
+        0, 4 => _mm256_extracti128_si256(a, 0),
+        1, 5 => _mm256_extracti128_si256(a, 1),
+        2, 6 => _mm256_extracti128_si256(b, 0),
+        3, 7 => _mm256_extracti128_si256(b, 1),
+        else => @splat(0),
+    };
+
+    return _mm256_set_m128i(hi, lo);
+}
+
+pub inline fn _mm256_permute4x64_epi64(a: __m256i, comptime imm8: comptime_int) __m256i {
+    const shuf = [4]i32{ imm8 & 3, (imm8 >> 2) & 3, (imm8 >> 4) & 3, (imm8 >> 6) & 3 };
+    return @bitCast(@shuffle(i64, bitCast_i64x4(a), undefined, shuf));
+}
+
+pub inline fn _mm256_permute4x64_pd(a: __m256d, comptime imm8: comptime_int) __m256d {
+    const shuf = [4]i32{ imm8 & 3, (imm8 >> 2) & 3, (imm8 >> 4) & 3, (imm8 >> 6) & 3 };
+    return @bitCast(@shuffle(f64, a, undefined, shuf));
+}
+
 //
 
 pub inline fn _mm256_sll_epi16(a: __m256i, count: __m128i) __m256i {
