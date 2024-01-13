@@ -2738,7 +2738,7 @@ pub inline fn _mm_sad_epu8(a: __m128i, b: __m128i) __m128i {
 
         const max = max_u8x16(bitCast_u8x16(a), bitCast_u8x16(b));
         const min = min_u8x16(bitCast_u8x16(a), bitCast_u8x16(b));
-        const abd = intCast_u16x16(max - min);
+        const abd = intCast_u16x16(max -% min);
 
         const lo = @reduce(.Add, @shuffle(u16, abd, undefined, shuf_lo));
         const hi = @reduce(.Add, @shuffle(u16, abd, undefined, shuf_hi));
@@ -3557,7 +3557,7 @@ pub inline fn _mm_shuffle_epi8(a: __m128i, b: __m128i) __m128i {
         var r: u8x16 = undefined;
         const shuf = bitCast_i8x16(b) & @as(i8x16, @splat(0x0F));
         const mask = @intFromBool(bitCast_i8x16(b) < @as(i8x16, @splat(0)));
-        for (0..16) |i| {
+        inline for (0..16) |i| {
             r[i] = bitCast_u8x16(a)[@intCast(shuf[i])];
         }
         return @bitCast(~boolMask_u8x16(mask) & r);
@@ -5459,7 +5459,20 @@ pub inline fn _mm256_mulhi_epu16(a: __m256i, b: __m256i) __m256i {
     return @bitCast(@as(u16x16, @truncate(r >> @splat(16))));
 }
 
-// ## pub inline fn _mm256_mulhrs_epi16 (a: __m256i, b: __m256i) __m256i {}
+pub inline fn _mm256_mulhrs_epi16(a: __m256i, b: __m256i) __m256i {
+    if (has_avx2) {
+        return asm ("vpmulhrsw %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m256i),
+            : [a] "x" (a),
+              [b] "x" (b),
+        );
+    } else {
+        var r = intCast_i32x16(bitCast_i16x16(a));
+        r *%= intCast_i32x16(bitCast_i16x16(b));
+        r +%= @splat(1 << 14);
+        return @bitCast(@as(i16x16, @truncate(r >> @splat(15))));
+    }
+}
 
 pub inline fn _mm256_mullo_epi16(a: __m256i, b: __m256i) __m256i {
     return @bitCast(bitCast_i16x16(a) *% bitCast_i16x16(b));
@@ -5499,7 +5512,7 @@ pub inline fn _mm256_packus_epi32(a: __m256i, b: __m256i) __m256i {
 
 pub inline fn _mm256_permute2x128_si256(a: __m256i, b: __m256i, comptime imm8: comptime_int) __m256i {
     if ((imm8 & 0x08) == 0x08) { // optimizer hand-holding when zeroing the low 128-bits
-        return switch (imm8 >> 4) {
+        return switch (@as(u8, imm8) >> 4) {
             0, 4 => @bitCast(u64x4{ 0, 0, bitCast_u64x4(a)[0], bitCast_u64x4(a)[1] }),
             1, 5 => @bitCast(u64x4{ 0, 0, bitCast_u64x4(a)[2], bitCast_u64x4(a)[3] }),
             2, 6 => @bitCast(u64x4{ 0, 0, bitCast_u64x4(b)[0], bitCast_u64x4(b)[1] }),
@@ -5534,10 +5547,135 @@ pub inline fn _mm256_permute4x64_epi64(a: __m256i, comptime imm8: comptime_int) 
 
 pub inline fn _mm256_permute4x64_pd(a: __m256d, comptime imm8: comptime_int) __m256d {
     const shuf = [4]i32{ imm8 & 3, (imm8 >> 2) & 3, (imm8 >> 4) & 3, (imm8 >> 6) & 3 };
-    return @bitCast(@shuffle(f64, a, undefined, shuf));
+    return @shuffle(f64, a, undefined, shuf);
 }
 
-//
+pub inline fn _mm256_permutevar8x32_epi32(a: __m256i, idx: __m256i) __m256i {
+    if (has_avx2) {
+        return asm ("vpermd %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m256i),
+            : [a] "x" (a),
+              [b] "x" (idx),
+        );
+    } else {
+        const i = bitCast_u32x8(idx) & @as(u32x8, @splat(0x3));
+        const x = bitCast_u32x8(a);
+        return @bitCast(u32x8{ x[i[0]], x[i[1]], x[i[2]], x[i[3]], x[i[4]], x[i[5]], x[i[6]], x[i[7]] });
+    }
+}
+
+pub inline fn _mm256_permutevar8x32_ps(a: __m256, idx: __m256i) __m256 {
+    if (has_avx2) {
+        return asm ("vpermps %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m256),
+            : [a] "x" (a),
+              [b] "x" (idx),
+        );
+    } else {
+        const i = bitCast_u32x8(idx) & @as(u32x8, @splat(0x3));
+        return .{ a[i[0]], a[i[1]], a[i[2]], a[i[3]], a[i[4]], a[i[5]], a[i[6]], a[i[7]] };
+    }
+}
+
+pub inline fn _mm256_sad_epu8(a: __m256i, b: __m256i) __m256i {
+    if (has_avx2) {
+        return asm ("vpsadbw %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m256i),
+            : [a] "x" (a),
+              [b] "x" (b),
+        );
+    } else {
+        const max = max_u8x32(bitCast_u8x32(a), bitCast_u8x32(b));
+        const min = min_u8x32(bitCast_u8x32(a), bitCast_u8x32(b));
+        const abd = max -% min;
+
+        var r: u64x4 = @splat(0);
+        inline for (0..32) |i| {
+            r[i >> 3] +%= abd[i];
+        }
+        return @bitCast(r);
+    }
+}
+
+pub inline fn _mm256_shuffle_epi32(a: __m256i, comptime imm8: comptime_int) __m256i {
+    const shuf = [8]i32{
+        imm8 & 3,       (imm8 >> 2) & 3,       (imm8 >> 4) & 3,       (imm8 >> 6) & 3,
+        4 + (imm8 & 3), 4 + ((imm8 >> 2) & 3), 4 + ((imm8 >> 4) & 3), 4 + ((imm8 >> 6) & 3),
+    };
+    return @bitCast(@shuffle(i32, bitCast_i32x8(a), undefined, shuf));
+}
+
+pub inline fn _mm256_shuffle_epi8(a: __m256i, b: __m256i) __m256i {
+    if (has_avx2) {
+        return asm ("vpshufb %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m256i),
+            : [a] "x" (a),
+              [b] "x" (b),
+        );
+    } else {
+        const r_lo = _mm_shuffle_epi8(_mm256_extracti128_si256(a, 0), _mm256_extracti128_si256(b, 0));
+        const r_hi = _mm_shuffle_epi8(_mm256_extracti128_si256(a, 1), _mm256_extracti128_si256(b, 1));
+        return _mm256_set_m128i(r_hi, r_lo);
+    }
+}
+
+pub inline fn _mm256_shufflehi_epi16(a: __m256i, comptime imm8: comptime_int) __m256i {
+    const shuf = [16]i32{
+        0, 1, 2,  3,  4 + (imm8 & 3),  4 + ((imm8 >> 2) & 3),  4 + ((imm8 >> 4) & 3),  4 + ((imm8 >> 6) & 3),
+        8, 9, 10, 11, 12 + (imm8 & 3), 12 + ((imm8 >> 2) & 3), 12 + ((imm8 >> 4) & 3), 12 + ((imm8 >> 6) & 3),
+    };
+    return @bitCast(@shuffle(i16, bitCast_i16x16(a), undefined, shuf));
+}
+
+pub inline fn _mm256_shufflelo_epi16(a: __m256i, comptime imm8: comptime_int) __m256i {
+    const shuf = [16]i32{
+        imm8 & 3,       (imm8 >> 2) & 3,       (imm8 >> 4) & 3,       (imm8 >> 6) & 3,       4,  5,  6,  7,
+        8 + (imm8 & 3), 8 + ((imm8 >> 2) & 3), 8 + ((imm8 >> 4) & 3), 8 + ((imm8 >> 6) & 3), 12, 13, 14, 15,
+    };
+    return @bitCast(@shuffle(i16, bitCast_i16x16(a), undefined, shuf));
+}
+
+pub inline fn _mm256_sign_epi16(a: __m256i, b: __m256i) __m256i {
+    if (has_avx2) {
+        return asm ("vpsignw %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m256i),
+            : [a] "x" (a),
+              [b] "x" (b),
+        );
+    } else {
+        const zero: i16x16 = @splat(0);
+        const r = @select(i16, zero > bitCast_i16x16(b), -%bitCast_i16x16(a), bitCast_i16x16(a));
+        return @bitCast(@select(i16, (zero == bitCast_i16x16(b)), zero, r));
+    }
+}
+
+pub inline fn _mm256_sign_epi32(a: __m256i, b: __m256i) __m256i {
+    if (has_avx2) {
+        return asm ("vpsignd %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m256i),
+            : [a] "x" (a),
+              [b] "x" (b),
+        );
+    } else {
+        const zero: i32x8 = @splat(0);
+        const r = @select(i32, zero > bitCast_i32x8(b), -%bitCast_i32x8(a), bitCast_i32x8(a));
+        return @bitCast(@select(i32, (zero == bitCast_i32x8(b)), zero, r));
+    }
+}
+
+pub inline fn _mm256_sign_epi8(a: __m256i, b: __m256i) __m256i {
+    if (has_avx2) {
+        return asm ("vpsignb %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m256i),
+            : [a] "x" (a),
+              [b] "x" (b),
+        );
+    } else {
+        const zero: i8x32 = @splat(0);
+        const r = @select(i8, zero > bitCast_i8x32(b), -%bitCast_i8x32(a), bitCast_i8x32(a));
+        return @bitCast(@select(i8, (zero == bitCast_i8x32(b)), zero, r));
+    }
+}
 
 pub inline fn _mm256_sll_epi16(a: __m256i, count: __m128i) __m256i {
     if (has_avx2) {
