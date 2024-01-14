@@ -4853,7 +4853,7 @@ pub inline fn _mm256_setr_m128(lo: __m128, hi: __m128) __m256 {
 }
 
 pub inline fn _mm256_setr_m128d(lo: __m128d, hi: __m128d) __m256d {
-    return .{ lo[0], .lo[1], hi[0], hi[1] };
+    return .{ lo[0], lo[1], hi[0], hi[1] };
 }
 
 pub inline fn _mm256_setr_m128i(lo: __m128i, hi: __m128i) __m256i {
