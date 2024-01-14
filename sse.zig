@@ -4694,6 +4694,28 @@ test "_lzcnt_u64" {
 
 // AVX ==============================================================
 
+pub inline fn _mm256_extract_epi32(a: __m256i, comptime index: comptime_int) i32 {
+    return bitCast_i32x8(a)[index];
+}
+
+pub inline fn _mm256_extract_epi64(a: __m256i, comptime index: comptime_int) i64 {
+    return bitCast_i64x4(a)[index];
+}
+
+pub inline fn _mm256_extractf128_pd(a: __m256d, comptime imm8: comptime_int) __m128d {
+    return .{ a[imm8 * 2], a[(imm8 * 2) + 1] };
+}
+
+pub inline fn _mm256_extractf128_ps(a: __m256, comptime imm8: comptime_int) __m128 {
+    return .{ a[imm8 * 4], a[(imm8 * 4) + 1], a[(imm8 * 4) + 2], a[(imm8 * 4) + 3] };
+}
+
+pub inline fn _mm256_extractf128_si256(a: __m256i, comptime imm8: comptime_int) __m128i {
+    return _mm256_extracti128_si256(a, imm8);
+}
+
+//
+
 pub inline fn _mm256_set_epi16(e15: i16, e14: i16, e13: i16, e12: i16, e11: i16, e10: i16, e9: i16, e8: i16, e7: i16, e6: i16, e5: i16, e4: i16, e3: i16, e2: i16, e1: i16, e0: i16) __m256i {
     return @bitCast(i16x16{ e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15 });
 }
@@ -4880,6 +4902,182 @@ pub inline fn _mm256_setzero_ps() __m256 {
 
 pub inline fn _mm256_setzero_si256() __m256i {
     return @splat(0);
+}
+
+pub inline fn _mm256_shuffle_pd(a: __m256d, b: __m256d, comptime imm8: comptime_int) __m256d {
+    return .{ a[imm8 & 1], b[(imm8 >> 1) & 1], a[((imm8 >> 2) & 1) + 2], b[((imm8 >> 3) & 1) + 2] };
+}
+
+pub inline fn _mm256_shuffle_ps(a: __m256, b: __m256, comptime imm8: comptime_int) __m256 {
+    return .{
+        a[imm8 & 3],       a[(imm8 >> 2) & 3],       b[(imm8 >> 4) & 3],       b[(imm8 >> 6) & 3],
+        a[(imm8 & 3) + 4], a[((imm8 >> 2) & 3) + 4], b[((imm8 >> 4) & 3) + 4], b[((imm8 >> 6) & 3) + 4],
+    };
+}
+
+pub inline fn _mm256_sqrt_pd(a: __m256d) __m256d {
+    return @sqrt(a);
+}
+
+pub inline fn _mm256_sqrt_ps(a: __m256) __m256 {
+    return @sqrt(a);
+}
+
+pub inline fn _mm256_store_pd(mem_addr: *align(16) [4]f64, a: __m256d) void {
+    for (0..4) |i| mem_addr[i] = a[i];
+}
+
+pub inline fn _mm256_store_ps(mem_addr: *align(16) [8]f32, a: __m256) void {
+    for (0..8) |i| mem_addr[i] = a[i];
+}
+
+pub inline fn _mm256_store_si256(mem_addr: *align(16) __m256i, a: __m256i) void {
+    mem_addr.* = a;
+}
+
+pub inline fn _mm256_storeu_pd(mem_addr: *align(1) [4]f64, a: __m256d) void {
+    for (0..4) |i| mem_addr[i] = a[i];
+}
+
+pub inline fn _mm256_storeu_ps(mem_addr: *align(1) [8]f32, a: __m256) void {
+    for (0..8) |i| mem_addr[i] = a[i];
+}
+
+pub inline fn _mm256_storeu_si256(mem_addr: *align(1) __m256i, a: __m256i) void {
+    mem_addr.* = a;
+}
+
+test "_mm256_storeu_si256" {
+    const a = _mm256_set_epi64x(4, 3, 2, 1);
+    var arr: [8]i64 = undefined;
+    @memset(&arr, 0);
+    _mm256_storeu_si256(@ptrCast(&arr[1]), a);
+    _mm256_storeu_si256(@ptrCast(&arr[2]), a);
+
+    try std.testing.expectEqual(@as(i64, 0), arr[0]);
+    try std.testing.expectEqual(@as(i64, 1), arr[1]);
+    try std.testing.expectEqual(@as(i64, 1), arr[2]);
+    try std.testing.expectEqual(@as(i64, 2), arr[3]);
+    try std.testing.expectEqual(@as(i64, 3), arr[4]);
+    try std.testing.expectEqual(@as(i64, 4), arr[5]);
+    try std.testing.expectEqual(@as(i64, 0), arr[6]);
+    try std.testing.expectEqual(@as(i64, 0), arr[7]);
+}
+
+pub inline fn _mm256_storeu2_m128(hiaddr: *align(1) [4]f32, loaddr: *align(1) [4]f32, a: __m256) void {
+    _mm_storeu_ps(loaddr, _mm256_extractf128_ps(a, 0));
+    _mm_storeu_ps(hiaddr, _mm256_extractf128_ps(a, 1));
+}
+
+pub inline fn _mm256_storeu2_m128d(hiaddr: *align(1) [2]f64, loaddr: *align(1) [2]f64, a: __m256d) void {
+    _mm_storeu_pd(loaddr, _mm256_extractf128_pd(a, 0));
+    _mm_storeu_pd(hiaddr, _mm256_extractf128_pd(a, 1));
+}
+
+test "_mm256_storeu2_m128d" {
+    const a = _mm256_set_pd(4.0, 3.0, 2.0, 1.0);
+    var arr: [8]f64 = undefined;
+    @memset(&arr, 0);
+    _mm256_storeu2_m128d(arr[1..3], arr[5..7], a);
+
+    try std.testing.expectEqual(@as(f64, 0.0), arr[0]);
+    try std.testing.expectEqual(@as(f64, 3.0), arr[1]);
+    try std.testing.expectEqual(@as(f64, 4.0), arr[2]);
+    try std.testing.expectEqual(@as(f64, 0.0), arr[3]);
+    try std.testing.expectEqual(@as(f64, 0.0), arr[4]);
+    try std.testing.expectEqual(@as(f64, 1.0), arr[5]);
+    try std.testing.expectEqual(@as(f64, 2.0), arr[6]);
+    try std.testing.expectEqual(@as(f64, 0.0), arr[7]);
+}
+
+pub inline fn _mm256_storeu2_m128i(hiaddr: *align(1) __m128i, loaddr: *align(1) __m128i, a: __m256i) void {
+    _mm_storeu_si128(loaddr, _mm256_extracti128_si256(a, 0));
+    _mm_storeu_si128(hiaddr, _mm256_extracti128_si256(a, 1));
+}
+
+// ## pub inline fn _mm256_stream_pd (mem_addr: *anyopaque, a: __m256d) void {}
+// ## pub inline fn _mm256_stream_ps (mem_addr: *anyopaque, a: __m256) void {}
+// ## pub inline fn _mm256_stream_si256 (mem_addr: *anyopaque, a: __m256i) void {}
+
+pub inline fn _mm256_sub_pd(a: __m256d, b: __m256d) __m256d {
+    return a - b;
+}
+
+pub inline fn _mm256_sub_ps(a: __m256, b: __m256) __m256 {
+    return a - b;
+}
+
+// ## pub inline fn _mm_testc_pd (a: __m128d, b: __m128d) i32 {}
+// ## pub inline fn _mm256_testc_pd (a: __m256d, b: __m256d) i32 {}
+// ## pub inline fn _mm_testc_ps (a: __m128, b: __m128) i32 {}
+// ## pub inline fn _mm256_testc_ps (a: __m256, b: __m256) i32 {}
+// ## pub inline fn _mm256_testc_si256 (a: __m256i, b: __m256i) i32 {}
+// ## pub inline fn _mm_testnzc_pd (a: __m128d, b: __m128d) i32 {}
+// ## pub inline fn _mm256_testnzc_pd (a: __m256d, b: __m256d) i32 {}
+// ## pub inline fn _mm_testnzc_ps (a: __m128, b: __m128) i32 {}
+// ## pub inline fn _mm256_testnzc_ps (a: __m256, b: __m256) i32 {}
+// ## pub inline fn _mm256_testnzc_si256 (a: __m256i, b: __m256i) i32 {}
+// ## pub inline fn _mm_testz_pd (a: __m128d, b: __m128d) i32 {}
+// ## pub inline fn _mm256_testz_pd (a: __m256d, b: __m256d) i32 {}
+// ## pub inline fn _mm_testz_ps (a: __m128, b: __m128) i32 {}
+// ## pub inline fn _mm256_testz_ps (a: __m256, b: __m256) i32 {}
+
+pub inline fn _mm256_testz_si256(a: __m256i, b: __m256i) i32 {
+    return @intFromBool(@reduce(.Or, (a & b)) == 0);
+}
+
+pub inline fn _mm256_undefined_pd() __m256d {
+    // zig `undefined` doesn't compare equal to itself ?
+    return @splat(0);
+}
+
+pub inline fn _mm256_undefined_ps() __m256 {
+    // zig `undefined` doesn't compare equal to itself ?
+    return @splat(0);
+}
+
+pub inline fn _mm256_undefined_si256() __m256i {
+    // zig `undefined` doesn't compare equal to itself ?
+    return @splat(0);
+}
+
+pub inline fn _mm256_unpackhi_pd(a: __m256d, b: __m256d) __m256d {
+    return .{ a[1], b[1], a[3], b[3] };
+}
+
+pub inline fn _mm256_unpackhi_ps(a: __m256, b: __m256) __m256 {
+    return .{ a[2], b[2], a[3], b[3], a[6], b[6], a[7], b[7] };
+}
+
+pub inline fn _mm256_unpacklo_pd(a: __m256d, b: __m256d) __m256d {
+    return .{ a[0], b[0], a[2], b[2] };
+}
+
+pub inline fn _mm256_unpacklo_ps(a: __m256, b: __m256) __m256 {
+    return .{ a[0], b[0], a[1], b[1], a[4], b[4], a[5], b[5] };
+}
+
+pub inline fn _mm256_xor_pd(a: __m256d, b: __m256d) __m256d {
+    return @bitCast(bitCast_u64x4(a) ^ bitCast_u64x4(b));
+}
+
+pub inline fn _mm256_xor_ps(a: __m256, b: __m256) __m256 {
+    return @bitCast(bitCast_u32x8(a) ^ bitCast_u32x8(b));
+}
+
+// ## pub inline fn _mm256_zeroall() void {}
+// ## pub inline fn _mm256_zeroupper() void {}
+
+pub inline fn _mm256_zextpd128_pd256(a: __m128d) __m256d {
+    return .{ a[0], a[1], 0, 0 };
+}
+
+pub inline fn _mm256_zextps128_ps256(a: __m128) __m256 {
+    return .{ a[0], a[1], a[2], a[3], 0, 0, 0, 0 };
+}
+
+pub inline fn _mm256_zextsi128_si256(a: __m128i) __m256i {
+    return @bitCast(u64x4{ bitCast_u64x2(a)[0], bitCast_u64x2(a)[1], 0, 0 });
 }
 
 // AVX2 ==============================================================
