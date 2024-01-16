@@ -3501,15 +3501,10 @@ pub inline fn _mm_maddubs_epi16(a: __m128i, b: __m128i) __m128i {
             : [b] "x" (b),
         );
         return res;
-    } else { // !NOT TESTED! weird saturation rules... todo
-        const r = bitCast_i16x16(intCast_u16x16(bitCast_u8x16(a))) *%
-            intCast_i16x16(bitCast_i8x16(b));
-
-        const shuf_even = i32x8{ 0, 2, 4, 6, 8, 10, 12, 14 };
-        const shuf_odd = i32x8{ 1, 3, 5, 7, 9, 11, 13, 15 };
-        const even = @shuffle(i32, r, undefined, shuf_even);
-        const odd = @shuffle(i32, r, undefined, shuf_odd);
-        return @bitCast(even +| odd);
+    } else {
+        const lo = _mm_mullo_epi16(_mm_srli_epi16(_mm_slli_epi16(a, 8), 8), _mm_srai_epi16(_mm_slli_epi16(b, 8), 8));
+        const hi = _mm_mullo_epi16(_mm_srli_epi16(a, 8), _mm_srai_epi16(b, 8));
+        return _mm_adds_epi16(lo, hi);
     }
 }
 
@@ -5650,7 +5645,19 @@ pub inline fn _mm256_madd_epi16(a: __m256i, b: __m256i) __m256i {
     return @bitCast(even +% odd);
 }
 
-// ## pub inline fn _mm256_maddubs_epi16 (a: __m256i, b: __m256i) __m256i {}
+pub inline fn _mm256_maddubs_epi16(a: __m256i, b: __m256i) __m256i {
+    if (has_avx2) {
+        return asm ("vpmaddubsw %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m256i),
+            : [a] "x" (a),
+              [b] "x" (b),
+        );
+    } else {
+        const r_lo = _mm_maddubs_epi16(_mm256_extracti128_si256(a, 0), _mm256_extracti128_si256(b, 0));
+        const r_hi = _mm_maddubs_epi16(_mm256_extracti128_si256(a, 1), _mm256_extracti128_si256(b, 1));
+        return _mm256_set_m128i(r_hi, r_lo);
+    }
+}
 
 pub inline fn _mm256_max_epi16(a: __m256i, b: __m256i) __m256i {
     return @bitCast(max_i16x16(bitCast_i16x16(a), bitCast_i16x16(b)));
