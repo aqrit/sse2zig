@@ -4786,6 +4786,61 @@ test "_lzcnt_u64" {
 
 // AVX ==============================================================
 
+//
+
+pub inline fn _mm256_castpd_ps(a: __m256d) __m256 {
+    return @bitCast(a);
+}
+
+pub inline fn _mm256_castpd_si256(a: __m256d) __m256i {
+    return @bitCast(a);
+}
+
+/// *** the upper 128-bits are undefined...
+pub inline fn _mm256_castpd128_pd256(a: __m128d) __m256d {
+    return .{ a[0], a[1], 0, 0 };
+}
+
+pub inline fn _mm256_castpd256_pd128(a: __m256d) __m128d {
+    return .{ a[0], a[1] };
+}
+
+pub inline fn _mm256_castps_pd(a: __m256) __m256d {
+    return @bitCast(a);
+}
+
+pub inline fn _mm256_castps_si256(a: __m256) __m256i {
+    return @bitCast(a);
+}
+
+/// *** the upper 128-bits are undefined...
+pub inline fn _mm256_castps128_ps256(a: __m128) __m256 {
+    return .{ a[0], a[1], a[2], a[3], 0, 0, 0, 0 };
+}
+
+pub inline fn _mm256_castps256_ps128(a: __m256) __m128 {
+    return .{ a[0], a[1], a[2], a[3] };
+}
+
+/// *** the upper 128-bits are undefined...
+pub inline fn _mm256_castsi128_si256(a: __m128i) __m256i {
+    return @bitCast(u64x4{ bitCast_u64x2(a)[0], bitCast_u64x2(a)[1], 0, 0 });
+}
+
+pub inline fn _mm256_castsi256_pd(a: __m256i) __m256d {
+    return @bitCast(a);
+}
+
+pub inline fn _mm256_castsi256_ps(a: __m256i) __m256 {
+    return @bitCast(a);
+}
+
+pub inline fn _mm256_castsi256_si128(a: __m256i) __m128i {
+    return @bitCast(u64x2{ bitCast_u64x4(a)[0], bitCast_u64x4(a)[1] });
+}
+
+//
+
 pub inline fn _mm256_extract_epi32(a: __m256i, comptime index: comptime_int) i32 {
     return bitCast_i32x8(a)[index];
 }
@@ -4806,7 +4861,141 @@ pub inline fn _mm256_extractf128_si256(a: __m256i, comptime imm8: comptime_int) 
     return _mm256_extracti128_si256(a, imm8);
 }
 
+// ## pub inline fn _mm256_floor_pd(a: __m256d) __m256d {}
+// ## pub inline fn _mm256_floor_ps(a: __m256) __m256 {}
+// ## pub inline fn _mm256_hadd_pd(a: __m256d, b: __m256d) __m256d {}
+// ## pub inline fn _mm256_hadd_ps(a: __m256, b: __m256) __m256 {}
+// ## pub inline fn _mm256_hsub_pd(a: __m256d, b: __m256d) __m256d {}
+// ## pub inline fn _mm256_hsub_ps(a: __m256, b: __m256) __m256 {}
+
+pub inline fn _mm256_insert_epi16(a: __m256i, i: i16, comptime index: comptime_int) __m256i {
+    var r = bitCast_i16x16(a);
+    r[index] = i;
+    return @bitCast(r);
+}
+
+pub inline fn _mm256_insert_epi32(a: __m256i, i: i32, comptime index: comptime_int) __m256i {
+    var r = bitCast_i32x8(a);
+    r[index] = i;
+    return @bitCast(r);
+}
+
+pub inline fn _mm256_insert_epi64(a: __m256i, i: i64, comptime index: comptime_int) __m256i {
+    var r = bitCast_i64x4(a);
+    r[index] = i;
+    return @bitCast(r);
+}
+
+pub inline fn _mm256_insert_epi8(a: __m256i, i: i8, comptime index: comptime_int) __m256i {
+    var r = bitCast_i8x32(a);
+    r[index] = i;
+    return @bitCast(r);
+}
+
+pub inline fn _mm256_insertf128_pd(a: __m256d, b: __m128d, comptime imm8: comptime_int) __m256d {
+    if (@as(u1, imm8) == 1) {
+        return .{ a[0], a[1], b[0], b[1] };
+    } else {
+        return .{ b[0], b[1], a[2], a[3] };
+    }
+}
+
+pub inline fn _mm256_insertf128_ps(a: __m256, b: __m128, comptime imm8: comptime_int) __m256 {
+    if (@as(u1, imm8) == 1) {
+        return .{ a[0], a[1], a[2], a[3], b[0], b[1], b[2], b[3] };
+    } else {
+        return .{ b[0], b[1], b[2], b[3], a[4], a[5], a[6], a[7] };
+    }
+}
+
+pub inline fn _mm256_insertf128_si256(a: __m256i, b: __m128i, comptime imm8: comptime_int) __m256i {
+    if (@as(u1, imm8) == 1) {
+        return @bitCast(u64x4{ bitCast_u64x4(a)[0], bitCast_u64x4(a)[1], bitCast_u64x2(b)[0], bitCast_u64x2(b)[1] });
+    } else {
+        return @bitCast(u64x4{ bitCast_u64x2(b)[0], bitCast_u64x2(b)[1], bitCast_u64x4(a)[2], bitCast_u64x4(a)[3] });
+    }
+}
+
+pub inline fn _mm256_lddqu_si256(mem_addr: *align(1) const __m256i) __m256i {
+    return _mm256_loadu_si256(mem_addr);
+}
+
+pub inline fn _mm256_load_pd(mem_addr: *align(16) const [4]f64) __m256d {
+    return .{ mem_addr[0], mem_addr[1], mem_addr[2], mem_addr[3] };
+}
+
+pub inline fn _mm256_load_ps(mem_addr: *align(16) const [8]f32) __m256 {
+    return .{
+        mem_addr[0], mem_addr[1], mem_addr[2], mem_addr[3],
+        mem_addr[4], mem_addr[5], mem_addr[6], mem_addr[7],
+    };
+}
+
+pub inline fn _mm256_load_si256(mem_addr: *align(16) const __m256i) __m256i {
+    return mem_addr.*;
+}
+
+pub inline fn _mm256_loadu_pd(mem_addr: *align(1) const [4]f64) __m256d {
+    return .{ mem_addr[0], mem_addr[1], mem_addr[2], mem_addr[3] };
+}
+
+pub inline fn _mm256_loadu_ps(mem_addr: *align(1) const [8]f32) __m256 {
+    return .{
+        mem_addr[0], mem_addr[1], mem_addr[2], mem_addr[3],
+        mem_addr[4], mem_addr[5], mem_addr[6], mem_addr[7],
+    };
+}
+
+pub inline fn _mm256_loadu_si256(mem_addr: *align(1) const __m256i) __m256i {
+    return mem_addr.*;
+}
+
+pub inline fn _mm256_loadu2_m128(hiaddr: *align(1) const [4]f32, loaddr: *align(1) const [4]f32) __m256 {
+    const hi = _mm_loadu_ps(hiaddr);
+    const lo = _mm_loadu_ps(loaddr);
+    return _mm256_set_m128(hi, lo);
+}
+
+pub inline fn _mm256_loadu2_m128d(hiaddr: *align(1) const [2]f64, loaddr: *align(1) const [2]f64) __m256d {
+    const hi = _mm_loadu_pd(hiaddr);
+    const lo = _mm_loadu_pd(loaddr);
+    return _mm256_set_m128d(hi, lo);
+}
+
+pub inline fn _mm256_loadu2_m128i(hiaddr: *align(1) const __m128i, loaddr: *align(1) const __m128i) __m256i {
+    const hi = _mm_loadu_si128(hiaddr);
+    const lo = _mm_loadu_si128(loaddr);
+    return _mm256_set_m128i(hi, lo);
+}
+
 //
+
+/// Approximate reciprocal
+pub inline fn _mm256_rcp_ps(a: __m256) __m256 {
+    if (has_avx) {
+        return asm ("vrcpps %[a], %[ret]"
+            : [ret] "=x" (-> __m256),
+            : [a] "x" (a),
+        );
+    } else {
+        return @as(__m256, @splat(1.0)) / a;
+    }
+}
+
+// ## pub inline fn _mm256_round_pd (a: __m256d, comptime rounding: comptime_int) __m256d {}
+// ## pub inline fn _mm256_round_ps ( a: __m256, comptime rounding: comptime_int)  __m256 {}
+
+/// Approximate reciprocal square root
+pub inline fn _mm256_rsqrt_ps(a: __m256) __m256 {
+    if (has_avx) {
+        return asm ("vrsqrtps %[a], %[ret]"
+            : [ret] "=x" (-> __m256),
+            : [a] "x" (a),
+        );
+    } else {
+        return @as(__m256, @splat(1.0)) / @sqrt(a);
+    }
+}
 
 pub inline fn _mm256_set_epi16(e15: i16, e14: i16, e13: i16, e12: i16, e11: i16, e10: i16, e9: i16, e8: i16, e7: i16, e6: i16, e5: i16, e4: i16, e3: i16, e2: i16, e1: i16, e0: i16) __m256i {
     return @bitCast(i16x16{ e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15 });
