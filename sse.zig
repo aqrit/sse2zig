@@ -5855,13 +5855,23 @@ pub inline fn _mm256_maddubs_epi16(a: __m256i, b: __m256i) __m256i {
 }
 
 pub inline fn _mm_maskload_epi32(mem_addr: [*]align(1) const i32, mask: __m128i) __m128i {
-    // TODO: inline asm
-    const pred = @as(i32x4, @splat(0)) > bitCast_i32x4(mask);
-    var r: i32x4 = @splat(0);
-    inline for (0..4) |i| {
-        if (pred[i]) r[i] = mem_addr[i];
+    if (has_avx2) {
+        // mem_addr[0..4] probably covers invalid locations so
+        // can't use the "m" contraint because it requires a dereference of mem_addr.
+        return asm volatile ("vpmaskmovd (%[b]), %[a], %[ret]"
+            : [ret] "=x" (-> __m128i),
+            : [a] "x" (mask),
+              [b] "r" (mem_addr),
+            : "memory"
+        );
+    } else {
+        const pred = @as(i32x4, @splat(0)) > bitCast_i32x4(mask);
+        var r: i32x4 = @splat(0);
+        inline for (0..4) |i| {
+            if (pred[i]) r[i] = mem_addr[i];
+        }
+        return @bitCast(r);
     }
-    return @bitCast(r);
 }
 
 test "_mm_maskload_epi32" {
@@ -5872,40 +5882,73 @@ test "_mm_maskload_epi32" {
 }
 
 pub inline fn _mm256_maskload_epi32(mem_addr: [*]align(1) const i32, mask: __m256i) __m256i {
-    // TODO: inline asm
-    const pred = @as(i32x8, @splat(0)) > bitCast_i32x8(mask);
-    var r: i32x8 = @splat(0);
-    inline for (0..8) |i| {
-        if (pred[i]) r[i] = mem_addr[i];
+    if (has_avx2) {
+        return asm volatile ("vpmaskmovd (%[b]), %[a], %[ret]"
+            : [ret] "=x" (-> __m256i),
+            : [a] "x" (mask),
+              [b] "r" (mem_addr),
+            : "memory"
+        );
+    } else {
+        const pred = @as(i32x8, @splat(0)) > bitCast_i32x8(mask);
+        var r: i32x8 = @splat(0);
+        inline for (0..8) |i| {
+            if (pred[i]) r[i] = mem_addr[i];
+        }
+        return @bitCast(r);
     }
-    return @bitCast(r);
 }
 
 pub inline fn _mm_maskload_epi64(mem_addr: [*]align(1) const i64, mask: __m128i) __m128i {
-    // TODO: inline asm
-    const pred = @as(i64x2, @splat(0)) > bitCast_i64x2(mask);
-    var r: i64x2 = @splat(0);
-    inline for (0..2) |i| {
-        if (pred[i]) r[i] = mem_addr[i];
+    if (has_avx2) {
+        return asm volatile ("vpmaskmovq (%[b]), %[a], %[ret]"
+            : [ret] "=x" (-> __m128i),
+            : [a] "x" (mask),
+              [b] "r" (mem_addr),
+            : "memory"
+        );
+    } else {
+        const pred = @as(i64x2, @splat(0)) > bitCast_i64x2(mask);
+        var r: i64x2 = @splat(0);
+        inline for (0..2) |i| {
+            if (pred[i]) r[i] = mem_addr[i];
+        }
+        return @bitCast(r);
     }
-    return @bitCast(r);
 }
 
 pub inline fn _mm256_maskload_epi64(mem_addr: [*]align(1) const i64, mask: __m256i) __m256i {
-    // TODO: inline asm
-    const pred = @as(i64x4, @splat(0)) > bitCast_i64x4(mask);
-    var r: i64x4 = @splat(0);
-    inline for (0..4) |i| {
-        if (pred[i]) r[i] = mem_addr[i];
+    if (has_avx2) {
+        return asm volatile ("vpmaskmovq (%[b]), %[a], %[ret]"
+            : [ret] "=x" (-> __m256i),
+            : [a] "x" (mask),
+              [b] "r" (mem_addr),
+            : "memory"
+        );
+    } else {
+        const pred = @as(i64x4, @splat(0)) > bitCast_i64x4(mask);
+        var r: i64x4 = @splat(0);
+        inline for (0..4) |i| {
+            if (pred[i]) r[i] = mem_addr[i];
+        }
+        return @bitCast(r);
     }
-    return @bitCast(r);
 }
 
 pub inline fn _mm_maskstore_epi32(mem_addr: [*]align(1) i32, mask: __m128i, a: __m128i) void {
-    // TODO: inline asm
-    const pred = @as(i32x4, @splat(0)) > bitCast_i32x4(mask);
-    inline for (0..4) |i| {
-        if (pred[i]) mem_addr[i] = bitCast_i32x4(a)[i];
+    if (has_avx2) {
+        asm volatile ("vpmaskmovd %[a], %[mask], (%[mem_addr])"
+            :
+            : [mem_addr] "r" (mem_addr),
+              [mask] "x" (mask),
+              [a] "x" (a),
+            : "memory"
+        );
+    } else {
+        const pred = @as(i32x4, @splat(0)) > bitCast_i32x4(mask);
+        inline for (0..4) |i| {
+            if (pred[i]) mem_addr[i] = bitCast_i32x4(a)[i];
+        }
     }
 }
 
@@ -5922,26 +5965,53 @@ test "_mm_maskstore_epi32" {
 }
 
 pub inline fn _mm256_maskstore_epi32(mem_addr: [*]align(1) i32, mask: __m256i, a: __m256i) void {
-    // TODO: inline asm
-    const pred = @as(i32x8, @splat(0)) > bitCast_i32x8(mask);
-    inline for (0..8) |i| {
-        if (pred[i]) mem_addr[i] = bitCast_i32x8(a)[i];
+    if (has_avx2) {
+        asm volatile ("vpmaskmovd %[a], %[mask], (%[mem_addr])"
+            :
+            : [mem_addr] "r" (mem_addr),
+              [mask] "x" (mask),
+              [a] "x" (a),
+            : "memory"
+        );
+    } else {
+        const pred = @as(i32x8, @splat(0)) > bitCast_i32x8(mask);
+        inline for (0..8) |i| {
+            if (pred[i]) mem_addr[i] = bitCast_i32x8(a)[i];
+        }
     }
 }
 
 pub inline fn _mm_maskstore_epi64(mem_addr: [*]align(1) i64, mask: __m128i, a: __m128i) void {
-    // TODO: inline asm
-    const pred = @as(i64x2, @splat(0)) > bitCast_i64x2(mask);
-    inline for (0..2) |i| {
-        if (pred[i]) mem_addr[i] = bitCast_i64x2(a)[i];
+    if (has_avx2) {
+        asm volatile ("vpmaskmovq %[a], %[mask], (%[mem_addr])"
+            :
+            : [mem_addr] "r" (mem_addr),
+              [mask] "x" (mask),
+              [a] "x" (a),
+            : "memory"
+        );
+    } else {
+        const pred = @as(i64x2, @splat(0)) > bitCast_i64x2(mask);
+        inline for (0..2) |i| {
+            if (pred[i]) mem_addr[i] = bitCast_i64x2(a)[i];
+        }
     }
 }
 
 pub inline fn _mm256_maskstore_epi64(mem_addr: [*]align(1) i64, mask: __m256i, a: __m256i) void {
-    // TODO: inline asm
-    const pred = @as(i64x4, @splat(0)) > bitCast_i64x4(mask);
-    inline for (0..4) |i| {
-        if (pred[i]) mem_addr[i] = bitCast_i64x4(a)[i];
+    if (has_avx2) {
+        asm volatile ("vpmaskmovq %[a], %[mask], (%[mem_addr])"
+            :
+            : [mem_addr] "r" (mem_addr),
+              [mask] "x" (mask),
+              [a] "x" (a),
+            : "memory"
+        );
+    } else {
+        const pred = @as(i64x4, @splat(0)) > bitCast_i64x4(mask);
+        inline for (0..4) |i| {
+            if (pred[i]) mem_addr[i] = bitCast_i64x4(a)[i];
+        }
     }
 }
 
