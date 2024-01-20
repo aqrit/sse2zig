@@ -4829,18 +4829,18 @@ pub inline fn _mm256_lddqu_si256(mem_addr: *align(1) const __m256i) __m256i {
     return _mm256_loadu_si256(mem_addr);
 }
 
-pub inline fn _mm256_load_pd(mem_addr: *align(16) const [4]f64) __m256d {
+pub inline fn _mm256_load_pd(mem_addr: *align(32) const [4]f64) __m256d {
     return .{ mem_addr[0], mem_addr[1], mem_addr[2], mem_addr[3] };
 }
 
-pub inline fn _mm256_load_ps(mem_addr: *align(16) const [8]f32) __m256 {
+pub inline fn _mm256_load_ps(mem_addr: *align(32) const [8]f32) __m256 {
     return .{
         mem_addr[0], mem_addr[1], mem_addr[2], mem_addr[3],
         mem_addr[4], mem_addr[5], mem_addr[6], mem_addr[7],
     };
 }
 
-pub inline fn _mm256_load_si256(mem_addr: *align(16) const __m256i) __m256i {
+pub inline fn _mm256_load_si256(mem_addr: *align(32) const __m256i) __m256i {
     return mem_addr.*;
 }
 
@@ -5113,15 +5113,15 @@ pub inline fn _mm256_sqrt_ps(a: __m256) __m256 {
     return @sqrt(a);
 }
 
-pub inline fn _mm256_store_pd(mem_addr: *align(16) [4]f64, a: __m256d) void {
+pub inline fn _mm256_store_pd(mem_addr: *align(32) [4]f64, a: __m256d) void {
     for (0..4) |i| mem_addr[i] = a[i];
 }
 
-pub inline fn _mm256_store_ps(mem_addr: *align(16) [8]f32, a: __m256) void {
+pub inline fn _mm256_store_ps(mem_addr: *align(32) [8]f32, a: __m256) void {
     for (0..8) |i| mem_addr[i] = a[i];
 }
 
-pub inline fn _mm256_store_si256(mem_addr: *align(16) __m256i, a: __m256i) void {
+pub inline fn _mm256_store_si256(mem_addr: *align(32) __m256i, a: __m256i) void {
     mem_addr.* = a;
 }
 
@@ -5857,7 +5857,7 @@ pub inline fn _mm256_maddubs_epi16(a: __m256i, b: __m256i) __m256i {
 pub inline fn _mm_maskload_epi32(mem_addr: [*]align(1) const i32, mask: __m128i) __m128i {
     if (has_avx2) {
         // mem_addr[0..4] probably covers invalid locations so
-        // can't use the "m" contraint because it requires a dereference of mem_addr.
+        // can't use the "m" constraint because it requires a dereference of mem_addr.
         return asm volatile ("vpmaskmovd (%[b]), %[a], %[ret]"
             : [ret] "=x" (-> __m128i),
             : [a] "x" (mask),
