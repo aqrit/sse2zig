@@ -5823,6 +5823,103 @@ pub inline fn _mm256_hsubs_epi16(a: __m256i, b: __m256i) __m256i {
     }
 }
 
+pub inline fn _mm_i32gather_epi32(base_addr: [*]align(1) const i32, vindex: __m128i, comptime scale: comptime_int) __m128i {
+    if (has_avx2) {
+        const src: i32x4 = @splat(0);
+        const mask: i32x4 = @splat(-1);
+        return _mm_mask_i32gather_epi32(src, base_addr, vindex, mask, scale);
+    } else {
+        if ((@as(u64, scale) > 8) or (@popCount(@as(u64, scale)) != 1)) {
+            @compileError("Scale must be 1,2,4, or 8");
+        }
+
+        var r: i32x4 = undefined;
+        inline for (0..4) |i| {
+            // needs `@intFromPtr` for pointer arithmetic with negative offsets?
+            const addr = @intFromPtr(base_addr);
+            const offset: usize = @bitCast(@as(isize, vindex[i]) *% scale);
+            const ptr: *align(1) const i32 = @ptrFromInt(addr +% offset);
+            r[i] = ptr.*; // safety-checked for null, should we turn that off?
+        }
+        return @bitCast(r);
+    }
+}
+
+test "_mm_i32gather_epi32" {
+    const vindex = _mm_set_epi32(1, 2, 0, -1);
+    const arr: [4]i32 = .{ 286331153, 572662306, 858993459, 1145324612 };
+    const ref = _mm_set_epi32(858993459, 1145324612, 572662306, 286331153);
+    try std.testing.expectEqual(ref, _mm_i32gather_epi32(arr[1..], vindex, 4));
+}
+
+pub inline fn _mm_mask_i32gather_epi32(src: __m128i, base_addr: [*]align(1) const i32, vindex: __m128i, mask: __m128i, comptime scale: comptime_int) __m128i {
+    if (has_avx2) {
+        var s: __m128i = src;
+        var m: __m128i = mask;
+
+        // It seems like Zig `asm` doesn't support operand modifiers (e.g. `%c[scale]`).
+        // Instead we'll just switch on scale since it is comptime anyways.
+        switch (scale) {
+            1 => asm volatile ("vpgatherdd %[mask], (%[base_addr],%[vindex],1), %[src]"
+                : [src] "+x" (s),
+                  [mask] "+x" (m),
+                : [base_addr] "r" (base_addr),
+                  [vindex] "x" (vindex),
+                : "memory"
+            ),
+            2 => asm volatile ("vpgatherdd %[mask], (%[base_addr],%[vindex],2), %[src]"
+                : [src] "+x" (s),
+                  [mask] "+x" (m),
+                : [base_addr] "r" (base_addr),
+                  [vindex] "x" (vindex),
+                : "memory"
+            ),
+            4 => asm volatile ("vpgatherdd %[mask], (%[base_addr],%[vindex],4), %[src]"
+                : [src] "+x" (s),
+                  [mask] "+x" (m),
+                : [base_addr] "r" (base_addr),
+                  [vindex] "x" (vindex),
+                : "memory"
+            ),
+            8 => asm volatile ("vpgatherdd %[mask], (%[base_addr],%[vindex],8), %[src]"
+                : [src] "+x" (s),
+                  [mask] "+x" (m),
+                : [base_addr] "r" (base_addr),
+                  [vindex] "x" (vindex),
+                : "memory"
+            ),
+            else => @compileError("Scale must be 1,2,4, or 8"),
+        }
+        return s;
+    } else {
+        if ((@as(u64, scale) > 8) or (@popCount(@as(u64, scale)) != 1)) {
+            @compileError("Scale must be 1,2,4, or 8");
+        }
+
+        var r: i32x4 = bitCast_i32x4(src);
+        const pred = @as(i32x4, @splat(0)) > bitCast_i32x4(mask);
+        inline for (0..4) |i| {
+            if (pred[i]) {
+                // needs `@intFromPtr` for pointer arithmetic with negative offsets?
+                const addr = @intFromPtr(base_addr);
+                const offset: usize = @bitCast(@as(isize, vindex[i]) *% scale);
+                const ptr: *align(1) const i32 = @ptrFromInt(addr +% offset);
+                r[i] = ptr.*; // safety-checked for null, should we turn that off?
+            }
+        }
+        return @bitCast(r);
+    }
+}
+
+test "_mm_mask_i32gather_epi32" {
+    const vindex = _mm_set_epi32(1, 2, 0, -1);
+    const arr: [4]i32 = .{ 286331153, 572662306, 858993459, 1145324612 };
+    const src = _mm_set_epi32(4, 3, 2, 1);
+    const mask = _mm_set_epi32(0, -1, -1, -1);
+    const ref = _mm_set_epi32(4, 1145324612, 572662306, 286331153);
+    try std.testing.expectEqual(ref, _mm_mask_i32gather_epi32(src, arr[1..], vindex, mask, 4));
+}
+
 pub inline fn _mm256_inserti128_si256(a: __m256i, b: __m128i, comptime imm8: comptime_int) __m256i {
     if (@as(u1, imm8) == 1) {
         return @bitCast(u64x4{ bitCast_u64x4(a)[0], bitCast_u64x4(a)[1], bitCast_u64x2(b)[0], bitCast_u64x2(b)[1] });
@@ -6675,7 +6772,20 @@ pub inline fn _mm256_srlv_epi64(a: __m256i, count: __m256i) __m256i {
     }
 }
 
-// ## pub inline fn _mm256_stream_load_si256 (mem_addr: *const anyopaque) __m256i {}
+pub inline fn _mm256_stream_load_si256(mem_addr: *align(32) const anyopaque) __m256i {
+    const src: *align(32) const __m256i = @ptrCast(mem_addr);
+    if (has_avx2) {
+        // It seems, the "m" constraint causes the compiler to copy the data to the stack...
+        return asm volatile ("vmovntdqa (%[a]),  %[ret]"
+            : [ret] "=x" (-> __m256i),
+            : [a] "r" (src),
+            : "memory"
+        );
+    } else {
+        // fallback: load without non-temporal hint
+        return src.*;
+    }
+}
 
 pub inline fn _mm256_sub_epi16(a: __m256i, b: __m256i) __m256i {
     return @bitCast(bitCast_u16x16(a) -% bitCast_u16x16(b));
