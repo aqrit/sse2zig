@@ -5824,26 +5824,7 @@ pub inline fn _mm256_hsubs_epi16(a: __m256i, b: __m256i) __m256i {
 }
 
 pub inline fn _mm_i32gather_epi32(base_addr: [*]align(1) const i32, vindex: __m128i, comptime scale: comptime_int) __m128i {
-    if (has_avx2) {
-        const src = _mm_setzero_si128();
-        const mask = _mm_set1_epi32(-1);
-        return _mm_mask_i32gather_epi32(src, base_addr, vindex, mask, scale);
-    } else {
-        switch (scale) {
-            1, 2, 4, 8 => {},
-            else => @compileError("Scale must be 1, 2, 4, or 8"),
-        }
-
-        var r: i32x4 = undefined;
-        inline for (0..4) |i| {
-            // needs `@intFromPtr` for pointer arithmetic with negative offsets?
-            const addr = @intFromPtr(base_addr);
-            const offset: usize = @bitCast(@as(isize, vindex[i]) *% scale);
-            const ptr: *align(1) const i32 = @ptrFromInt(addr +% offset);
-            r[i] = ptr.*; // safety-checked for null, should we turn that off?
-        }
-        return @bitCast(r);
-    }
+    return _mm_mask_i32gather_epi32(@splat(0), base_addr, vindex, _mm_set1_epi32(-1), scale);
 }
 
 test "_mm_i32gather_epi32" {
@@ -5853,43 +5834,12 @@ test "_mm_i32gather_epi32" {
     try std.testing.expectEqual(ref, _mm_i32gather_epi32(arr[1..], vindex, 4));
 }
 
-pub inline fn _mm256_i32gather_epi32(base_addr: [*]align(1) const i32, vindex: __m256i, comptime scale: comptime_int) __m256i {
-    if (has_avx2) {
-        const src = _mm256_setzero_si256();
-        const mask = _mm256_set1_epi32(-1);
-        return _mm256_mask_i32gather_epi32(src, base_addr, vindex, mask, scale);
-    } else {
-        switch (scale) {
-            1, 2, 4, 8 => {},
-            else => @compileError("Scale must be 1, 2, 4, or 8"),
-        }
-
-        var r: i32x8 = undefined;
-        inline for (0..8) |i| {
-            // needs `@intFromPtr` for pointer arithmetic with negative offsets?
-            const addr = @intFromPtr(base_addr);
-            const offset: usize = @bitCast(@as(isize, vindex[i]) *% scale);
-            const ptr: *align(1) const i32 = @ptrFromInt(addr +% offset);
-            r[i] = ptr.*; // safety-checked for null, should we turn that off?
-        }
-        return @bitCast(r);
-    }
-}
-
-test "_mm256_i32gather_epi32" {
-    const vindex = _mm256_set_epi32(1, 2, 0, -1, 1, 2, 0, -1);
-    const arr: [4]i32 = .{ 286331153, 572662306, 858993459, 1145324612 };
-    const ref = _mm256_set_epi32(858993459, 1145324612, 572662306, 286331153, 858993459, 1145324612, 572662306, 286331153);
-    try std.testing.expectEqual(ref, _mm256_i32gather_epi32(arr[1..], vindex, 4));
-}
-
 pub inline fn _mm_mask_i32gather_epi32(src: __m128i, base_addr: [*]align(1) const i32, vindex: __m128i, mask: __m128i, comptime scale: comptime_int) __m128i {
     if (has_avx2) {
-        var s: __m128i = src;
-        var m: __m128i = mask;
+        var s = src;
+        var m = mask;
 
-        // Zig `asm` doesn't support operand modifiers (e.g. `%c[scale]`).
-        // So instead we'll insert the scale value using "comptimePrint"...
+        // `asm` doesn't currently support operand modifiers (e.g. `%c[scale]`).
         asm volatile (std.fmt.comptimePrint("vpgatherdd %[mask], (%[base_addr],%[vindex],{d}), %[src]", .{@as(u4, scale)})
             : [src] "+x" (s),
               [mask] "+x" (m),
@@ -5904,14 +5854,15 @@ pub inline fn _mm_mask_i32gather_epi32(src: __m128i, base_addr: [*]align(1) cons
             else => @compileError("Scale must be 1, 2, 4, or 8"),
         }
 
-        var r: i32x4 = bitCast_i32x4(src);
+        var r = bitCast_i32x4(src);
         const pred = @as(i32x4, @splat(0)) > bitCast_i32x4(mask);
         inline for (0..4) |i| {
             if (pred[i]) {
                 // needs `@intFromPtr` for pointer arithmetic with negative offsets?
-                const addr = @intFromPtr(base_addr);
-                const offset: usize = @bitCast(@as(isize, vindex[i]) *% scale);
-                const ptr: *align(1) const i32 = @ptrFromInt(addr +% offset);
+                const addr: isize = @bitCast(@intFromPtr(base_addr));
+                const idx = @as(i64, bitCast_i32x4(vindex)[i]);
+                const offset: isize = @truncate(@as(i128, idx *% scale));
+                const ptr: *align(1) const i32 = @ptrFromInt(@as(usize, @bitCast(addr +% offset)));
                 r[i] = ptr.*; // safety-checked for null, should we turn that off?
             }
         }
@@ -5928,10 +5879,23 @@ test "_mm_mask_i32gather_epi32" {
     try std.testing.expectEqual(ref, _mm_mask_i32gather_epi32(src, arr[1..], vindex, mask, 4));
 }
 
+pub inline fn _mm256_i32gather_epi32(base_addr: [*]align(1) const i32, vindex: __m256i, comptime scale: comptime_int) __m256i {
+    return _mm256_mask_i32gather_epi32(@splat(0), base_addr, vindex, _mm256_set1_epi32(-1), scale);
+}
+
+test "_mm256_i32gather_epi32" {
+    const vindex = _mm256_set_epi32(1, 2, 0, -1, 1, 2, 0, -1);
+    const arr: [4]i32 = .{ 286331153, 572662306, 858993459, 1145324612 };
+    const ref = _mm256_set_epi32(858993459, 1145324612, 572662306, 286331153, 858993459, 1145324612, 572662306, 286331153);
+    try std.testing.expectEqual(ref, _mm256_i32gather_epi32(arr[1..], vindex, 4));
+}
+
 pub inline fn _mm256_mask_i32gather_epi32(src: __m256i, base_addr: [*]align(1) const i32, vindex: __m256i, mask: __m256i, comptime scale: comptime_int) __m256i {
     if (has_avx2) {
-        var s: __m256i = src;
-        var m: __m256i = mask;
+        var s = src;
+        var m = mask;
+
+        // `asm` doesn't currently support operand modifiers (e.g. `%c[scale]`).
         asm volatile (std.fmt.comptimePrint("vpgatherdd %[mask], (%[base_addr],%[vindex],{d}), %[src]", .{@as(u4, scale)})
             : [src] "+x" (s),
               [mask] "+x" (m),
@@ -5946,14 +5910,15 @@ pub inline fn _mm256_mask_i32gather_epi32(src: __m256i, base_addr: [*]align(1) c
             else => @compileError("Scale must be 1, 2, 4, or 8"),
         }
 
-        var r: i32x8 = bitCast_i32x8(src);
+        var r = bitCast_i32x8(src);
         const pred = @as(i32x8, @splat(0)) > bitCast_i32x8(mask);
         inline for (0..8) |i| {
             if (pred[i]) {
                 // needs `@intFromPtr` for pointer arithmetic with negative offsets?
-                const addr = @intFromPtr(base_addr);
-                const offset: usize = @bitCast(@as(isize, vindex[i]) *% scale);
-                const ptr: *align(1) const i32 = @ptrFromInt(addr +% offset);
+                const addr: isize = @bitCast(@intFromPtr(base_addr));
+                const idx = @as(i64, bitCast_i32x8(vindex)[i]);
+                const offset: isize = @truncate(@as(i128, idx *% scale));
+                const ptr: *align(1) const i32 = @ptrFromInt(@as(usize, @bitCast(addr +% offset)));
                 r[i] = ptr.*; // safety-checked for null, should we turn that off?
             }
         }
@@ -5968,6 +5933,360 @@ test "_mm256_mask_i32gather_epi32" {
     const mask = _mm256_set_epi32(0, -1, -1, -1, -2147483648, 1, 0, -2);
     const ref = _mm256_set_epi32(8, 1145324612, 572662306, 286331153, 555555555, 3, 2, 572662306);
     try std.testing.expectEqual(ref, _mm256_mask_i32gather_epi32(src, arr[1..], vindex, mask, 4));
+}
+
+pub inline fn _mm_i32gather_epi64(base_addr: [*]align(1) const i64, vindex: __m128i, comptime scale: comptime_int) __m128i {
+    return _mm_mask_i32gather_epi64(@splat(0), base_addr, vindex, _mm_set1_epi32(-1), scale);
+}
+
+test "_mm_i32gather_epi64" {
+    const vindex = _mm_set_epi32(3, 2, -1, 0);
+    const arr: [5]i32 = .{ 0, 1, 2, 3, 4 };
+    const ref = _mm_set_epi32(1, 0, 3, 2);
+    try std.testing.expectEqual(ref, _mm_i32gather_epi64(@ptrCast(arr[2..]), vindex, 8));
+}
+
+pub inline fn _mm_mask_i32gather_epi64(src: __m128i, base_addr: [*]align(1) const i64, vindex: __m128i, mask: __m128i, comptime scale: comptime_int) __m128i {
+    if (has_avx2) {
+        var s = src;
+        var m = mask;
+
+        // `asm` doesn't currently support operand modifiers (e.g. `%c[scale]`).
+        asm volatile (std.fmt.comptimePrint("vpgatherdq %[mask], (%[base_addr],%[vindex],{d}), %[src]", .{@as(u4, scale)})
+            : [src] "+x" (s),
+              [mask] "+x" (m),
+            : [base_addr] "r" (base_addr),
+              [vindex] "x" (vindex),
+            : "memory"
+        );
+        return s;
+    } else {
+        switch (scale) {
+            1, 2, 4, 8 => {},
+            else => @compileError("Scale must be 1, 2, 4, or 8"),
+        }
+
+        var r = bitCast_i64x2(src);
+        const pred = @as(i64x2, @splat(0)) > bitCast_i64x2(mask);
+        inline for (0..2) |i| {
+            if (pred[i]) {
+                // needs `@intFromPtr` for pointer arithmetic with negative offsets?
+                const addr: isize = @bitCast(@intFromPtr(base_addr));
+                const idx = @as(i64, bitCast_i32x4(vindex)[i]);
+                const offset: isize = @truncate(@as(i128, idx *% scale));
+                const ptr: *align(1) const i64 = @ptrFromInt(@as(usize, @bitCast(addr +% offset)));
+                r[i] = ptr.*; // safety-checked for null, should we turn that off?
+            }
+        }
+        return @bitCast(r);
+    }
+}
+
+test "_mm_mask_i32gather_epi64" {
+    const vindex = _mm_set_epi32(3, 2, -1, 0);
+    const mask = _mm_set_epi64x(-1, 0);
+    const src = _mm_set1_epi32(9);
+    const arr: [5]i32 = .{ 0, 1, 2, 3, 4 };
+    const ref = _mm_set_epi32(1, 0, 9, 9);
+    try std.testing.expectEqual(ref, _mm_mask_i32gather_epi64(src, @ptrCast(arr[2..]), vindex, mask, 8));
+}
+
+pub inline fn _mm256_i32gather_epi64(base_addr: [*]align(1) const i64, vindex: __m128i, comptime scale: comptime_int) __m256i {
+    return _mm256_mask_i32gather_epi64(@splat(0), base_addr, vindex, _mm256_set1_epi32(-1), scale);
+}
+
+pub inline fn _mm256_mask_i32gather_epi64(src: __m256i, base_addr: [*]align(1) const i64, vindex: __m128i, mask: __m256i, comptime scale: comptime_int) __m256i {
+    if (has_avx2) {
+        var s = src;
+        var m = mask;
+
+        // `asm` doesn't currently support operand modifiers (e.g. `%c[scale]`).
+        asm volatile (std.fmt.comptimePrint("vpgatherdq %[mask], (%[base_addr],%[vindex],{d}), %[src]", .{@as(u4, scale)})
+            : [src] "+x" (s),
+              [mask] "+x" (m),
+            : [base_addr] "r" (base_addr),
+              [vindex] "x" (vindex),
+            : "memory"
+        );
+        return s;
+    } else {
+        switch (scale) {
+            1, 2, 4, 8 => {},
+            else => @compileError("Scale must be 1, 2, 4, or 8"),
+        }
+
+        var r = bitCast_i64x4(src);
+        const pred = @as(i64x4, @splat(0)) > bitCast_i64x4(mask);
+        inline for (0..4) |i| {
+            if (pred[i]) {
+                // needs `@intFromPtr` for pointer arithmetic with negative offsets?
+                const addr: isize = @bitCast(@intFromPtr(base_addr));
+                const idx = @as(i64, bitCast_i32x4(vindex)[i]);
+                const offset: isize = @truncate(@as(i128, idx *% scale));
+                const ptr: *align(1) const i64 = @ptrFromInt(@as(usize, @bitCast(addr +% offset)));
+                r[i] = ptr.*; // safety-checked for null, should we turn that off?
+            }
+        }
+        return @bitCast(r);
+    }
+}
+
+pub inline fn _mm_i32gather_pd(base_addr: [*]align(1) const f64, vindex: __m128i, comptime scale: comptime_int) __m128d {
+    const mask = _mm_castsi128_pd(_mm_set1_epi32(-1));
+    return _mm_mask_i32gather_pd(@splat(0), base_addr, vindex, mask, scale);
+}
+
+pub inline fn _mm_mask_i32gather_pd(src: __m128d, base_addr: [*]align(1) const f64, vindex: __m128i, mask: __m128d, comptime scale: comptime_int) __m128d {
+    if (has_avx2) {
+        var s = src;
+        var m = mask;
+
+        // `asm` doesn't currently support operand modifiers (e.g. `%c[scale]`).
+        asm volatile (std.fmt.comptimePrint("vgatherdpd %[mask], (%[base_addr],%[vindex],{d}), %[src]", .{@as(u4, scale)})
+            : [src] "+x" (s),
+              [mask] "+x" (m),
+            : [base_addr] "r" (base_addr),
+              [vindex] "x" (vindex),
+            : "memory"
+        );
+        return s;
+    } else {
+        switch (scale) {
+            1, 2, 4, 8 => {},
+            else => @compileError("Scale must be 1, 2, 4, or 8"),
+        }
+
+        var r = src;
+        const pred = @as(i64x2, @splat(0)) > bitCast_i64x2(mask);
+        inline for (0..2) |i| {
+            if (pred[i]) {
+                // needs `@intFromPtr` for pointer arithmetic with negative offsets?
+                const addr: isize = @bitCast(@intFromPtr(base_addr));
+                const idx = @as(i64, bitCast_i32x4(vindex)[i]);
+                const offset: isize = @truncate(@as(i128, idx *% scale));
+                const ptr: *align(1) const f64 = @ptrFromInt(@as(usize, @bitCast(addr +% offset)));
+                r[i] = ptr.*; // safety-checked for null, should we turn that off?
+            }
+        }
+        return @bitCast(r);
+    }
+}
+
+pub inline fn _mm256_i32gather_pd(base_addr: [*]align(1) const f64, vindex: __m128i, comptime scale: comptime_int) __m256d {
+    const mask = _mm256_castsi256_pd(_mm256_set1_epi32(-1));
+    return _mm256_mask_i32gather_pd(@splat(0), base_addr, vindex, mask, scale);
+}
+
+pub inline fn _mm256_mask_i32gather_pd(src: __m256d, base_addr: [*]align(1) const f64, vindex: __m128i, mask: __m256d, comptime scale: comptime_int) __m256d {
+    if (has_avx2) {
+        var s = src;
+        var m = mask;
+
+        // `asm` doesn't currently support operand modifiers (e.g. `%c[scale]`).
+        asm volatile (std.fmt.comptimePrint("vgatherdpd %[mask], (%[base_addr],%[vindex],{d}), %[src]", .{@as(u4, scale)})
+            : [src] "+x" (s),
+              [mask] "+x" (m),
+            : [base_addr] "r" (base_addr),
+              [vindex] "x" (vindex),
+            : "memory"
+        );
+        return s;
+    } else {
+        switch (scale) {
+            1, 2, 4, 8 => {},
+            else => @compileError("Scale must be 1, 2, 4, or 8"),
+        }
+
+        var r = src;
+        const pred = @as(i64x4, @splat(0)) > bitCast_i64x4(mask);
+        inline for (0..4) |i| {
+            if (pred[i]) {
+                // needs `@intFromPtr` for pointer arithmetic with negative offsets?
+                const addr: isize = @bitCast(@intFromPtr(base_addr));
+                const idx = @as(i64, bitCast_i32x4(vindex)[i]);
+                const offset: isize = @truncate(@as(i128, idx *% scale));
+                const ptr: *align(1) const f64 = @ptrFromInt(@as(usize, @bitCast(addr +% offset)));
+                r[i] = ptr.*; // safety-checked for null, should we turn that off?
+            }
+        }
+        return @bitCast(r);
+    }
+}
+
+pub inline fn _mm_i32gather_ps(base_addr: [*]align(1) const f32, vindex: __m128i, comptime scale: comptime_int) __m128 {
+    const mask = _mm_castsi128_ps(_mm_set1_epi32(-1));
+    return _mm_mask_i32gather_ps(@splat(0), base_addr, vindex, mask, scale);
+}
+
+test "_mm_i32gather_ps" {
+    const vindex = _mm_set_epi32(1, 2, 0, -1);
+    const arr: [4]f32 = .{ 1.0, 2.0, 3.0, 4.0 };
+    const ref = _mm_set_ps(3.0, 4.0, 2.0, 1.0);
+    try std.testing.expectEqual(ref, _mm_i32gather_ps(arr[1..], vindex, 4));
+}
+
+pub inline fn _mm_mask_i32gather_ps(src: __m128, base_addr: [*]align(1) const f32, vindex: __m128i, mask: __m128, comptime scale: comptime_int) __m128 {
+    if (has_avx2) {
+        var s = src;
+        var m = mask;
+
+        // `asm` doesn't currently support operand modifiers (e.g. `%c[scale]`).
+        asm volatile (std.fmt.comptimePrint("vgatherdps %[mask], (%[base_addr],%[vindex],{d}), %[src]", .{@as(u4, scale)})
+            : [src] "+x" (s),
+              [mask] "+x" (m),
+            : [base_addr] "r" (base_addr),
+              [vindex] "x" (vindex),
+            : "memory"
+        );
+        return s;
+    } else {
+        switch (scale) {
+            1, 2, 4, 8 => {},
+            else => @compileError("Scale must be 1, 2, 4, or 8"),
+        }
+
+        var r = src;
+        const pred = @as(i32x4, @splat(0)) > bitCast_i32x4(mask);
+        inline for (0..4) |i| {
+            if (pred[i]) {
+                // needs `@intFromPtr` for pointer arithmetic with negative offsets?
+                const addr: isize = @bitCast(@intFromPtr(base_addr));
+                const idx = @as(i64, bitCast_i32x4(vindex)[i]);
+                const offset: isize = @truncate(@as(i128, idx *% scale));
+                const ptr: *align(1) const f32 = @ptrFromInt(@as(usize, @bitCast(addr +% offset)));
+                r[i] = ptr.*; // safety-checked for null, should we turn that off?
+            }
+        }
+        return @bitCast(r);
+    }
+}
+
+pub inline fn _mm256_i32gather_ps(base_addr: [*]align(1) const f32, vindex: __m256i, comptime scale: comptime_int) __m256 {
+    const mask = _mm256_castsi256_ps(_mm256_set1_epi32(-1));
+    return _mm256_mask_i32gather_ps(@splat(0), base_addr, vindex, mask, scale);
+}
+
+pub inline fn _mm256_mask_i32gather_ps(src: __m256, base_addr: [*]align(1) const f32, vindex: __m256i, mask: __m256, comptime scale: comptime_int) __m256 {
+    if (has_avx2) {
+        var s = src;
+        var m = mask;
+
+        // `asm` doesn't currently support operand modifiers (e.g. `%c[scale]`).
+        asm volatile (std.fmt.comptimePrint("vgatherdps %[mask], (%[base_addr],%[vindex],{d}), %[src]", .{@as(u4, scale)})
+            : [src] "+x" (s),
+              [mask] "+x" (m),
+            : [base_addr] "r" (base_addr),
+              [vindex] "x" (vindex),
+            : "memory"
+        );
+        return s;
+    } else {
+        switch (scale) {
+            1, 2, 4, 8 => {},
+            else => @compileError("Scale must be 1, 2, 4, or 8"),
+        }
+
+        var r = src;
+        const pred = @as(i32x8, @splat(0)) > bitCast_i32x8(mask);
+        inline for (0..8) |i| {
+            if (pred[i]) {
+                // needs `@intFromPtr` for pointer arithmetic with negative offsets?
+                const addr: isize = @bitCast(@intFromPtr(base_addr));
+                const idx = @as(i64, bitCast_i32x8(vindex)[i]);
+                const offset: isize = @truncate(@as(i128, idx *% scale));
+                const ptr: *align(1) const f32 = @ptrFromInt(@as(usize, @bitCast(addr +% offset)));
+                r[i] = ptr.*; // safety-checked for null, should we turn that off?
+            }
+        }
+        return @bitCast(r);
+    }
+}
+
+pub inline fn _mm_i64gather_epi32(base_addr: [*]align(1) const i32, vindex: __m128i, comptime scale: comptime_int) __m128i {
+    return _mm_mask_i64gather_epi32(@splat(0), base_addr, vindex, _mm_set1_epi32(-1), scale);
+}
+
+pub inline fn _mm_mask_i64gather_epi32(src: __m128i, base_addr: [*]align(1) const i32, vindex: __m128i, mask: __m128i, comptime scale: comptime_int) __m128i {
+    if (has_avx2) {
+        var s = src;
+        var m = mask;
+
+        // `asm` doesn't currently support operand modifiers (e.g. `%c[scale]`).
+        asm volatile (std.fmt.comptimePrint("vpgatherqd %[mask], (%[base_addr],%[vindex],{d}), %[src]", .{@as(u4, scale)})
+            : [src] "+x" (s),
+              [mask] "+x" (m),
+            : [base_addr] "r" (base_addr),
+              [vindex] "x" (vindex),
+            : "memory"
+        );
+        return s;
+    } else {
+        switch (scale) {
+            1, 2, 4, 8 => {},
+            else => @compileError("Scale must be 1, 2, 4, or 8"),
+        }
+
+        var r: i32x4 = .{ bitCast_i32x4(src)[0], bitCast_i32x4(src)[1], 0, 0 };
+        const pred = @as(i32x4, @splat(0)) > bitCast_i32x4(mask);
+        inline for (0..2) |i| {
+            if (pred[i]) {
+                // needs `@intFromPtr` for pointer arithmetic with negative offsets?
+                const addr: isize = @bitCast(@intFromPtr(base_addr));
+                const offset: isize = @truncate(@as(i128, bitCast_i64x2(vindex)[i] *% scale));
+                const ptr: *align(1) const i32 = @ptrFromInt(@as(usize, @bitCast(addr +% offset)));
+                r[i] = ptr.*; // safety-checked for null, should we turn that off?
+            }
+        }
+        return @bitCast(r);
+    }
+}
+
+test "_mm_mask_i64gather_epi32" {
+    const vindex = _mm_set_epi64x(-1, 1);
+    const mask = _mm_set_epi32(-1, -1, -1, 0);
+    const src = _mm_set1_epi32(9);
+    const arr: [5]i32 = .{ 0, 1, 2, 3, 4 };
+    const ref = _mm_set_epi32(0, 0, 1, 9);
+    try std.testing.expectEqual(ref, _mm_mask_i64gather_epi32(src, arr[2..], vindex, mask, 4));
+}
+
+pub inline fn _mm256_i64gather_epi32(base_addr: [*]align(1) const i32, vindex: __m256i, comptime scale: comptime_int) __m128i {
+    return _mm256_mask_i64gather_epi32(@splat(0), base_addr, vindex, _mm_set1_epi32(-1), scale);
+}
+
+pub inline fn _mm256_mask_i64gather_epi32(src: __m128i, base_addr: [*]align(1) const i32, vindex: __m256i, mask: __m128i, comptime scale: comptime_int) __m128i {
+    if (has_avx2) {
+        var s = src;
+        var m = mask;
+
+        // Asm operand modifiers don't work (e.g. `%c[scale]`).
+        asm volatile (std.fmt.comptimePrint("vpgatherqd %[mask], (%[base_addr],%[vindex],{d}), %[src]", .{@as(u4, scale)})
+            : [src] "+x" (s),
+              [mask] "+x" (m),
+            : [base_addr] "r" (base_addr),
+              [vindex] "x" (vindex),
+            : "memory"
+        );
+        return s;
+    } else {
+        switch (scale) {
+            1, 2, 4, 8 => {},
+            else => @compileError("Scale must be 1, 2, 4, or 8"),
+        }
+
+        var r = bitCast_i32x4(src);
+        const pred = @as(i32x4, @splat(0)) > bitCast_i32x4(mask);
+        inline for (0..4) |i| {
+            if (pred[i]) {
+                // needs `@intFromPtr` for pointer arithmetic with negative offsets?
+                const addr: isize = @bitCast(@intFromPtr(base_addr));
+                const offset: isize = @truncate(@as(i128, bitCast_i64x4(vindex)[i] *% scale));
+                const ptr: *align(1) const i32 = @ptrFromInt(@as(usize, @bitCast(addr +% offset)));
+                r[i] = ptr.*; // safety-checked for null, should we turn that off?
+            }
+        }
+        return @bitCast(r);
+    }
 }
 
 pub inline fn _mm256_inserti128_si256(a: __m256i, b: __m128i, comptime imm8: comptime_int) __m256i {
