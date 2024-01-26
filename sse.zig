@@ -4695,7 +4695,70 @@ test "_lzcnt_u64" {
 
 // AVX ==============================================================
 
-//
+pub inline fn _mm256_add_pd(a: __m256d, b: __m256d) __m256d {
+    return a + b;
+}
+
+pub inline fn _mm256_add_ps(a: __m256, b: __m256) __m256 {
+    return a + b;
+}
+
+pub inline fn _mm256_addsub_pd(a: __m256d, b: __m256d) __m256d {
+    return .{ a[0] - b[0], a[1] + b[1], a[2] - b[2], a[3] + b[3] };
+}
+
+pub inline fn _mm256_addsub_ps(a: __m256, b: __m256) __m256 {
+    return .{ a[0] - b[0], a[1] + b[1], a[2] - b[2], a[3] + b[3], a[4] - b[4], a[5] + b[5], a[6] - b[6], a[7] + b[7] };
+}
+
+pub inline fn _mm256_and_pd(a: __m256d, b: __m256d) __m256d {
+    return @bitCast(bitCast_u64x4(a) & bitCast_u64x4(b));
+}
+
+pub inline fn _mm256_and_ps(a: __m256, b: __m256) __m256 {
+    return @bitCast(bitCast_u32x8(a) & bitCast_u32x8(b));
+}
+
+pub inline fn _mm256_andnot_pd(a: __m256d, b: __m256d) __m256d {
+    return @bitCast(~bitCast_u64x4(a) & bitCast_u64x4(b));
+}
+
+pub inline fn _mm256_andnot_ps(a: __m256, b: __m256) __m256 {
+    return @bitCast(~bitCast_u32x8(a) & bitCast_u32x8(b));
+}
+
+pub inline fn _mm256_blend_pd(a: __m256d, b: __m256d, comptime imm8: comptime_int) __m256d {
+    return @select(f64, @as(@Vector(4, bool), @bitCast(@as(u4, imm8))), b, a);
+}
+
+pub inline fn _mm256_blend_ps(a: __m256, b: __m256, comptime imm8: comptime_int) __m256 {
+    return @select(f32, @as(@Vector(8, bool), @bitCast(@as(u8, imm8))), b, a);
+}
+
+// ## pub inline fn _mm256_blendv_pd (a: __m256d, b: __m256d, mask: __m256d) __m256d {}
+// ## pub inline fn _mm256_blendv_ps (a: __m256, b: __m256, mask: __m256) __m256 {}
+
+pub inline fn _mm256_broadcast_pd(mem_addr: *align(1) const __m128d) __m256d {
+    const x = _mm_loadu_pd(mem_addr);
+    return .{ x[0], x[1], x[0], x[1] };
+}
+
+pub inline fn _mm256_broadcast_ps(mem_addr: *align(1) const __m128) __m256 {
+    const x = _mm_loadu_ps(mem_addr);
+    return .{ x[0], x[1], x[2], x[3], x[0], x[1], x[2], x[3] };
+}
+
+pub inline fn _mm256_broadcast_sd(mem_addr: *align(1) const f64) __m256d {
+    return _mm256_set1_pd(mem_addr.*);
+}
+
+pub inline fn _mm_broadcast_ss(mem_addr: *align(1) const f32) __m128 {
+    return _mm_set1_ps(mem_addr.*);
+}
+
+pub inline fn _mm256_broadcast_ss(mem_addr: *align(1) const f32) __m256 {
+    return _mm256_set1_ps(mem_addr.*);
+}
 
 pub inline fn _mm256_castpd_ps(a: __m256d) __m256 {
     return @bitCast(a);
@@ -4748,7 +4811,38 @@ pub inline fn _mm256_castsi256_si128(a: __m256i) __m128i {
     return @bitCast(u64x2{ bitCast_u64x4(a)[0], bitCast_u64x4(a)[1] });
 }
 
-//
+// ## pub inline fn _mm256_ceil_pd (a: __m256d) __m256d {}
+// ## pub inline fn _mm256_ceil_ps (a: __m256) __m256 {}
+// ## pub inline fn _mm_cmp_pd (a: __m128d, b: __m128d, comptime imm8: comptime_int) __m128d {}
+// ## pub inline fn _mm256_cmp_pd (a: __m256d, b: __m256d, comptime imm8: comptime_int) __m256d {}
+// ## pub inline fn _mm_cmp_ps (a: __m128, b: __m128, comptime imm8: comptime_int) __m128 {}
+// ## pub inline fn _mm256_cmp_ps (a: __m256, b: __m256, comptime imm8: comptime_int) __m256 {}
+// ## pub inline fn _mm_cmp_sd (a: __m128d, b: __m128d, comptime imm8: comptime_int) __m128d {}
+// ## pub inline fn _mm_cmp_ss (a: __m128, b: __m128, comptime imm8: comptime_int) __m128 {}
+// ## pub inline fn _mm256_cvtepi32_pd (a: __m128i) __m256d {}
+// ## pub inline fn _mm256_cvtepi32_ps (a: __m256i) __m256 {}
+// ## pub inline fn _mm256_cvtpd_epi32 (a: __m256d) __m128i {}
+// ## pub inline fn _mm256_cvtpd_ps (a: __m256d) __m128 {}
+// ## pub inline fn _mm256_cvtps_epi32 (a: __m256) __m256i {}
+// ## pub inline fn _mm256_cvtps_pd (a: __m128) __m256d {}
+
+pub inline fn _mm256_cvtsd_f64(a: __m256d) f64 {
+    return a[0];
+}
+
+pub inline fn _mm256_cvtsi256_si32(a: __m256i) i32 {
+    return bitCast_i32x8(a)[0];
+}
+
+pub inline fn _mm256_cvtss_f32(a: __m256) f32 {
+    return a[0];
+}
+
+// ## pub inline fn _mm256_cvttpd_epi32 (a: __m256d) __m128i {}
+// ## pub inline fn _mm256_cvttps_epi32 (a: __m256) __m256i {}
+// ## pub inline fn _mm256_div_pd (a: __m256d, b: __m256d) __m256d {}
+// ## pub inline fn _mm256_div_ps (a: __m256, b: __m256) __m256 {}
+// ## pub inline fn _mm256_dp_ps (a: __m256, b: __m256, comptime imm8: comptime_int) __m256 {}
 
 pub inline fn _mm256_extract_epi32(a: __m256i, comptime index: comptime_int) i32 {
     return bitCast_i32x8(a)[index];
@@ -4877,7 +4971,47 @@ pub inline fn _mm256_loadu2_m128i(hiaddr: *align(1) const __m128i, loaddr: *alig
     return _mm256_set_m128i(hi, lo);
 }
 
-//
+// ## __m128d _mm_maskload_pd (double const * mem_addr, __m128i mask)
+// ## __m256d _mm256_maskload_pd (double const * mem_addr, __m256i mask)
+// ## __m128 _mm_maskload_ps (float const * mem_addr, __m128i mask)
+// ## __m256 _mm256_maskload_ps (float const * mem_addr, __m256i mask)
+// ## void _mm_maskstore_pd (double * mem_addr, __m128i mask, __m128d a)
+// ## void _mm256_maskstore_pd (double * mem_addr, __m256i mask, __m256d a)
+// ## void _mm_maskstore_ps (float * mem_addr, __m128i mask, __m128 a)
+// ## void _mm256_maskstore_ps (float * mem_addr, __m256i mask, __m256 a)
+// ## __m256d _mm256_max_pd (__m256d a, __m256d b)
+// ## __m256 _mm256_max_ps (__m256 a, __m256 b)
+// ## __m256d _mm256_min_pd (__m256d a, __m256d b)
+// ## __m256 _mm256_min_ps (__m256 a, __m256 b)
+// ## __m256d _mm256_movedup_pd (__m256d a)
+// ## __m256 _mm256_movehdup_ps (__m256 a)
+// ## __m256 _mm256_moveldup_ps (__m256 a)
+
+pub inline fn _mm256_movemask_pd(a: __m256d) i32 {
+    const cmp = @as(i64x4, @splat(0)) > bitCast_i64x4(a);
+    return @intCast(@as(u4, @bitCast(cmp)));
+}
+
+pub inline fn _mm256_movemask_ps(a: __m256) i32 {
+    const cmp = @as(i32x8, @splat(0)) > bitCast_i32x8(a);
+    return @intCast(@as(u8, @bitCast(cmp)));
+}
+
+// ## __m256d _mm256_mul_pd (__m256d a, __m256d b)
+// ## __m256 _mm256_mul_ps (__m256 a, __m256 b)
+// ## __m256d _mm256_or_pd (__m256d a, __m256d b)
+// ## __m256 _mm256_or_ps (__m256 a, __m256 b)
+// ## __m128d _mm_permute_pd (__m128d a, int imm8)
+// ## __m256d _mm256_permute_pd (__m256d a, int imm8)
+// ## __m128 _mm_permute_ps (__m128 a, int imm8)
+// ## __m256 _mm256_permute_ps (__m256 a, int imm8)
+// ## __m256d _mm256_permute2f128_pd (__m256d a, __m256d b, int imm8)
+// ## __m256 _mm256_permute2f128_ps (__m256 a, __m256 b, int imm8)
+// ## __m256i _mm256_permute2f128_si256 (__m256i a, __m256i b, int imm8)
+// ## __m128d _mm_permutevar_pd (__m128d a, __m128i b)
+// ## __m256d _mm256_permutevar_pd (__m256d a, __m256i b)
+// ## __m128 _mm_permutevar_ps (__m128 a, __m128i b)
+// ## __m256 _mm256_permutevar_ps (__m256 a, __m256i b)
 
 /// Approximate reciprocal
 pub inline fn _mm256_rcp_ps(a: __m256) __m256 {
@@ -6068,7 +6202,7 @@ pub inline fn _mm_mask_i32gather_pd(src: __m128d, base_addr: [*]align(1) const f
                 r[i] = ptr.*; // safety-checked for null, should we turn that off?
             }
         }
-        return @bitCast(r);
+        return r;
     }
 }
 
@@ -6109,7 +6243,7 @@ pub inline fn _mm256_mask_i32gather_pd(src: __m256d, base_addr: [*]align(1) cons
                 r[i] = ptr.*; // safety-checked for null, should we turn that off?
             }
         }
-        return @bitCast(r);
+        return r;
     }
 }
 
@@ -6157,7 +6291,7 @@ pub inline fn _mm_mask_i32gather_ps(src: __m128, base_addr: [*]align(1) const f3
                 r[i] = ptr.*; // safety-checked for null, should we turn that off?
             }
         }
-        return @bitCast(r);
+        return r;
     }
 }
 
@@ -6198,7 +6332,7 @@ pub inline fn _mm256_mask_i32gather_ps(src: __m256, base_addr: [*]align(1) const
                 r[i] = ptr.*; // safety-checked for null, should we turn that off?
             }
         }
-        return @bitCast(r);
+        return r;
     }
 }
 
@@ -6412,7 +6546,7 @@ pub inline fn _mm_mask_i64gather_pd(src: __m128d, base_addr: [*]align(1) const f
                 r[i] = ptr.*; // safety-checked for null, should we turn that off?
             }
         }
-        return @bitCast(r);
+        return r;
     }
 }
 
@@ -6451,7 +6585,7 @@ pub inline fn _mm256_mask_i64gather_pd(src: __m256d, base_addr: [*]align(1) cons
                 r[i] = ptr.*; // safety-checked for null, should we turn that off?
             }
         }
-        return @bitCast(r);
+        return r;
     }
 }
 
@@ -6500,7 +6634,7 @@ pub inline fn _mm_mask_i64gather_ps(src: __m128, base_addr: [*]align(1) const f3
                 r[i] = ptr.*; // safety-checked for null, should we turn that off?
             }
         }
-        return @bitCast(r);
+        return r;
     }
 }
 
@@ -6549,7 +6683,7 @@ pub inline fn _mm256_mask_i64gather_ps(src: __m128, base_addr: [*]align(1) const
                 r[i] = ptr.*; // safety-checked for null, should we turn that off?
             }
         }
-        return @bitCast(r);
+        return r;
     }
 }
 
