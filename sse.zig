@@ -4735,8 +4735,15 @@ pub inline fn _mm256_blend_ps(a: __m256, b: __m256, comptime imm8: comptime_int)
     return @select(f32, @as(@Vector(8, bool), @bitCast(@as(u8, imm8))), b, a);
 }
 
-// ## pub inline fn _mm256_blendv_pd (a: __m256d, b: __m256d, mask: __m256d) __m256d {}
-// ## pub inline fn _mm256_blendv_ps (a: __m256, b: __m256, mask: __m256) __m256 {}
+pub inline fn _mm256_blendv_pd(a: __m256d, b: __m256d, mask: __m256d) __m256d {
+    const cmp = @as(i64x4, @splat(0)) > bitCast_i64x4(mask);
+    return @select(f64, cmp, b, a);
+}
+
+pub inline fn _mm256_blendv_ps(a: __m256, b: __m256, mask: __m256) __m256 {
+    const cmp = @as(i32x8, @splat(0)) > bitCast_i32x8(mask);
+    return @select(f32, cmp, b, a);
+}
 
 pub inline fn _mm256_broadcast_pd(mem_addr: *align(1) const __m128d) __m256d {
     const x = _mm_loadu_pd(mem_addr);
@@ -4983,9 +4990,18 @@ pub inline fn _mm256_loadu2_m128i(hiaddr: *align(1) const __m128i, loaddr: *alig
 // ## __m256 _mm256_max_ps (__m256 a, __m256 b)
 // ## __m256d _mm256_min_pd (__m256d a, __m256d b)
 // ## __m256 _mm256_min_ps (__m256 a, __m256 b)
-// ## __m256d _mm256_movedup_pd (__m256d a)
-// ## __m256 _mm256_movehdup_ps (__m256 a)
-// ## __m256 _mm256_moveldup_ps (__m256 a)
+
+pub inline fn _mm256_movedup_pd(a: __m256d) __m256d {
+    return .{ a[0], a[0], a[2], a[2] };
+}
+
+pub inline fn _mm256_movehdup_ps(a: __m256) __m256 {
+    return .{ a[1], a[1], a[3], a[3], a[5], a[5], a[7], a[7] };
+}
+
+pub inline fn _mm256_moveldup_ps(a: __m256) __m256 {
+    return .{ a[0], a[0], a[2], a[2], a[4], a[4], a[6], a[6] };
+}
 
 pub inline fn _mm256_movemask_pd(a: __m256d) i32 {
     const cmp = @as(i64x4, @splat(0)) > bitCast_i64x4(a);
@@ -4997,10 +5013,22 @@ pub inline fn _mm256_movemask_ps(a: __m256) i32 {
     return @intCast(@as(u8, @bitCast(cmp)));
 }
 
-// ## __m256d _mm256_mul_pd (__m256d a, __m256d b)
-// ## __m256 _mm256_mul_ps (__m256 a, __m256 b)
-// ## __m256d _mm256_or_pd (__m256d a, __m256d b)
-// ## __m256 _mm256_or_ps (__m256 a, __m256 b)
+pub inline fn _mm256_mul_pd(a: __m256d, b: __m256d) __m256d {
+    return a * b;
+}
+
+pub inline fn _mm256_mul_ps(a: __m256, b: __m256) __m256 {
+    return a * b;
+}
+
+pub inline fn _mm256_or_pd(a: __m256d, b: __m256d) __m256d {
+    return @bitCast(bitCast_u64x4(a) | bitCast_u64x4(b));
+}
+
+pub inline fn _mm256_or_ps(a: __m256, b: __m256) __m256 {
+    return @bitCast(bitCast_u32x8(a) | bitCast_u32x8(b));
+}
+
 // ## __m128d _mm_permute_pd (__m128d a, int imm8)
 // ## __m256d _mm256_permute_pd (__m256d a, int imm8)
 // ## __m128 _mm_permute_ps (__m128 a, int imm8)
