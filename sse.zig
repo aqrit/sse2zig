@@ -2097,11 +2097,11 @@ pub inline fn _mm_comineq_sd(a: __m128d, b: __m128d) i32 {
 }
 
 pub inline fn _mm_cvtepi32_pd(a: __m128i) __m128d {
-    return .{ @floatFromInt(a[0]), @floatFromInt(a[1]) };
+    return .{ @floatFromInt(bitCast_i32x4(a)[0]), @floatFromInt(bitCast_i32x4(a)[1]) };
 }
 
 pub inline fn _mm_cvtepi32_ps(a: __m128i) __m128 {
-    return @floatFromInt(a);
+    return @floatFromInt(bitCast_i32x4(a));
 }
 
 pub inline fn _mm_cvtpd_epi32(a: __m128d) __m128i {
@@ -4826,12 +4826,23 @@ pub inline fn _mm256_castsi256_si128(a: __m256i) __m128i {
 // ## pub inline fn _mm256_cmp_ps (a: __m256, b: __m256, comptime imm8: comptime_int) __m256 {}
 // ## pub inline fn _mm_cmp_sd (a: __m128d, b: __m128d, comptime imm8: comptime_int) __m128d {}
 // ## pub inline fn _mm_cmp_ss (a: __m128, b: __m128, comptime imm8: comptime_int) __m128 {}
-// ## pub inline fn _mm256_cvtepi32_pd (a: __m128i) __m256d {}
-// ## pub inline fn _mm256_cvtepi32_ps (a: __m256i) __m256 {}
+
+pub inline fn _mm256_cvtepi32_pd(a: __m128i) __m256d {
+    const x = bitCast_i32x4(a);
+    return .{ @floatFromInt(x[0]), @floatFromInt(x[1]), @floatFromInt(x[2]), @floatFromInt(x[3]) };
+}
+
+pub inline fn _mm256_cvtepi32_ps(a: __m256i) __m256 {
+    return @floatFromInt(bitCast_i32x8(a));
+}
+
 // ## pub inline fn _mm256_cvtpd_epi32 (a: __m256d) __m128i {}
 // ## pub inline fn _mm256_cvtpd_ps (a: __m256d) __m128 {}
 // ## pub inline fn _mm256_cvtps_epi32 (a: __m256) __m256i {}
-// ## pub inline fn _mm256_cvtps_pd (a: __m128) __m256d {}
+
+pub inline fn _mm256_cvtps_pd(a: __m128) __m256d {
+    return .{ @floatCast(a[0]), @floatCast(a[1]), @floatCast(a[2]), @floatCast(a[3]) };
+}
 
 pub inline fn _mm256_cvtsd_f64(a: __m256d) f64 {
     return a[0];
@@ -4873,10 +4884,22 @@ pub inline fn _mm256_extractf128_si256(a: __m256i, comptime imm8: comptime_int) 
 
 // ## pub inline fn _mm256_floor_pd(a: __m256d) __m256d {}
 // ## pub inline fn _mm256_floor_ps(a: __m256) __m256 {}
-// ## pub inline fn _mm256_hadd_pd(a: __m256d, b: __m256d) __m256d {}
-// ## pub inline fn _mm256_hadd_ps(a: __m256, b: __m256) __m256 {}
-// ## pub inline fn _mm256_hsub_pd(a: __m256d, b: __m256d) __m256d {}
-// ## pub inline fn _mm256_hsub_ps(a: __m256, b: __m256) __m256 {}
+
+pub inline fn _mm256_hadd_pd(a: __m256d, b: __m256d) __m256d {
+    return .{ a[0] + a[1], b[0] + b[1], a[2] + a[3], b[2] + b[3] };
+}
+
+pub inline fn _mm256_hadd_ps(a: __m256, b: __m256) __m256 {
+    return .{ a[0] + a[1], a[2] + a[3], b[0] + b[1], b[2] + b[3], a[4] + a[5], a[6] + a[7], b[4] + b[5], b[6] + b[7] };
+}
+
+pub inline fn _mm256_hsub_pd(a: __m256d, b: __m256d) __m256d {
+    return .{ a[0] - a[1], b[0] - b[1], a[2] - a[3], b[2] - b[3] };
+}
+
+pub inline fn _mm256_hsub_ps(a: __m256, b: __m256) __m256 {
+    return .{ a[0] - a[1], a[2] - a[3], b[0] - b[1], b[2] - b[3], a[4] - a[5], a[6] - a[7], b[4] - b[5], b[6] - b[7] };
+}
 
 pub inline fn _mm256_insert_epi16(a: __m256i, i: i16, comptime index: comptime_int) __m256i {
     var r = bitCast_i16x16(a);
@@ -5029,17 +5052,61 @@ pub inline fn _mm256_or_ps(a: __m256, b: __m256) __m256 {
     return @bitCast(bitCast_u32x8(a) | bitCast_u32x8(b));
 }
 
-// ## __m128d _mm_permute_pd (__m128d a, int imm8)
-// ## __m256d _mm256_permute_pd (__m256d a, int imm8)
-// ## __m128 _mm_permute_ps (__m128 a, int imm8)
-// ## __m256 _mm256_permute_ps (__m256 a, int imm8)
-// ## __m256d _mm256_permute2f128_pd (__m256d a, __m256d b, int imm8)
-// ## __m256 _mm256_permute2f128_ps (__m256 a, __m256 b, int imm8)
-// ## __m256i _mm256_permute2f128_si256 (__m256i a, __m256i b, int imm8)
-// ## __m128d _mm_permutevar_pd (__m128d a, __m128i b)
-// ## __m256d _mm256_permutevar_pd (__m256d a, __m256i b)
-// ## __m128 _mm_permutevar_ps (__m128 a, __m128i b)
-// ## __m256 _mm256_permutevar_ps (__m256 a, __m256i b)
+// ## pub inline fn _mm_permute_pd (a: __m128d, comptime imm8: comptime_int) __m128d {}
+// ## pub inline fn _mm256_permute_pd (a: __m256d, comptime imm8: comptime_int) __m256d {}
+// ## pub inline fn _mm_permute_ps (a: __m128, comptime imm8: comptime_int) __m128 {}
+// ## pub inline fn _mm256_permute_ps (a: __m256, comptime imm8: comptime_int) __m256 {}
+// ## pub inline fn _mm256_permute2f128_pd (a: __m256d, b: __m256d, comptime imm8: comptime_int) __m256d {}
+
+pub inline fn _mm256_permute2f128_ps(a: __m256, b: __m256, comptime imm8: comptime_int) __m256 {
+    if ((imm8 & 0x08) == 0x08) { // optimizer hand-holding when zeroing the low 128-bits
+        return switch (@as(u8, imm8) >> 4) {
+            0, 4 => .{ 0, 0, 0, 0, a[0], a[1], a[2], a[3] },
+            1, 5 => .{ 0, 0, 0, 0, a[4], a[5], a[6], a[7] },
+            2, 6 => .{ 0, 0, 0, 0, b[0], b[1], b[2], b[3] },
+            3, 7 => .{ 0, 0, 0, 0, b[4], b[5], b[6], b[7] },
+            else => @splat(0),
+        };
+    }
+
+    const lo: __m128 = switch (imm8 & 0x0F) {
+        0, 4 => _mm256_extractf128_ps(a, 0),
+        1, 5 => _mm256_extractf128_ps(a, 1),
+        2, 6 => _mm256_extractf128_ps(b, 0),
+        3, 7 => _mm256_extractf128_ps(b, 1),
+        else => @splat(0),
+    };
+
+    const hi: __m128 = switch (@as(u8, imm8) >> 4) {
+        0, 4 => _mm256_extractf128_ps(a, 0),
+        1, 5 => _mm256_extractf128_ps(a, 1),
+        2, 6 => _mm256_extractf128_ps(b, 0),
+        3, 7 => _mm256_extractf128_ps(b, 1),
+        else => @splat(0),
+    };
+
+    return _mm256_set_m128(hi, lo);
+}
+
+test "_mm256_permute2f128_ps" {
+    const a = _mm256_set_ps(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0);
+    const b = _mm256_set_ps(1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5);
+    const ref0 = _mm256_set_ps(5.5, 6.5, 7.5, 8.5, 1.0, 2.0, 3.0, 4.0);
+    const ref1 = _mm256_set_ps(5.5, 6.5, 7.5, 8.5, 0.0, 0.0, 0.0, 0.0);
+    const ref2 = _mm256_set_ps(5.5, 6.5, 7.5, 8.5, 1.5, 2.5, 3.5, 4.5);
+    const ref3 = _mm256_set_ps(5.0, 6.0, 7.0, 8.0, 1.5, 2.5, 3.5, 4.5);
+
+    try std.testing.expectEqual(ref0, _mm256_permute2f128_ps(a, b, 0x21));
+    try std.testing.expectEqual(ref1, _mm256_permute2f128_ps(a, b, 0x28));
+    try std.testing.expectEqual(ref2, _mm256_permute2f128_ps(a, b, 0x23));
+    try std.testing.expectEqual(ref3, _mm256_permute2f128_ps(a, b, 0x03));
+}
+
+// ## pub inline fn _mm256_permute2f128_si256(a: __m256i, b: __m256i, comptime imm8: comptime_int) __m256i {}
+// ## pub inline fn _mm_permutevar_pd (a: __m128d, b: __m128i) __m128d {}
+// ## pub inline fn _mm256_permutevar_pd (a: __m256d, b: __m256i) __m256d {}
+// ## pub inline fn _mm_permutevar_ps (a: __m128, b: __m128i) __m128 {}
+// ## pub inline fn _mm256_permutevar_ps (a: __m256, b: __m256i) __m256 {}
 
 /// Approximate reciprocal
 pub inline fn _mm256_rcp_ps(a: __m256) __m256 {
