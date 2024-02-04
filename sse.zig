@@ -5052,11 +5052,51 @@ pub inline fn _mm256_or_ps(a: __m256, b: __m256) __m256 {
     return @bitCast(bitCast_u32x8(a) | bitCast_u32x8(b));
 }
 
-// ## pub inline fn _mm_permute_pd (a: __m128d, comptime imm8: comptime_int) __m128d {}
-// ## pub inline fn _mm256_permute_pd (a: __m256d, comptime imm8: comptime_int) __m256d {}
-// ## pub inline fn _mm_permute_ps (a: __m128, comptime imm8: comptime_int) __m128 {}
-// ## pub inline fn _mm256_permute_ps (a: __m256, comptime imm8: comptime_int) __m256 {}
-// ## pub inline fn _mm256_permute2f128_pd (a: __m256d, b: __m256d, comptime imm8: comptime_int) __m256d {}
+pub inline fn _mm_permute_pd(a: __m128d, comptime imm8: comptime_int) __m128d {
+    return _mm_shuffle_pd(a, a, imm8);
+}
+
+pub inline fn _mm256_permute_pd(a: __m256d, comptime imm8: comptime_int) __m256d {
+    return _mm256_shuffle_pd(a, a, imm8);
+}
+
+pub inline fn _mm_permute_ps(a: __m128, comptime imm8: comptime_int) __m128 {
+    return _mm_shuffle_ps(a, a, imm8);
+}
+
+pub inline fn _mm256_permute_ps(a: __m256, comptime imm8: comptime_int) __m256 {
+    return _mm256_shuffle_ps(a, a, imm8);
+}
+
+pub inline fn _mm256_permute2f128_pd(a: __m256d, b: __m256d, comptime imm8: comptime_int) __m256d {
+    if ((imm8 & 0x08) == 0x08) { // optimizer hand-holding when zeroing the low 128-bits
+        return switch (@as(u8, imm8) >> 4) {
+            0, 4 => .{ 0, 0, a[0], a[1] },
+            1, 5 => .{ 0, 0, a[2], a[3] },
+            2, 6 => .{ 0, 0, b[0], b[1] },
+            3, 7 => .{ 0, 0, b[2], b[3] },
+            else => .{ 0, 0, 0, 0 },
+        };
+    }
+
+    const lo: __m128d = switch (imm8 & 0x0F) {
+        0, 4 => _mm256_extractf128_pd(a, 0),
+        1, 5 => _mm256_extractf128_pd(a, 1),
+        2, 6 => _mm256_extractf128_pd(b, 0),
+        3, 7 => _mm256_extractf128_pd(b, 1),
+        else => @splat(0),
+    };
+
+    const hi: __m128d = switch (@as(u8, imm8) >> 4) {
+        0, 4 => _mm256_extractf128_pd(a, 0),
+        1, 5 => _mm256_extractf128_pd(a, 1),
+        2, 6 => _mm256_extractf128_pd(b, 0),
+        3, 7 => _mm256_extractf128_pd(b, 1),
+        else => @splat(0),
+    };
+
+    return _mm256_set_m128d(hi, lo);
+}
 
 pub inline fn _mm256_permute2f128_ps(a: __m256, b: __m256, comptime imm8: comptime_int) __m256 {
     if ((imm8 & 0x08) == 0x08) { // optimizer hand-holding when zeroing the low 128-bits
@@ -5102,11 +5142,95 @@ test "_mm256_permute2f128_ps" {
     try std.testing.expectEqual(ref3, _mm256_permute2f128_ps(a, b, 0x03));
 }
 
-// ## pub inline fn _mm256_permute2f128_si256(a: __m256i, b: __m256i, comptime imm8: comptime_int) __m256i {}
-// ## pub inline fn _mm_permutevar_pd (a: __m128d, b: __m128i) __m128d {}
-// ## pub inline fn _mm256_permutevar_pd (a: __m256d, b: __m256i) __m256d {}
-// ## pub inline fn _mm_permutevar_ps (a: __m128, b: __m128i) __m128 {}
-// ## pub inline fn _mm256_permutevar_ps (a: __m256, b: __m256i) __m256 {}
+pub inline fn _mm256_permute2f128_si256(a: __m256i, b: __m256i, comptime imm8: comptime_int) __m256i {
+    return _mm256_permute2x128_si256(a, b, imm8);
+}
+
+pub inline fn _mm_permutevar_pd(a: __m128d, b: __m128i) __m128d {
+    if (has_avx) {
+        return asm ("vpermilpd %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128d),
+            : [a] "x" (a),
+              [b] "x" (b),
+        );
+    } else { // note: compiler doesn't eliminate the shift by 1
+        const shuf = (bitCast_u64x2(b) & @as(u64x2, @splat(2))) >> @as(u64x2, @splat(1));
+        return .{ a[shuf[0]], a[shuf[1]] };
+    }
+}
+
+test "_mm_permutevar_pd" {
+    const a = _mm_set_pd(1.5, 3.5);
+    const b = _mm_set_epi64x(3, 2);
+    const c = _mm_set_epi64x(1, 5);
+    const d = _mm_set_epi64x(2, 1);
+    const e = _mm_set_epi64x(1, 2);
+    const ref0 = _mm_set_pd(1.5, 1.5);
+    const ref1 = _mm_set_pd(3.5, 3.5);
+    const ref2 = _mm_set_pd(1.5, 3.5);
+    const ref3 = _mm_set_pd(3.5, 1.5);
+    try std.testing.expectEqual(ref0, _mm_permutevar_pd(a, b));
+    try std.testing.expectEqual(ref1, _mm_permutevar_pd(a, c));
+    try std.testing.expectEqual(ref2, _mm_permutevar_pd(a, d));
+    try std.testing.expectEqual(ref3, _mm_permutevar_pd(a, e));
+}
+
+pub inline fn _mm256_permutevar_pd(a: __m256d, b: __m256i) __m256d {
+    if (has_avx) {
+        return asm ("vpermilpd %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m256d),
+            : [a] "x" (a),
+              [b] "x" (b),
+        );
+    } else {
+        const lo = _mm_permutevar_pd(_mm256_extractf128_pd(a, 0), _mm256_extracti128_si256(b, 0));
+        const hi = _mm_permutevar_pd(_mm256_extractf128_pd(a, 1), _mm256_extracti128_si256(b, 1));
+        return _mm256_set_m128d(hi, lo);
+    }
+}
+
+test "_mm256_permutevar_pd" {
+    const a = _mm256_set_pd(4.5, 3.5, 2.5, 1.5);
+    const b = _mm256_set_epi64x(3, 2, 3, 2);
+    const c = _mm256_set_epi64x(1, 5, 1, 5);
+    const d = _mm256_set_epi64x(2, 1, 2, 1);
+    const e = _mm256_set_epi64x(1, 2, 1, 2);
+    const ref0 = _mm256_set_pd(4.5, 4.5, 2.5, 2.5);
+    const ref1 = _mm256_set_pd(3.5, 3.5, 1.5, 1.5);
+    const ref2 = _mm256_set_pd(4.5, 3.5, 2.5, 1.5);
+    const ref3 = _mm256_set_pd(3.5, 4.5, 1.5, 2.5);
+    try std.testing.expectEqual(ref0, _mm256_permutevar_pd(a, b));
+    try std.testing.expectEqual(ref1, _mm256_permutevar_pd(a, c));
+    try std.testing.expectEqual(ref2, _mm256_permutevar_pd(a, d));
+    try std.testing.expectEqual(ref3, _mm256_permutevar_pd(a, e));
+}
+
+pub inline fn _mm_permutevar_ps(a: __m128, b: __m128i) __m128 {
+    if (has_avx) {
+        return asm ("vpermilps %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+              [b] "x" (b),
+        );
+    } else {
+        const shuf = bitCast_u32x4(b) & @as(u32x4, @splat(3));
+        return .{ a[shuf[0]], a[shuf[1]], a[shuf[2]], a[shuf[3]] };
+    }
+}
+
+pub inline fn _mm256_permutevar_ps(a: __m256, b: __m256i) __m256 {
+    if (has_avx) {
+        return asm ("vpermilps %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m256),
+            : [a] "x" (a),
+              [b] "x" (b),
+        );
+    } else { // pretty bad code-gen... which is strange because _mm_permutevar_ps by itself isn't that bad...
+        const lo = _mm_permutevar_ps(_mm256_extractf128_ps(a, 0), _mm256_extracti128_si256(b, 0));
+        const hi = _mm_permutevar_ps(_mm256_extractf128_ps(a, 1), _mm256_extracti128_si256(b, 1));
+        return _mm256_set_m128(hi, lo);
+    }
+}
 
 /// Approximate reciprocal
 pub inline fn _mm256_rcp_ps(a: __m256) __m256 {
@@ -5232,7 +5356,7 @@ pub inline fn _mm256_set_m128(hi: __m128, lo: __m128) __m256 {
 }
 
 pub inline fn _mm256_set_m128d(hi: __m128d, lo: __m128d) __m256d {
-    return .{ lo[0], .lo[1], hi[0], hi[1] };
+    return .{ lo[0], lo[1], hi[0], hi[1] };
 }
 
 pub inline fn _mm256_set_m128i(hi: __m128i, lo: __m128i) __m256i {
