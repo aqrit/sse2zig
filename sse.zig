@@ -4568,6 +4568,124 @@ test "_mm_cmpgt_epi64" {
     try std.testing.expectEqual(ref1, _mm_cmpgt_epi64(b, a));
 }
 
+/// Software CRC-32C
+//
+// Modified from: https://github.com/DLTcollab/sse2neon/blob/4a036e60472af7dd60a31421fa01557000b5c96b/sse2neon.h#L8528C11-L8528C21
+// Copyright (c) Cuda Chen <clh960524@gmail.com>
+//
+// which was in turn based on: https://create.stephan-brumme.com/crc32/#half-byte
+// Author: unknown
+inline fn crc32cSoft(crc: anytype, v: anytype) @TypeOf(crc) {
+    // 4-bit-indexed table has a small memory footprint
+    // while being faster than a bit-twiddling solution
+    // but has a loop-carried dependence...
+    const crc32c_table: [16]u32 = .{
+        0x00000000, 0x105ec76f, 0x20bd8ede, 0x30e349b1,
+        0x417b1dbc, 0x5125dad3, 0x61c69362, 0x7198540d,
+        0x82f63b78, 0x92a8fc17, 0xa24bb5a6, 0xb21572c9,
+        0xc38d26c4, 0xd3d3e1ab, 0xe330a81a, 0xf36e6f75,
+    };
+
+    // ignore bits[32..64] of crc (and validate arg type)
+    var r = switch (@typeInfo(@TypeOf(crc)).Int.bits) {
+        32 => crc,
+        64 => crc & 0x00000000FFFFFFFF,
+        else => @compileError("invalid type of arg `crc`"),
+    };
+
+    // number of loop iterations (and validate arg type)
+    const n = switch (@typeInfo(@TypeOf(v)).Int.bits) {
+        8, 16, 32, 64 => @typeInfo(@TypeOf(v)).Int.bits / 4,
+        else => @compileError("invalid type of arg `v`"),
+    };
+
+    r ^= v;
+    for (0..n) |_| {
+        r = (r >> 4) ^ crc32c_table[r & 0x0F];
+    }
+    return r;
+}
+
+pub inline fn _mm_crc32_u16(crc: u32, v: u16) u32 {
+    if (has_sse4_2) {
+        var res = crc;
+        asm ("crc32 %[b],%[a]"
+            : [a] "+r" (res),
+            : [b] "r" (v),
+        );
+        return res;
+    } else {
+        return crc32cSoft(crc, v);
+    }
+}
+
+test "_mm_crc32_u16" {
+    const a: u32 = 0;
+    const b: u16 = 0x5A17;
+    const ref: u32 = 0x7F6FCA2F;
+    try std.testing.expectEqual(ref, _mm_crc32_u16(a, b));
+}
+
+pub inline fn _mm_crc32_u32(crc: u32, v: u32) u32 {
+    if (has_sse4_2) {
+        var res = crc;
+        asm ("crc32 %[b],%[a]"
+            : [a] "+r" (res),
+            : [b] "r" (v),
+        );
+        return res;
+    } else {
+        return crc32cSoft(crc, v);
+    }
+}
+
+test "_mm_crc32_u32" {
+    const a: u32 = 0x7F6FCA2F;
+    const b: u32 = 0x97455E45;
+    const ref: u32 = 0xFCC84559;
+    try std.testing.expectEqual(ref, _mm_crc32_u32(a, b));
+}
+
+pub inline fn _mm_crc32_u64(crc: u64, v: u64) u64 {
+    if (has_sse4_2) {
+        var res = crc;
+        asm ("crc32 %[b],%[a]"
+            : [a] "+r" (res),
+            : [b] "r" (v),
+        );
+        return res;
+    } else {
+        return crc32cSoft(crc, v);
+    }
+}
+
+test "_mm_crc32_u64" {
+    const a: u64 = 0x0102030405060708;
+    const b: u64 = 0x7F6FCA2F97455E45;
+    const ref: u64 = 0x0000000010B1F424;
+    try std.testing.expectEqual(ref, _mm_crc32_u64(a, b));
+}
+
+pub inline fn _mm_crc32_u8(crc: u32, v: u8) u32 {
+    if (has_sse4_2) {
+        var res = crc;
+        asm ("crc32 %[b],%[a]"
+            : [a] "+r" (res),
+            : [b] "r" (v),
+        );
+        return res;
+    } else {
+        return crc32cSoft(crc, v);
+    }
+}
+
+test "_mm_crc32_u8" {
+    const a: u32 = 0xFFFFFFFF;
+    const b: u8 = 0x5A;
+    const ref: u32 = 0x97455E45;
+    try std.testing.expectEqual(ref, _mm_crc32_u8(a, b));
+}
+
 // CLMUL ============================================================
 
 /// Software carryless multiplication of two 64-bit integers using native 128-bit registers.
