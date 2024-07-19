@@ -2473,6 +2473,15 @@ test "_mm_loadu_si64" {
 }
 
 pub inline fn _mm_madd_epi16(a: __m128i, b: __m128i) __m128i {
+    if (has_sse2) {
+        var dst = a;
+        asm ("pmaddwd %[xmm2], %[xmm1]"
+            : [xmm1] "+x" (dst),
+            : [xmm2] "x" (b),
+        );
+        return dst;
+    }
+
     const r = intCast_i32x8(bitCast_i16x8(a)) *%
         intCast_i32x8(bitCast_i16x8(b));
 
