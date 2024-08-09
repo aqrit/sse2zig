@@ -10,6 +10,9 @@ const std = @import("std");
 /// You could also just edit this line to set `use_asm` to true/false...
 const use_asm = if (@hasDecl(root, "sse2zig_useAsm")) root.sse2zig_useAsm else true;
 
+// compatibility with inline assembly is not great, yet
+const bug_self_hosted = (builtin.zig_backend == .stage2_x86_64);
+
 const has_avx2 = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .avx2);
 const has_avx = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .avx);
 const has_pclmul = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .pclmul);
@@ -491,14 +494,14 @@ pub inline fn _mm_cmpeq_ps(a: __m128, b: __m128) __m128 {
             : [ret] "=x" (-> __m128),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (0),
+              [c] "i" (0),
         );
     } else if (has_sse) {
         var res = a;
         asm ("cmpps %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (0),
+              [c] "i" (0),
         );
         return res;
     } else {
@@ -515,14 +518,14 @@ pub inline fn _mm_cmpeq_ss(a: __m128, b: __m128) __m128 {
             : [ret] "=x" (-> __m128),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (0),
+              [c] "i" (0),
         );
     } else if (has_sse) {
         var res = a;
         asm ("cmpss %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (0),
+              [c] "i" (0),
         );
         return res;
     } else {
@@ -555,14 +558,14 @@ pub inline fn _mm_cmple_ps(a: __m128, b: __m128) __m128 {
             : [ret] "=x" (-> __m128),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (2),
+              [c] "i" (2),
         );
     } else if (has_sse) {
         var res = a;
         asm ("cmpps %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (2),
+              [c] "i" (2),
         );
         return res;
     } else {
@@ -579,14 +582,14 @@ pub inline fn _mm_cmple_ss(a: __m128, b: __m128) __m128 {
             : [ret] "=x" (-> __m128),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (2),
+              [c] "i" (2),
         );
     } else if (has_sse) {
         var res = a;
         asm ("cmpss %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (2),
+              [c] "i" (2),
         );
         return res;
     } else {
@@ -603,14 +606,14 @@ pub inline fn _mm_cmplt_ps(a: __m128, b: __m128) __m128 {
             : [ret] "=x" (-> __m128),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (1),
+              [c] "i" (1),
         );
     } else if (has_sse) {
         var res = a;
         asm ("cmpps %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (1),
+              [c] "i" (1),
         );
         return res;
     } else {
@@ -627,14 +630,14 @@ pub inline fn _mm_cmplt_ss(a: __m128, b: __m128) __m128 {
             : [ret] "=x" (-> __m128),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (1),
+              [c] "i" (1),
         );
     } else if (has_sse) {
         var res = a;
         asm ("cmpss %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (1),
+              [c] "i" (1),
         );
         return res;
     } else {
@@ -651,14 +654,14 @@ pub inline fn _mm_cmpneq_ps(a: __m128, b: __m128) __m128 {
             : [ret] "=x" (-> __m128),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (4),
+              [c] "i" (4),
         );
     } else if (has_sse) {
         var res = a;
         asm ("cmpps %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (4),
+              [c] "i" (4),
         );
         return res;
     } else {
@@ -675,14 +678,14 @@ pub inline fn _mm_cmpneq_ss(a: __m128, b: __m128) __m128 {
             : [ret] "=x" (-> __m128),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (4),
+              [c] "i" (4),
         );
     } else if (has_sse) {
         var res = a;
         asm ("cmpss %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (4),
+              [c] "i" (4),
         );
         return res;
     } else {
@@ -714,14 +717,14 @@ pub inline fn _mm_cmpnle_ps(a: __m128, b: __m128) __m128 {
             : [ret] "=x" (-> __m128),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (6),
+              [c] "i" (6),
         );
     } else if (has_sse) {
         var res = a;
         asm ("cmpps %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (6),
+              [c] "i" (6),
         );
         return res;
     } else {
@@ -737,14 +740,14 @@ pub inline fn _mm_cmpnle_ss(a: __m128, b: __m128) __m128 {
             : [ret] "=x" (-> __m128),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (6),
+              [c] "i" (6),
         );
     } else if (has_sse) {
         var res = a;
         asm ("cmpss %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (6),
+              [c] "i" (6),
         );
         return res;
     } else {
@@ -760,14 +763,14 @@ pub inline fn _mm_cmpnlt_ps(a: __m128, b: __m128) __m128 {
             : [ret] "=x" (-> __m128),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (5),
+              [c] "i" (5),
         );
     } else if (has_sse) {
         var res = a;
         asm ("cmpps %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (5),
+              [c] "i" (5),
         );
         return res;
     } else {
@@ -783,14 +786,14 @@ pub inline fn _mm_cmpnlt_ss(a: __m128, b: __m128) __m128 {
             : [ret] "=x" (-> __m128),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (5),
+              [c] "i" (5),
         );
     } else if (has_sse) {
         var res = a;
         asm ("cmpss %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (5),
+              [c] "i" (5),
         );
         return res;
     } else {
@@ -807,14 +810,14 @@ pub inline fn _mm_cmpord_ps(a: __m128, b: __m128) __m128 {
             : [ret] "=x" (-> __m128),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (7),
+              [c] "i" (7),
         );
     } else if (has_sse) {
         var res = a;
         asm ("cmpps %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (7),
+              [c] "i" (7),
         );
         return res;
     } else {
@@ -830,14 +833,14 @@ pub inline fn _mm_cmpord_ss(a: __m128, b: __m128) __m128 {
             : [ret] "=x" (-> __m128),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (7),
+              [c] "i" (7),
         );
     } else if (has_sse) {
         var res = a;
         asm ("cmpss %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (7),
+              [c] "i" (7),
         );
         return res;
     } else {
@@ -853,14 +856,14 @@ pub inline fn _mm_cmpunord_ps(a: __m128, b: __m128) __m128 {
             : [ret] "=x" (-> __m128),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (3),
+              [c] "i" (3),
         );
     } else if (has_sse) {
         var res = a;
         asm ("cmpps %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (3),
+              [c] "i" (3),
         );
         return res;
     } else {
@@ -887,14 +890,14 @@ pub inline fn _mm_cmpunord_ss(a: __m128, b: __m128) __m128 {
             : [ret] "=x" (-> __m128),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (3),
+              [c] "i" (3),
         );
     } else if (has_sse) {
         var res = a;
         asm ("cmpss %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (3),
+              [c] "i" (3),
         );
         return res;
     } else {
@@ -1645,14 +1648,14 @@ pub inline fn _mm_cmpeq_pd(a: __m128d, b: __m128d) __m128d {
             : [ret] "=x" (-> __m128d),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (0),
+              [c] "i" (0),
         );
     } else if (has_sse2) {
         var res = a;
         asm ("cmppd %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (0),
+              [c] "i" (0),
         );
         return res;
     } else {
@@ -1669,14 +1672,14 @@ pub inline fn _mm_cmpeq_sd(a: __m128d, b: __m128d) __m128d {
             : [ret] "=x" (-> __m128d),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (0),
+              [c] "i" (0),
         );
     } else if (has_sse2) {
         var res = a;
         asm ("cmpsd %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (0),
+              [c] "i" (0),
         );
         return res;
     } else {
@@ -1726,14 +1729,14 @@ pub inline fn _mm_cmple_pd(a: __m128d, b: __m128d) __m128d {
             : [ret] "=x" (-> __m128d),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (2),
+              [c] "i" (2),
         );
     } else if (has_sse2) {
         var res = a;
         asm ("cmppd %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (2),
+              [c] "i" (2),
         );
         return res;
     } else {
@@ -1750,14 +1753,14 @@ pub inline fn _mm_cmple_sd(a: __m128d, b: __m128d) __m128d {
             : [ret] "=x" (-> __m128d),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (2),
+              [c] "i" (2),
         );
     } else if (has_sse2) {
         var res = a;
         asm ("cmpsd %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (2),
+              [c] "i" (2),
         );
         return res;
     } else {
@@ -1789,14 +1792,14 @@ pub inline fn _mm_cmplt_pd(a: __m128d, b: __m128d) __m128d {
             : [ret] "=x" (-> __m128d),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (1),
+              [c] "i" (1),
         );
     } else if (has_sse2) {
         var res = a;
         asm ("cmppd %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (1),
+              [c] "i" (1),
         );
         return res;
     } else {
@@ -1813,14 +1816,14 @@ pub inline fn _mm_cmplt_sd(a: __m128d, b: __m128d) __m128d {
             : [ret] "=x" (-> __m128d),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (1),
+              [c] "i" (1),
         );
     } else if (has_sse2) {
         var res = a;
         asm ("cmpsd %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (1),
+              [c] "i" (1),
         );
         return res;
     } else {
@@ -1837,14 +1840,14 @@ pub inline fn _mm_cmpneq_pd(a: __m128d, b: __m128d) __m128d {
             : [ret] "=x" (-> __m128d),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (4),
+              [c] "i" (4),
         );
     } else if (has_sse2) {
         var res = a;
         asm ("cmppd %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (4),
+              [c] "i" (4),
         );
         return res;
     } else {
@@ -1861,14 +1864,14 @@ pub inline fn _mm_cmpneq_sd(a: __m128d, b: __m128d) __m128d {
             : [ret] "=x" (-> __m128d),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (4),
+              [c] "i" (4),
         );
     } else if (has_sse2) {
         var res = a;
         asm ("cmpsd %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (4),
+              [c] "i" (4),
         );
         return res;
     } else {
@@ -1900,14 +1903,14 @@ pub inline fn _mm_cmpnle_pd(a: __m128d, b: __m128d) __m128d {
             : [ret] "=x" (-> __m128d),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (6),
+              [c] "i" (6),
         );
     } else if (has_sse2) {
         var res = a;
         asm ("cmppd %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (6),
+              [c] "i" (6),
         );
         return res;
     } else {
@@ -1923,14 +1926,14 @@ pub inline fn _mm_cmpnle_sd(a: __m128d, b: __m128d) __m128d {
             : [ret] "=x" (-> __m128d),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (6),
+              [c] "i" (6),
         );
     } else if (has_sse2) {
         var res = a;
         asm ("cmpsd %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (6),
+              [c] "i" (6),
         );
         return res;
     } else {
@@ -1946,14 +1949,14 @@ pub inline fn _mm_cmpnlt_pd(a: __m128d, b: __m128d) __m128d {
             : [ret] "=x" (-> __m128d),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (5),
+              [c] "i" (5),
         );
     } else if (has_sse2) {
         var res = a;
         asm ("cmppd %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (5),
+              [c] "i" (5),
         );
         return res;
     } else {
@@ -1969,14 +1972,14 @@ pub inline fn _mm_cmpnlt_sd(a: __m128d, b: __m128d) __m128d {
             : [ret] "=x" (-> __m128d),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (5),
+              [c] "i" (5),
         );
     } else if (has_sse2) {
         var res = a;
         asm ("cmpsd %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (5),
+              [c] "i" (5),
         );
         return res;
     } else {
@@ -1993,14 +1996,14 @@ pub inline fn _mm_cmpord_pd(a: __m128d, b: __m128d) __m128d {
             : [ret] "=x" (-> __m128d),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (7),
+              [c] "i" (7),
         );
     } else if (has_sse) {
         var res = a;
         asm ("cmppd %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (7),
+              [c] "i" (7),
         );
         return res;
     } else {
@@ -2016,14 +2019,14 @@ pub inline fn _mm_cmpord_sd(a: __m128d, b: __m128d) __m128d {
             : [ret] "=x" (-> __m128d),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (7),
+              [c] "i" (7),
         );
     } else if (has_sse) {
         var res = a;
         asm ("cmpsd %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (7),
+              [c] "i" (7),
         );
         return res;
     } else {
@@ -2039,14 +2042,14 @@ pub inline fn _mm_cmpunord_pd(a: __m128d, b: __m128d) __m128d {
             : [ret] "=x" (-> __m128d),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (3),
+              [c] "i" (3),
         );
     } else if (has_sse2) {
         var res = a;
         asm ("cmppd %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (3),
+              [c] "i" (3),
         );
         return res;
     } else {
@@ -3946,14 +3949,14 @@ pub inline fn _mm_dp_ps(a: __m128, b: __m128, comptime imm8: comptime_int) __m12
             : [ret] "=x" (-> __m128),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (imm8),
+              [c] "i" (imm8),
         );
     } else if (has_sse4_1) {
         var res = a;
         asm ("dpps %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (imm8),
+              [c] "i" (imm8),
         );
         return res;
     } else {
@@ -4168,24 +4171,25 @@ test "_mm_min_epu32" {
 }
 
 pub inline fn _mm_minpos_epu16(a: __m128i) __m128i {
-    if (has_avx) {
-        return asm ("vphminposuw %[a], %[ret]"
-            : [ret] "=x" (-> __m128i),
-            : [a] "x" (a),
-        );
-    } else if (has_sse4_1) {
-        return asm ("phminposuw %[a], %[ret]"
-            : [ret] "=x" (-> __m128i),
-            : [a] "x" (a),
-        );
-    } else {
-        const idx = u16x8{ 0, 1, 2, 3, 4, 5, 6, 7 };
-        const shuf = [16]i32{ -1, 0, -2, 1, -3, 2, -4, 3, -5, 4, -6, 5, -7, 6, -8, 7 };
-        const unpacked = @shuffle(u16, bitCast_u16x8(a), idx, shuf);
-        const r = @reduce(.Min, bitCast_u32x8(unpacked));
-        const res = u32x4{ (r << 16) | (r >> 16), 0, 0, 0 };
-        return @bitCast(res);
+    if (!bug_self_hosted) { // invalid mnemonic: 'phminposuw'
+        if (has_avx) {
+            return asm ("vphminposuw %[a], %[ret]"
+                : [ret] "=x" (-> __m128i),
+                : [a] "x" (a),
+            );
+        } else if (has_sse4_1) {
+            return asm ("phminposuw %[a], %[ret]"
+                : [ret] "=x" (-> __m128i),
+                : [a] "x" (a),
+            );
+        }
     }
+    const idx = u16x8{ 0, 1, 2, 3, 4, 5, 6, 7 };
+    const shuf = [16]i32{ -1, 0, -2, 1, -3, 2, -4, 3, -5, 4, -6, 5, -7, 6, -8, 7 };
+    const unpacked = @shuffle(u16, bitCast_u16x8(a), idx, shuf);
+    const r = @reduce(.Min, bitCast_u32x8(unpacked));
+    const res = u32x4{ (r << 16) | (r >> 16), 0, 0, 0 };
+    return @bitCast(res);
 }
 
 test "_mm_minpos_epu16" {
@@ -4195,38 +4199,39 @@ test "_mm_minpos_epu16" {
 }
 
 pub inline fn _mm_mpsadbw_epu8(a: __m128i, b: __m128i, comptime imm8: comptime_int) __m128i {
-    if (has_avx) {
-        return asm ("vmpsadbw %[c], %[b], %[a], %[ret]"
-            : [ret] "=x" (-> __m128i),
-            : [a] "x" (a),
-              [b] "x" (b),
-              [c] "N" (imm8),
-        );
-    } else if (has_sse4_1) {
-        var res = a;
-        asm ("mpsadbw %[c], %[b], %[a]"
-            : [a] "+x" (res),
-            : [b] "x" (b),
-              [c] "N" (imm8),
-        );
-        return res;
-    } else {
-        const s0: __m128i = _mm_unpacklo_epi32(_mm_srli_si128(a, 0 + (imm8 & 4)), _mm_srli_si128(a, 2 + (imm8 & 4)));
-        const s1: __m128i = _mm_unpacklo_epi32(_mm_srli_si128(a, 1 + (imm8 & 4)), _mm_srli_si128(a, 3 + (imm8 & 4)));
-        const s2: __m128i = _mm_shuffle_epi32(b, _MM_SHUFFLE(imm8 & 3, imm8 & 3, imm8 & 3, imm8 & 3));
-
-        const abd0 = _mm_sub_epi8(_mm_max_epu8(s0, s2), _mm_min_epu8(s0, s2));
-        const abd1 = _mm_sub_epi8(_mm_max_epu8(s1, s2), _mm_min_epu8(s1, s2));
-
-        const mask = _mm_set1_epi16(0x00FF);
-        const hsum0 = _mm_add_epi16(_mm_srli_epi16(abd0, 8), _mm_and_si128(abd0, mask));
-        const hsum1 = _mm_add_epi16(_mm_srli_epi16(abd1, 8), _mm_and_si128(abd1, mask));
-
-        const lo = _mm_srli_epi32(_mm_add_epi16(hsum0, _mm_slli_epi32(hsum0, 16)), 16);
-        const hi = _mm_slli_epi32(_mm_add_epi16(hsum1, _mm_srli_epi32(hsum1, 16)), 16);
-
-        return _mm_or_si128(lo, hi);
+    if (!bug_self_hosted) { // invalid mnemonic: 'mpsadbw'
+        if (has_avx) {
+            return asm ("vmpsadbw %[c], %[b], %[a], %[ret]"
+                : [ret] "=x" (-> __m128i),
+                : [a] "x" (a),
+                  [b] "x" (b),
+                  [c] "i" (imm8),
+            );
+        } else if (has_sse4_1) {
+            var res = a;
+            asm ("mpsadbw %[c], %[b], %[a]"
+                : [a] "+x" (res),
+                : [b] "x" (b),
+                  [c] "i" (imm8),
+            );
+            return res;
+        }
     }
+    const s0: __m128i = _mm_unpacklo_epi32(_mm_srli_si128(a, 0 + (imm8 & 4)), _mm_srli_si128(a, 2 + (imm8 & 4)));
+    const s1: __m128i = _mm_unpacklo_epi32(_mm_srli_si128(a, 1 + (imm8 & 4)), _mm_srli_si128(a, 3 + (imm8 & 4)));
+    const s2: __m128i = _mm_shuffle_epi32(b, _MM_SHUFFLE(imm8 & 3, imm8 & 3, imm8 & 3, imm8 & 3));
+
+    const abd0 = _mm_sub_epi8(_mm_max_epu8(s0, s2), _mm_min_epu8(s0, s2));
+    const abd1 = _mm_sub_epi8(_mm_max_epu8(s1, s2), _mm_min_epu8(s1, s2));
+
+    const mask = _mm_set1_epi16(0x00FF);
+    const hsum0 = _mm_add_epi16(_mm_srli_epi16(abd0, 8), _mm_and_si128(abd0, mask));
+    const hsum1 = _mm_add_epi16(_mm_srli_epi16(abd1, 8), _mm_and_si128(abd1, mask));
+
+    const lo = _mm_srli_epi32(_mm_add_epi16(hsum0, _mm_slli_epi32(hsum0, 16)), 16);
+    const hi = _mm_slli_epi32(_mm_add_epi16(hsum1, _mm_srli_epi32(hsum1, 16)), 16);
+
+    return _mm_or_si128(lo, hi);
 }
 
 test "_mm_mpsadbw_epu8" {
@@ -4271,6 +4276,8 @@ pub inline fn _mm_packus_epi32(a: __m128i, b: __m128i) __m128i {
 }
 
 test "_mm_packus_epi32" {
+    if (bug_self_hosted) return error.SkipZigTest;
+
     const a = _xx_set_epu32(0x00000001, 0x0000FFFF, 0x00008000, 0x00000000);
     const b = _xx_set_epu32(0x7FFFFFFF, 0x80000000, 0xFFFFFFFF, 0x0001FFFF);
     const ref = _xx_set_epu16(0xFFFF, 0, 0, 0xFFFF, 1, 0xFFFF, 0x8000, 0);
@@ -4282,13 +4289,13 @@ pub inline fn _mm_round_pd(a: __m128d, comptime imm8: comptime_int) __m128d {
         return asm ("vroundpd %[c], %[a], %[ret]"
             : [ret] "=x" (-> __m128d),
             : [a] "x" (a),
-              [c] "N" (imm8),
+              [c] "i" (imm8),
         );
     } else if (has_sse4_1) {
         return asm ("roundpd %[c], %[a], %[ret]"
             : [ret] "=x" (-> __m128d),
             : [a] "x" (a),
-              [c] "N" (imm8),
+              [c] "i" (imm8),
         );
     } else {
         return switch (imm8 & 0x07) {
@@ -4306,13 +4313,13 @@ pub inline fn _mm_round_ps(a: __m128, comptime imm8: comptime_int) __m128 {
         return asm ("vroundps %[c], %[a], %[ret]"
             : [ret] "=x" (-> __m128),
             : [a] "x" (a),
-              [c] "N" (imm8),
+              [c] "i" (imm8),
         );
     } else if (has_sse4_1) {
         return asm ("roundps %[c], %[a], %[ret]"
             : [ret] "=x" (-> __m128),
             : [a] "x" (a),
-              [c] "N" (imm8),
+              [c] "i" (imm8),
         );
     } else {
         return switch (imm8 & 0x07) {
@@ -4365,14 +4372,14 @@ pub inline fn _mm_round_sd(a: __m128d, b: __m128d, comptime imm8: comptime_int) 
             : [ret] "=x" (-> __m128d),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (imm8),
+              [c] "i" (imm8),
         );
     } else if (has_sse4_1) {
         var res = a;
         asm ("roundsd %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (imm8),
+              [c] "i" (imm8),
         );
         return res;
     } else {
@@ -4398,14 +4405,14 @@ pub inline fn _mm_round_ss(a: __m128, b: __m128, comptime imm8: comptime_int) __
             : [ret] "=x" (-> __m128),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (imm8),
+              [c] "i" (imm8),
         );
     } else if (has_sse4_1) {
         var res = a;
         asm ("roundss %[c], %[b], %[a]"
             : [a] "+x" (res),
             : [b] "x" (b),
-              [c] "N" (imm8),
+              [c] "i" (imm8),
         );
         return res;
     } else {
@@ -4512,21 +4519,22 @@ test "_mm_testc_si128" {
 
 /// result = if (((a & b) != 0) and ((~a & b) != 0)) 1 else 0;
 pub inline fn _mm_testnzc_si128(a: __m128i, b: __m128i) i32 {
-    if (has_avx) {
-        return asm ("vptest %[b],%[a]"
-            : [_] "={@cca}" (-> i32),
-            : [a] "x" (a),
-              [b] "x" (b),
-        );
-    } else if (has_sse4_1) {
-        return asm ("ptest %[b],%[a]"
-            : [_] "={@cca}" (-> i32),
-            : [a] "x" (a),
-              [b] "x" (b),
-        );
-    } else {
-        return @intFromBool((_mm_testz_si128(a, b) | _mm_testc_si128(a, b)) == 0);
+    if (!bug_self_hosted) { // doesn't like "={@cca}"... also LLVM doesn't like "=cca"...
+        if (has_avx) {
+            return asm ("vptest %[b],%[a]"
+                : [_] "={@cca}" (-> i32),
+                : [a] "x" (a),
+                  [b] "x" (b),
+            );
+        } else if (has_sse4_1) {
+            return asm ("ptest %[b],%[a]"
+                : [_] "={@cca}" (-> i32),
+                : [a] "x" (a),
+                  [b] "x" (b),
+            );
+        }
     }
+    return @intFromBool((_mm_testz_si128(a, b) | _mm_testc_si128(a, b)) == 0);
 }
 
 test "_mm_testnzc_si128" {
@@ -4607,7 +4615,7 @@ inline fn crc32cSoft(crc: anytype, v: anytype) @TypeOf(crc) {
 }
 
 pub inline fn _mm_crc32_u16(crc: u32, v: u16) u32 {
-    if (has_sse4_2) {
+    if ((has_sse4_2) and (!bug_self_hosted)) {
         var res = crc;
         asm ("crc32 %[b],%[a]"
             : [a] "+r" (res),
@@ -4627,7 +4635,7 @@ test "_mm_crc32_u16" {
 }
 
 pub inline fn _mm_crc32_u32(crc: u32, v: u32) u32 {
-    if (has_sse4_2) {
+    if ((has_sse4_2) and (!bug_self_hosted)) {
         var res = crc;
         asm ("crc32 %[b],%[a]"
             : [a] "+r" (res),
@@ -4647,7 +4655,7 @@ test "_mm_crc32_u32" {
 }
 
 pub inline fn _mm_crc32_u64(crc: u64, v: u64) u64 {
-    if (has_sse4_2) {
+    if ((has_sse4_2) and (!bug_self_hosted)) {
         var res = crc;
         asm ("crc32 %[b],%[a]"
             : [a] "+r" (res),
@@ -4667,7 +4675,7 @@ test "_mm_crc32_u64" {
 }
 
 pub inline fn _mm_crc32_u8(crc: u32, v: u8) u32 {
-    if (has_sse4_2) {
+    if ((has_sse4_2) and (!bug_self_hosted)) {
         var res = crc;
         asm ("crc32 %[b],%[a]"
             : [a] "+r" (res),
@@ -4725,14 +4733,14 @@ pub inline fn _mm_clmulepi64_si128(a: __m128i, b: __m128i, comptime imm8: compti
                 : [out] "=x" (-> __m128i),
                 : [a] "x" (a),
                   [b] "x" (b),
-                  [c] "N" (imm8),
+                  [c] "i" (imm8),
             );
         } else {
             var res = a;
             asm ("pclmulqdq %[c], %[b], %[a]"
                 : [a] "+x" (res),
                 : [b] "x" (b),
-                  [c] "N" (imm8),
+                  [c] "i" (imm8),
             );
             return res;
         }
@@ -5265,7 +5273,7 @@ pub inline fn _mm256_permute2f128_si256(a: __m256i, b: __m256i, comptime imm8: c
 }
 
 pub inline fn _mm_permutevar_pd(a: __m128d, b: __m128i) __m128d {
-    if (has_avx) {
+    if ((has_avx) and (!bug_self_hosted)) {
         return asm ("vpermilpd %[b], %[a], %[ret]"
             : [ret] "=x" (-> __m128d),
             : [a] "x" (a),
@@ -5294,7 +5302,7 @@ test "_mm_permutevar_pd" {
 }
 
 pub inline fn _mm256_permutevar_pd(a: __m256d, b: __m256i) __m256d {
-    if (has_avx) {
+    if ((has_avx) and (!bug_self_hosted)) {
         return asm ("vpermilpd %[b], %[a], %[ret]"
             : [ret] "=x" (-> __m256d),
             : [a] "x" (a),
@@ -6306,7 +6314,7 @@ test "_mm_i32gather_epi32" {
 }
 
 pub inline fn _mm_mask_i32gather_epi32(src: __m128i, base_addr: [*]align(1) const i32, vindex: __m128i, mask: __m128i, comptime scale: comptime_int) __m128i {
-    if (has_avx2) {
+    if ((has_avx2) and (!bug_self_hosted)) {
         var s = src;
         var m = mask;
 
@@ -6362,7 +6370,7 @@ test "_mm256_i32gather_epi32" {
 }
 
 pub inline fn _mm256_mask_i32gather_epi32(src: __m256i, base_addr: [*]align(1) const i32, vindex: __m256i, mask: __m256i, comptime scale: comptime_int) __m256i {
-    if (has_avx2) {
+    if ((has_avx2) and (!bug_self_hosted)) {
         var s = src;
         var m = mask;
 
@@ -6418,7 +6426,7 @@ test "_mm_i32gather_epi64" {
 }
 
 pub inline fn _mm_mask_i32gather_epi64(src: __m128i, base_addr: [*]align(1) const i64, vindex: __m128i, mask: __m128i, comptime scale: comptime_int) __m128i {
-    if (has_avx2) {
+    if ((has_avx2) and (!bug_self_hosted)) {
         var s = src;
         var m = mask;
 
@@ -6597,7 +6605,7 @@ test "_mm_i32gather_ps" {
 }
 
 pub inline fn _mm_mask_i32gather_ps(src: __m128, base_addr: [*]align(1) const f32, vindex: __m128i, mask: __m128, comptime scale: comptime_int) __m128 {
-    if (has_avx2) {
+    if ((has_avx2) and (!bug_self_hosted)) {
         var s = src;
         var m = mask;
 
@@ -6678,7 +6686,7 @@ pub inline fn _mm_i64gather_epi32(base_addr: [*]align(1) const i32, vindex: __m1
 }
 
 pub inline fn _mm_mask_i64gather_epi32(src: __m128i, base_addr: [*]align(1) const i32, vindex: __m128i, mask: __m128i, comptime scale: comptime_int) __m128i {
-    if (has_avx2) {
+    if ((has_avx2) and (!bug_self_hosted)) {
         var s = src;
         var m = mask;
 
@@ -6765,7 +6773,7 @@ pub inline fn _mm_i64gather_epi64(base_addr: [*]align(1) const i64, vindex: __m1
 }
 
 pub inline fn _mm_mask_i64gather_epi64(src: __m128i, base_addr: [*]align(1) const i64, vindex: __m128i, mask: __m128i, comptime scale: comptime_int) __m128i {
-    if (has_avx2) {
+    if ((has_avx2) and (!bug_self_hosted)) {
         var s = src;
         var m = mask;
 
@@ -6804,7 +6812,7 @@ pub inline fn _mm256_i64gather_epi64(base_addr: [*]align(1) const i64, vindex: _
 }
 
 pub inline fn _mm256_mask_i64gather_epi64(src: __m256i, base_addr: [*]align(1) const i64, vindex: __m256i, mask: __m256i, comptime scale: comptime_int) __m256i {
-    if (has_avx2) {
+    if ((has_avx2) and (!bug_self_hosted)) {
         var s = src;
         var m = mask;
 
@@ -6927,6 +6935,8 @@ pub inline fn _mm256_mask_i64gather_pd(src: __m256d, base_addr: [*]align(1) cons
 }
 
 test "_mm256_mask_i64gather_pd" {
+    if (bug_self_hosted) return error.SkipZigTest;
+
     const vindex = _mm256_set_epi64x(3, 3, -1, 1);
     const mask = _mm256_set_pd(-0.0, 0, -0.0, -0.0);
     const src = _mm256_set1_pd(9.0);
@@ -6941,7 +6951,7 @@ pub inline fn _mm_i64gather_ps(base_addr: [*]align(1) const f32, vindex: __m128i
 }
 
 pub inline fn _mm_mask_i64gather_ps(src: __m128, base_addr: [*]align(1) const f32, vindex: __m128i, mask: __m128, comptime scale: comptime_int) __m128 {
-    if (has_avx2) {
+    if ((has_avx2) and (!bug_self_hosted)) {
         var s = src;
         var m = mask;
 
@@ -6990,7 +7000,7 @@ pub inline fn _mm256_i64gather_ps(base_addr: [*]align(1) const f32, vindex: __m2
 }
 
 pub inline fn _mm256_mask_i64gather_ps(src: __m128, base_addr: [*]align(1) const f32, vindex: __m256i, mask: __m128, comptime scale: comptime_int) __m128 {
-    if (has_avx2) {
+    if ((has_avx2) and (!bug_self_hosted)) {
         var s = src;
         var m = mask;
 
@@ -7065,7 +7075,7 @@ pub inline fn _mm256_maddubs_epi16(a: __m256i, b: __m256i) __m256i {
 }
 
 pub inline fn _mm_maskload_epi32(mem_addr: [*]align(1) const i32, mask: __m128i) __m128i {
-    if (has_avx2) {
+    if ((has_avx2) and (!bug_self_hosted)) {
         // mem_addr[0..4] probably covers invalid locations so
         // can't use the "m" constraint because it requires a dereference of mem_addr.
         return asm volatile ("vpmaskmovd (%[b]), %[a], %[ret]"
@@ -7092,7 +7102,7 @@ test "_mm_maskload_epi32" {
 }
 
 pub inline fn _mm256_maskload_epi32(mem_addr: [*]align(1) const i32, mask: __m256i) __m256i {
-    if (has_avx2) {
+    if ((has_avx2) and (!bug_self_hosted)) {
         return asm volatile ("vpmaskmovd (%[b]), %[a], %[ret]"
             : [ret] "=x" (-> __m256i),
             : [a] "x" (mask),
@@ -7146,7 +7156,7 @@ pub inline fn _mm256_maskload_epi64(mem_addr: [*]align(1) const i64, mask: __m25
 }
 
 pub inline fn _mm_maskstore_epi32(mem_addr: [*]align(1) i32, mask: __m128i, a: __m128i) void {
-    if (has_avx2) {
+    if ((has_avx2) and (!bug_self_hosted)) {
         asm volatile ("vpmaskmovd %[a], %[mask], (%[mem_addr])"
             :
             : [mem_addr] "r" (mem_addr),
@@ -7269,12 +7279,12 @@ pub inline fn _mm256_movemask_epi8(a: __m256i) i32 {
 }
 
 pub inline fn _mm256_mpsadbw_epu8(a: __m256i, b: __m256i, comptime imm8: comptime_int) __m256i {
-    if (has_avx2) {
+    if ((has_avx2) and (!bug_self_hosted)) {
         return asm ("vmpsadbw %[c], %[b], %[a], %[ret]"
             : [ret] "=x" (-> __m256i),
             : [a] "x" (a),
               [b] "x" (b),
-              [c] "N" (imm8),
+              [c] "i" (imm8),
         );
     } else {
         const a_lo = _mm256_extracti128_si256(a, 0);
