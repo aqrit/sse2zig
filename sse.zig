@@ -31,7 +31,7 @@ const is_x86_64 = builtin.target.cpu.arch == .x86_64;
 
 const has_avx2 = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .avx2);
 const has_avx = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .avx);
-const has_pclmul = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .pclmul);
+const has_pclmul = std.Target.x86.featureSetHas(builtin.cpu.features, .pclmul);
 const has_sse4_2 = std.Target.x86.featureSetHas(builtin.cpu.features, .sse4_2);
 const has_sse4_1 = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .sse4_1);
 const has_ssse3 = std.Target.x86.featureSetHas(builtin.cpu.features, .ssse3);
