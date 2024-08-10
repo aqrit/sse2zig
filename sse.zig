@@ -14,7 +14,7 @@ const use_builtins = b: {
     break :b true; // enabled by default
 };
 
-/// Use of inline assembly statements are by enabled default.
+/// Use of inline assembly statements are enabled by default.
 /// Disable asm statements by declaring in the root src file:
 /// `pub const sse2zig_useAsm = false;`
 const use_asm = b: {
@@ -27,13 +27,15 @@ const use_asm = b: {
 // https://github.com/ziglang/zig/blob/master/src/arch/x86_64/Encoding.zig
 const bug_stage2_x86_64 = (builtin.zig_backend == .stage2_x86_64);
 
+const is_x86_64 = builtin.target.cpu.arch == .x86_64;
+
 const has_avx2 = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .avx2);
 const has_avx = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .avx);
 const has_pclmul = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .pclmul);
-const has_sse4_2 = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .sse4_2);
+const has_sse4_2 = std.Target.x86.featureSetHas(builtin.cpu.features, .sse4_2);
 const has_sse4_1 = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .sse4_1);
 const has_ssse3 = std.Target.x86.featureSetHas(builtin.cpu.features, .ssse3);
-const has_sse3 = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .sse3);
+const has_sse3 = std.Target.x86.featureSetHas(builtin.cpu.features, .sse3);
 const has_sse2 = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .sse2);
 const has_sse = use_asm and std.Target.x86.featureSetHas(builtin.cpu.features, .sse);
 
@@ -4759,19 +4761,23 @@ inline fn crc32cSoft(crc: anytype, v: anytype) @TypeOf(crc) {
 
     r ^= v;
     for (0..n) |_| {
-        r = (r >> 4) ^ crc32c_table[r & 0x0F];
+        r = (r >> 4) ^ crc32c_table[@as(u4, @truncate(r))];
     }
     return r;
 }
 
 pub inline fn _mm_crc32_u16(crc: u32, v: u16) u32 {
-    if ((has_sse4_2) and (!bug_stage2_x86_64)) {
-        var res = crc;
-        asm ("crc32 %[b],%[a]"
-            : [a] "+r" (res),
+    if ((use_builtins) and (has_sse4_2)) {
+        return struct {
+            extern fn @"llvm.x86.sse42.crc32.32.16"(u32, u16) u32;
+        }.@"llvm.x86.sse42.crc32.32.16"(crc, v);
+    } else if ((use_asm) and (has_sse4_2) and (!bug_stage2_x86_64)) {
+        var r = crc;
+        asm ("crc32 %[b],%[r]"
+            : [r] "+r" (r),
             : [b] "r" (v),
         );
-        return res;
+        return r;
     } else {
         return crc32cSoft(crc, v);
     }
@@ -4785,13 +4791,17 @@ test "_mm_crc32_u16" {
 }
 
 pub inline fn _mm_crc32_u32(crc: u32, v: u32) u32 {
-    if ((has_sse4_2) and (!bug_stage2_x86_64)) {
-        var res = crc;
-        asm ("crc32 %[b],%[a]"
-            : [a] "+r" (res),
+    if ((use_builtins) and (has_sse4_2)) {
+        return struct {
+            extern fn @"llvm.x86.sse42.crc32.32.32"(u32, u32) u32;
+        }.@"llvm.x86.sse42.crc32.32.32"(crc, v);
+    } else if ((use_asm) and (has_sse4_2) and (!bug_stage2_x86_64)) {
+        var r = crc;
+        asm ("crc32 %[b],%[r]"
+            : [r] "+r" (r),
             : [b] "r" (v),
         );
-        return res;
+        return r;
     } else {
         return crc32cSoft(crc, v);
     }
@@ -4805,13 +4815,17 @@ test "_mm_crc32_u32" {
 }
 
 pub inline fn _mm_crc32_u64(crc: u64, v: u64) u64 {
-    if ((has_sse4_2) and (!bug_stage2_x86_64)) {
-        var res = crc;
-        asm ("crc32 %[b],%[a]"
-            : [a] "+r" (res),
+    if ((use_builtins) and (is_x86_64) and (has_sse4_2)) {
+        return struct {
+            extern fn @"llvm.x86.sse42.crc32.64.64"(u64, u64) u64;
+        }.@"llvm.x86.sse42.crc32.64.64"(crc, v);
+    } else if ((use_asm) and (is_x86_64) and (has_sse4_2) and (!bug_stage2_x86_64)) {
+        var r = crc;
+        asm ("crc32 %[b],%[r]"
+            : [r] "+r" (r),
             : [b] "r" (v),
         );
-        return res;
+        return r;
     } else {
         return crc32cSoft(crc, v);
     }
@@ -4825,13 +4839,17 @@ test "_mm_crc32_u64" {
 }
 
 pub inline fn _mm_crc32_u8(crc: u32, v: u8) u32 {
-    if ((has_sse4_2) and (!bug_stage2_x86_64)) {
-        var res = crc;
-        asm ("crc32 %[b],%[a]"
-            : [a] "+r" (res),
+    if ((use_builtins) and (has_sse4_2)) {
+        return struct {
+            extern fn @"llvm.x86.sse42.crc32.32.8"(u32, u8) u32;
+        }.@"llvm.x86.sse42.crc32.32.8"(crc, v);
+    } else if ((use_asm) and (has_sse4_2) and (!bug_stage2_x86_64)) {
+        var r = crc;
+        asm ("crc32 %[b],%[r]"
+            : [r] "+r" (r),
             : [b] "r" (v),
         );
-        return res;
+        return r;
     } else {
         return crc32cSoft(crc, v);
     }
@@ -4877,23 +4895,25 @@ fn clmulSoft128(x: u64, y: u64) u128 {
 }
 
 pub inline fn _mm_clmulepi64_si128(a: __m128i, b: __m128i, comptime imm8: comptime_int) __m128i {
-    if (has_pclmul) {
-        if (has_avx) {
-            return asm ("vpclmulqdq %[c], %[b], %[a], %[out]"
-                : [out] "=x" (-> __m128i),
-                : [a] "x" (a),
-                  [b] "x" (b),
-                  [c] "i" (imm8),
-            );
-        } else {
-            var res = a;
-            asm ("pclmulqdq %[c], %[b], %[a]"
-                : [a] "+x" (res),
-                : [b] "x" (b),
-                  [c] "i" (imm8),
-            );
-            return res;
-        }
+    if ((use_builtins) and (has_pclmul)) {
+        return @bitCast(struct {
+            extern fn @"llvm.x86.pclmulqdq"(i64x2, i64x2, u8) i64x2;
+        }.@"llvm.x86.pclmulqdq"(@bitCast(a), @bitCast(b), imm8));
+    } else if ((use_asm) and (has_avx) and (has_pclmul)) {
+        return asm ("vpclmulqdq %[c], %[b], %[a], %[out]"
+            : [out] "=x" (-> __m128i),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "i" (imm8),
+        );
+    } else if ((use_asm) and (has_pclmul)) {
+        var r = a;
+        asm ("pclmulqdq %[c], %[b], %[r]"
+            : [r] "+x" (r),
+            : [b] "x" (b),
+              [c] "i" (imm8),
+        );
+        return r;
     } else {
         const x = bitCast_u64x2(a)[imm8 & 1];
         const y = bitCast_u64x2(b)[(imm8 >> 4) & 1];
