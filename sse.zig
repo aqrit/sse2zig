@@ -3033,9 +3033,16 @@ pub inline fn _mm_sra_epi32(a: __m128i, count: __m128i) __m128i {
     }
 }
 
-pub inline fn _mm_srai_epi16(a: __m128i, comptime imm8: comptime_int) __m128i {
-    const shift: i16x8 = @splat(@min(@as(u8, @intCast(imm8)), 15));
+/// BUG BUG BUG! can't declare this `inline` else the tests blow up
+pub fn _mm_srai_epi16(a: __m128i, comptime imm8: comptime_int) __m128i {
+    const shift: i16x8 = @splat(@as(i16, @intCast(imm8)));
     return @bitCast(bitCast_i16x8(a) >> shift);
+}
+
+test "_mm_srai_epi16" {
+    const a = _mm_set_epi16(-32768, -1, -32511, 32767, 1, 128, 0, -128);
+    const ref = _mm_set_epi16(-2048, -1, -2032, 2047, 0, 8, 0, -8);
+    try std.testing.expectEqual(ref, _mm_srai_epi16(a, 4));
 }
 
 pub inline fn _mm_srai_epi32(a: __m128i, comptime imm8: comptime_int) __m128i {
@@ -3400,18 +3407,43 @@ pub inline fn _mm_moveldup_ps(a: __m128) __m128 {
 
 // SSSE3 ===============================================================
 
+/// Absolute Value without saturation.
+/// (e.g. the absolute value of `-32768 (0x8000)` is `-32768 (0x8000)`)
 pub inline fn _mm_abs_epi16(a: __m128i) __m128i {
     return @bitCast(@abs(bitCast_i16x8(a)));
 }
 
+test "_mm_abs_epi16" {
+    const a = _mm_set_epi16(-32768, 32767, -128, -127, 128, 127, -32767, 0);
+    const ref = _mm_set_epi16(-32768, 32767, 128, 127, 128, 127, 32767, 0);
+    try std.testing.expectEqual(ref, _mm_abs_epi16(a));
+}
+
+/// Absolute Value without saturation.
+/// (e.g. the absolute value of `-2147483648 (0x80000000)` is `-2147483648 (0x80000000)`)
 pub inline fn _mm_abs_epi32(a: __m128i) __m128i {
     return @bitCast(@abs(bitCast_i32x4(a)));
 }
 
+test "_mm_abs_epi32" {
+    const a = _mm_set_epi32(-2147483648, 2147483647, 65535, -2147450881);
+    const ref = _mm_set_epi32(-2147483648, 2147483647, 65535, 2147450881);
+    try std.testing.expectEqual(ref, _mm_abs_epi32(a));
+}
+
+/// Absolute Value without saturation.
+/// (e.g. the absolute value of `-128 (0x80)` is `-128 (0x80)`)
 pub inline fn _mm_abs_epi8(a: __m128i) __m128i {
     return @bitCast(@abs(bitCast_i8x16(a)));
 }
 
+test "_mm_abs_epi8" {
+    const a = _mm_set_epi8(-128, 127, -1, 1, 127, -128, 1, -1, -127, -1, -126, 1, 0, -2, -64, 3);
+    const ref = _mm_set_epi8(-128, 127, 1, 1, 127, -128, 1, 1, 127, 1, 126, 1, 0, 2, 64, 3);
+    try std.testing.expectEqual(ref, _mm_abs_epi8(a));
+}
+
+/// Append `a` to the left (hi) of `b`, shift right by `imm8` bytes, then truncate to `__m128i`.
 pub inline fn _mm_alignr_epi8(a: __m128i, b: __m128i, comptime imm8: comptime_int) __m128i {
     if (@as(u8, @intCast(imm8)) > 31) {
         return @splat(0);
@@ -3434,6 +3466,14 @@ pub inline fn _mm_alignr_epi8(a: __m128i, b: __m128i, comptime imm8: comptime_in
     return @bitCast(@shuffle(u8, bitCast_u8x16(b), bitCast_u8x16(a), shuf));
 }
 
+test "_mm_alignr_epi8" {
+    const a = _mm_set_epi8(31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16);
+    const b = _mm_set_epi8(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
+    const ref = _mm_set_epi8(24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9);
+    try std.testing.expectEqual(ref, _mm_alignr_epi8(a, b, 9));
+}
+
+/// Horizontally add `+%` pairs of 16-bit integers, then pack (narrow).
 pub inline fn _mm_hadd_epi16(a: __m128i, b: __m128i) __m128i {
     if ((use_builtins) and (has_ssse3)) {
         return @bitCast(struct {
@@ -3468,6 +3508,7 @@ test "_mm_hadd_epi16" {
     try std.testing.expectEqual(ref, _mm_hadd_epi16(a, b));
 }
 
+/// Horizontally add `+%` pairs of 32-bit integers, then pack (narrow).
 pub inline fn _mm_hadd_epi32(a: __m128i, b: __m128i) __m128i {
     if ((use_builtins) and (has_ssse3)) {
         return @bitCast(struct {
@@ -3495,6 +3536,14 @@ pub inline fn _mm_hadd_epi32(a: __m128i, b: __m128i) __m128i {
     }
 }
 
+test "_mm_hadd_epi32" {
+    const a = _mm_set_epi32(1, -2147483648, -2147483648, -2147483648);
+    const b = _mm_set_epi32(-1, 1, 2, 3);
+    const ref = _mm_set_epi32(0, 5, -2147483647, 0);
+    try std.testing.expectEqual(ref, _mm_hadd_epi32(a, b));
+}
+
+/// Horizontally add w/saturation `+|` pairs of signed 16-bit integers, then pack (narrow).
 pub inline fn _mm_hadds_epi16(a: __m128i, b: __m128i) __m128i {
     if ((use_builtins) and (has_ssse3)) {
         return @bitCast(struct {
@@ -3529,6 +3578,8 @@ test "_mm_hadds_epi16" {
     try std.testing.expectEqual(ref, _mm_hadds_epi16(a, b));
 }
 
+/// Horizontally subtract `-%` pairs of 16-bit integers, then pack (narrow).
+/// e.g. `a[0] = a[0] -% a[1]; a[1] = a[2] - a[3]; // etc.`
 pub inline fn _mm_hsub_epi16(a: __m128i, b: __m128i) __m128i {
     if ((use_builtins) and (has_ssse3)) {
         return @bitCast(struct {
@@ -3563,6 +3614,8 @@ test "_mm_hsub_epi16" {
     try std.testing.expectEqual(ref, _mm_hsub_epi16(a, b));
 }
 
+/// Horizontally subtract `-%` pairs of 32-bit integers, then pack (narrow).
+/// e.g. `a[0] = a[0] -% a[1]; a[1] = a[2] - a[3]; a[2] = b[0] - b[1]; a[3] = b[2] - b[3]`
 pub inline fn _mm_hsub_epi32(a: __m128i, b: __m128i) __m128i {
     if ((use_builtins) and (has_ssse3)) {
         return @bitCast(struct {
@@ -3590,6 +3643,15 @@ pub inline fn _mm_hsub_epi32(a: __m128i, b: __m128i) __m128i {
     }
 }
 
+test "_mm_hsub_epi32" {
+    const a = _mm_set_epi32(1, -2147483648, -2147483648, -2147483648);
+    const b = _mm_set_epi32(-2, 1, 2, 3);
+    const ref = _mm_set_epi32(3, 1, 2147483647, 0);
+    try std.testing.expectEqual(ref, _mm_hsub_epi32(a, b));
+}
+
+/// Horizontally subtract w/saturation `-|` pairs of signed 16-bit integers, then pack (narrow).
+/// e.g. `a[0] = a[0] -| a[1]; a[1] = a[2] - a[3]; // etc.`
 pub inline fn _mm_hsubs_epi16(a: __m128i, b: __m128i) __m128i {
     if ((use_builtins) and (has_ssse3)) {
         return @bitCast(struct {
@@ -3624,6 +3686,9 @@ test "_mm_hsubs_epi16" {
     try std.testing.expectEqual(ref, _mm_hsubs_epi16(a, b));
 }
 
+/// Widening Multiply, horizontally add w/saturation, then pack.
+/// `a[i].u8 * b[i].i8 = t[i].i16;`
+/// `r[i] = t[i*2] +| t[(i*2)+1];`
 pub inline fn _mm_maddubs_epi16(a: __m128i, b: __m128i) __m128i {
     if ((use_builtins) and (has_ssse3)) {
         return @bitCast(struct {
@@ -3647,6 +3712,13 @@ pub inline fn _mm_maddubs_epi16(a: __m128i, b: __m128i) __m128i {
         const hi = _mm_mullo_epi16(_mm_srli_epi16(a, 8), _mm_srai_epi16(b, 8));
         return _mm_adds_epi16(lo, hi);
     }
+}
+
+test "_mm_maddubs_epi16" {
+    const a = _mm_set_epi8(-1, -1, -1, -1, -1, -1, 3, 99, 55, 44, 33, 22, 11, 0, 1, 2);
+    const b = _mm_set_epi8(-128, -128, 127, 127, -128, 127, -1, 127, 99, 88, -5, 66, 55, 1, 1, 4);
+    const ref = _mm_set_epi16(-32768, 32767, -255, 12570, 9317, 1287, 605, 9);
+    try std.testing.expectEqual(ref, _mm_maddubs_epi16(a, b));
 }
 
 pub inline fn _mm_mulhrs_epi16(a: __m128i, b: __m128i) __m128i {
