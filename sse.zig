@@ -3035,7 +3035,7 @@ pub inline fn _mm_sra_epi32(a: __m128i, count: __m128i) __m128i {
 
 /// BUG BUG BUG! can't declare this `inline` else the tests blow up
 pub fn _mm_srai_epi16(a: __m128i, comptime imm8: comptime_int) __m128i {
-    const shift: i16x8 = @splat(@as(i16, @intCast(imm8)));
+    const shift: i16x8 = @splat(@min(@as(u8, @intCast(imm8)), 15));
     return @bitCast(bitCast_i16x8(a) >> shift);
 }
 
