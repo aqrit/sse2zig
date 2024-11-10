@@ -2586,8 +2586,14 @@ pub inline fn _mm_max_sd(a: __m128d, b: __m128d) __m128d {
 }
 
 pub inline fn _mm_mfence() void {
-    // @fence(.SeqCst); // removed in ziglang/zig#21585
-    std.fetchAdd(0, .seq_cst); // work-around
+    if (has_sse2) {
+        asm volatile ("mfence" ::: "memory");
+    } else {
+        // `@fence(.SeqCst)` was removed in ziglang/zig#21585
+        // garbage work-around
+        var x = std.atomic.Value(usize).init(0);
+        _ = x.cmpxchgStrong(1, 0, .seq_cst, .seq_cst);
+    }
 }
 
 pub inline fn _mm_min_epi16(a: __m128i, b: __m128i) __m128i {
@@ -2735,13 +2741,7 @@ pub inline fn _mm_packus_epi16(a: __m128i, b: __m128i) __m128i {
 }
 
 pub inline fn _mm_pause() void {
-    if (has_sse2) {
-        asm volatile ("pause" ::: "memory");
-    } else if (has_neon) {
-        asm volatile ("isb" ::: "memory"); // https://stackoverflow.com/a/70811680
-    } else {
-        // do nothing
-    }
+    std.atomic.spinLoopHint();
 }
 
 pub inline fn _mm_sad_epu8(a: __m128i, b: __m128i) __m128i {
