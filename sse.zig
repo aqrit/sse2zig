@@ -1442,7 +1442,32 @@ pub inline fn _mm_sub_ss(a: __m128, b: __m128) __m128 {
     return .{ a[0] - b[0], a[1], a[2], a[3] };
 }
 
-// ## ?? void _MM_TRANSPOSE4_PS (__m128 row0, __m128 row1, __m128 row2, __m128 row3) ??
+pub inline fn _MM_TRANSPOSE4_PS(row0: *__m128, row1: *__m128, row2: *__m128, row3: *__m128) void {
+    const column0: __m128 = .{ row0[0], row1[0], row2[0], row3[0] };
+    const column1: __m128 = .{ row0[1], row1[1], row2[1], row3[1] };
+    const column2: __m128 = .{ row0[2], row1[2], row2[2], row3[2] };
+    const column3: __m128 = .{ row0[3], row1[3], row2[3], row3[3] };
+    row0.* = column0;
+    row1.* = column1;
+    row2.* = column2;
+    row3.* = column3;
+}
+
+test "_MM_TRANSPOSE4_PS" {
+    var a = _mm_set_ps(4.0, 3.0, 2.0, 1.0);
+    var b = _mm_set_ps(40.0, 30.0, 20.0, 10.0);
+    var c = _mm_set_ps(400.0, 300.0, 200.0, 100.0);
+    var d = _mm_set_ps(4000.0, 3000.0, 2000.0, 1000.0);
+    const a_ref = _mm_set_ps(1000.0, 100.0, 10.0, 1.0);
+    const b_ref = _mm_set_ps(2000.0, 200.0, 20.0, 2.0);
+    const c_ref = _mm_set_ps(3000.0, 300.0, 30.0, 3.0);
+    const d_ref = _mm_set_ps(4000.0, 400.0, 40.0, 4.0);
+    _MM_TRANSPOSE4_PS(&a, &b, &c, &d);
+    try std.testing.expectEqual(a_ref, a);
+    try std.testing.expectEqual(b_ref, b);
+    try std.testing.expectEqual(c_ref, c);
+    try std.testing.expectEqual(d_ref, d);
+}
 
 /// result = if ((a[0] == b[0]) and (a[0] != NaN) and b[0] != NaN) 1 else 0;
 pub inline fn _mm_ucomieq_ss(a: __m128, b: __m128) i32 {
