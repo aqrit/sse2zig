@@ -3526,8 +3526,18 @@ pub inline fn _mm_alignr_epi8(a: __m128i, b: __m128i, comptime imm8: comptime_in
 test "_mm_alignr_epi8" {
     const a = _mm_set_epi8(31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16);
     const b = _mm_set_epi8(15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
-    const ref = _mm_set_epi8(24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9);
-    try std.testing.expectEqual(ref, _mm_alignr_epi8(a, b, 9));
+    const ref0 = _mm_set_epi8(24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9);
+    const ref1 = _mm_set_epi8(8, 7, 6, 5, 4, 3, 2, 1, 0, 31, 30, 29, 28, 27, 26, 25);
+    const ref2 = _mm_set_epi8(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 31);
+    const ref3 = _mm_setzero_si128();
+    try std.testing.expectEqual(ref0, _mm_alignr_epi8(a, b, 9));
+    try std.testing.expectEqual(ref1, _mm_alignr_epi8(b, a, 9));
+    try std.testing.expectEqual(ref2, _mm_alignr_epi8(a, b, 31));
+    try std.testing.expectEqual(ref3, _mm_alignr_epi8(a, b, 32));
+    try std.testing.expectEqual(b, _mm_alignr_epi8(b, a, 16));
+    try std.testing.expectEqual(a, _mm_alignr_epi8(a, b, 16));
+    try std.testing.expectEqual(a, _mm_alignr_epi8(b, a, 0));
+    try std.testing.expectEqual(b, _mm_alignr_epi8(a, b, 0));
 }
 
 /// Horizontally add `+%` pairs of 16-bit integers, then pack (narrow).
@@ -3778,6 +3788,11 @@ test "_mm_maddubs_epi16" {
     try std.testing.expectEqual(ref, _mm_maddubs_epi16(a, b));
 }
 
+/// multiply usually used to "scale" fixed-point values
+/// (e.g. divide by constant then round to nearest integer)
+//
+// for discussion about generating the magic multiplicative inverse
+// see: Henry S. Warren, Hacker's Delight 2nd Edition, Chapter 10
 pub inline fn _mm_mulhrs_epi16(a: __m128i, b: __m128i) __m128i {
     if ((use_builtins) and (has_ssse3)) {
         return @bitCast(struct {
@@ -3791,7 +3806,7 @@ pub inline fn _mm_mulhrs_epi16(a: __m128i, b: __m128i) __m128i {
         );
     } else if ((use_asm) and (has_ssse3) and (!bug_stage2_x86_64)) {
         var r = a;
-        asm ("pmulhrsw %[b], %[a]"
+        asm ("pmulhrsw %[b], %[r]"
             : [r] "+x" (r),
             : [b] "x" (b),
         );
@@ -3802,6 +3817,13 @@ pub inline fn _mm_mulhrs_epi16(a: __m128i, b: __m128i) __m128i {
         r +%= @splat(1 << 14);
         return @bitCast(@as(i16x8, @truncate(r >> @splat(15))));
     }
+}
+
+test "_mm_mulhrs_epi16" {
+    const a = _mm_set_epi16(300, 100, -100, 3, 1, 2, -32768, 32767);
+    const div3 = _mm_set1_epi16(10923); // 0x2AAB
+    const ref = _mm_set_epi16(100, 33, -33, 1, 0, 1, -10923, 10923);
+    try std.testing.expectEqual(ref, _mm_mulhrs_epi16(a, div3));
 }
 
 /// Gathers bytes from `a` according to `b` (the shuffle control index)
@@ -3844,6 +3866,7 @@ test "_mm_shuffle_epi8" {
     try std.testing.expectEqual(ref, _mm_shuffle_epi8(a, b));
 }
 
+/// if (b[i] < 0) a[i] = -(a[i]); if (b[i] == 0) a[i] = 0;
 pub inline fn _mm_sign_epi16(a: __m128i, b: __m128i) __m128i {
     if ((use_builtins) and (has_ssse3)) {
         return @bitCast(struct {
@@ -3869,6 +3892,15 @@ pub inline fn _mm_sign_epi16(a: __m128i, b: __m128i) __m128i {
     }
 }
 
+test "_mm_sign_epi16" {
+    const a = _mm_set_epi16(-32768, 32767, -128, -127, 128, 127, -32767, 0);
+    const b = _mm_set_epi16(-32768, -1, -128, 127, 0, 127, -1, -1);
+    const ref = _mm_set_epi16(-32768, -32767, 128, -127, 0, 127, 32767, 0);
+    try std.testing.expectEqual(_mm_abs_epi16(a), _mm_sign_epi16(a, a));
+    try std.testing.expectEqual(ref, _mm_sign_epi16(a, b));
+}
+
+/// if (b[i] < 0) a[i] = -(a[i]); if (b[i] == 0) a[i] = 0;
 pub inline fn _mm_sign_epi32(a: __m128i, b: __m128i) __m128i {
     if ((use_builtins) and (has_ssse3)) {
         return @bitCast(struct {
@@ -3894,6 +3926,17 @@ pub inline fn _mm_sign_epi32(a: __m128i, b: __m128i) __m128i {
     }
 }
 
+test "_mm_sign_epi32" {
+    const a = _mm_set_epi32(-2147483648, -2147483648, -2147483647, 2147483647);
+    const b = _mm_set_epi32(-2147483648, 2147483647, -1, 3);
+    const ref0 = _mm_set_epi32(-2147483648, -2147483648, 2147483647, 2147483647);
+    const ref1 = _mm_set_epi32(-2147483648, -2147483647, 1, 3);
+    try std.testing.expectEqual(_mm_abs_epi32(a), _mm_sign_epi32(a, a));
+    try std.testing.expectEqual(ref0, _mm_sign_epi32(a, b));
+    try std.testing.expectEqual(ref1, _mm_sign_epi32(b, a));
+}
+
+/// if (b[i] < 0) a[i] = -(a[i]); if (b[i] == 0) a[i] = 0;
 pub inline fn _mm_sign_epi8(a: __m128i, b: __m128i) __m128i {
     if ((use_builtins) and (has_ssse3)) {
         return @bitCast(struct {
@@ -3917,6 +3960,14 @@ pub inline fn _mm_sign_epi8(a: __m128i, b: __m128i) __m128i {
         const r = @select(i8, zero > bitCast_i8x16(b), -%bitCast_i8x16(a), bitCast_i8x16(a));
         return @bitCast(@select(i8, (zero == bitCast_i8x16(b)), zero, r));
     }
+}
+
+test "_mm_sign_epi8" {
+    const a = _mm_set_epi8(-128, -128, -128, -127, -127, -127, 127, 127, 80, 80, 2, -2, -1, 1, 1, 0);
+    const b = _mm_set_epi8(-1, 0, -1, -127, 0, 127, -128, 0, -80, 80, -2, -1, 0, 1, 0, -1);
+    const ref = _mm_set_epi8(-128, 0, -128, 127, 0, -127, -127, 0, -80, 80, -2, 2, 0, 1, 0, 0);
+    try std.testing.expectEqual(_mm_abs_epi8(a), _mm_sign_epi8(a, a));
+    try std.testing.expectEqual(ref, _mm_sign_epi8(a, b));
 }
 
 // SSE4.1 ==============================================================
