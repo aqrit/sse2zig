@@ -1241,12 +1241,28 @@ pub inline fn _mm_move_ss(a: __m128, b: __m128) __m128 {
     return .{ b[0], a[1], a[2], a[3] };
 }
 
+/// shuffle to { b[2], b[3], a[2], a[3] }
 pub inline fn _mm_movehl_ps(a: __m128, b: __m128) __m128 {
-    return .{ b[2], b[3], a[2], a[3] };
+    return @shuffle(f32, a, b, [4]i32{ -3, -4, 2, 3 });
 }
 
+test "_mm_movehl_ps" {
+    const a = _mm_set_ps(4.0, 3.0, 2.0, 1.0);
+    const b = _mm_set_ps(40.0, 30.0, 20.0, 10.0);
+    const ref = _mm_set_ps(4.0, 3.0, 40.0, 30.0);
+    try std.testing.expectEqual(ref, _mm_movehl_ps(a, b));
+}
+
+/// shuffle to { a[0], a[1], b[0], b[1] }
 pub inline fn _mm_movelh_ps(a: __m128, b: __m128) __m128 {
-    return .{ a[0], a[1], b[0], b[1] };
+    return @shuffle(f32, a, b, [4]i32{ 0, 1, -1, -2 });
+}
+
+test "_mm_movelh_ps" {
+    const a = _mm_set_ps(4.0, 3.0, 2.0, 1.0);
+    const b = _mm_set_ps(40.0, 30.0, 20.0, 10.0);
+    const ref = _mm_set_ps(20.0, 10.0, 2.0, 1.0);
+    try std.testing.expectEqual(ref, _mm_movelh_ps(a, b));
 }
 
 pub inline fn _mm_movemask_ps(a: __m128) i32 {
@@ -1443,14 +1459,14 @@ pub inline fn _mm_sub_ss(a: __m128, b: __m128) __m128 {
 }
 
 pub inline fn _MM_TRANSPOSE4_PS(row0: *__m128, row1: *__m128, row2: *__m128, row3: *__m128) void {
-    const column0: __m128 = .{ row0[0], row1[0], row2[0], row3[0] };
-    const column1: __m128 = .{ row0[1], row1[1], row2[1], row3[1] };
-    const column2: __m128 = .{ row0[2], row1[2], row2[2], row3[2] };
-    const column3: __m128 = .{ row0[3], row1[3], row2[3], row3[3] };
-    row0.* = column0;
-    row1.* = column1;
-    row2.* = column2;
-    row3.* = column3;
+    const tmp0 = _mm_unpacklo_ps(row0.*, row1.*);
+    const tmp2 = _mm_unpacklo_ps(row2.*, row3.*);
+    const tmp1 = _mm_unpackhi_ps(row0.*, row1.*);
+    const tmp3 = _mm_unpackhi_ps(row2.*, row3.*);
+    row0.* = _mm_movelh_ps(tmp0, tmp2);
+    row1.* = _mm_movehl_ps(tmp2, tmp0);
+    row2.* = _mm_movelh_ps(tmp1, tmp3);
+    row3.* = _mm_movehl_ps(tmp3, tmp1);
 }
 
 test "_MM_TRANSPOSE4_PS" {
@@ -1512,12 +1528,28 @@ pub inline fn _mm_undefined_ps() __m128 {
     return @splat(0);
 }
 
+/// shuffle { a[2], b[2], a[3], b[3] };
 pub inline fn _mm_unpackhi_ps(a: __m128, b: __m128) __m128 {
-    return .{ a[2], b[2], a[3], b[3] };
+    return @shuffle(f32, a, b, [4]i32{ 2, -3, 3, -4 });
 }
 
+test "_mm_unpackhi_ps" {
+    const a = _mm_set_ps(4.0, 3.0, 2.0, 1.0);
+    const b = _mm_set_ps(40.0, 30.0, 20.0, 10.0);
+    const ref = _mm_set_ps(40.0, 4.0, 30.0, 3.0);
+    try std.testing.expectEqual(ref, _mm_unpackhi_ps(a, b));
+}
+
+/// shuffle { a[0], b[0], a[1], b[1] };
 pub inline fn _mm_unpacklo_ps(a: __m128, b: __m128) __m128 {
-    return .{ a[0], b[0], a[1], b[1] };
+    return @shuffle(f32, a, b, [4]i32{ 0, -1, 1, -2 });
+}
+
+test "_mm_unpacklo_ps" {
+    const a = _mm_set_ps(4.0, 3.0, 2.0, 1.0);
+    const b = _mm_set_ps(40.0, 30.0, 20.0, 10.0);
+    const ref = _mm_set_ps(20.0, 2.0, 10.0, 1.0);
+    try std.testing.expectEqual(ref, _mm_unpacklo_ps(a, b));
 }
 
 pub inline fn _mm_xor_ps(a: __m128, b: __m128) __m128 {
