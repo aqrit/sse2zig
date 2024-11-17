@@ -4904,15 +4904,15 @@ inline fn crc32cSoft(crc: anytype, v: anytype) @TypeOf(crc) {
     };
 
     // ignore bits[32..64] of crc (and validate arg type)
-    var r = switch (@typeInfo(@TypeOf(crc)).Int.bits) {
+    var r = switch (@typeInfo(@TypeOf(crc)).int.bits) {
         32 => crc,
         64 => crc & 0x00000000FFFFFFFF,
         else => @compileError("invalid type of arg `crc`"),
     };
 
     // number of loop iterations (and validate arg type)
-    const n = switch (@typeInfo(@TypeOf(v)).Int.bits) {
-        8, 16, 32, 64 => @typeInfo(@TypeOf(v)).Int.bits / 4,
+    const n = switch (@typeInfo(@TypeOf(v)).int.bits) {
+        8, 16, 32, 64 => @typeInfo(@TypeOf(v)).int.bits / 4,
         else => @compileError("invalid type of arg `v`"),
     };
 
