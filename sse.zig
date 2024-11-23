@@ -23,7 +23,7 @@ const use_asm = b: {
 };
 
 /// stage2_x86_64 is currently missing many assembly mnemonics.
-/// It is also has some TODOs related to vector extensions.
+/// It is also has some TODOs related to genBinOp for vector extensions.
 // https://github.com/ziglang/zig/blob/master/src/arch/x86_64/Encoding.zig
 const bug_stage2_x86_64 = (builtin.zig_backend == .stage2_x86_64);
 
@@ -1530,6 +1530,9 @@ pub inline fn _mm_undefined_ps() __m128 {
 
 /// shuffle { a[2], b[2], a[3], b[3] };
 pub inline fn _mm_unpackhi_ps(a: __m128, b: __m128) __m128 {
+    if (bug_stage2_x86_64) { // error: unsupported mnemonic: 'unpckhps'
+        return .{ a[2], b[2], a[3], b[3] };
+    }
     return @shuffle(f32, a, b, [4]i32{ 2, -3, 3, -4 });
 }
 
@@ -1542,6 +1545,9 @@ test "_mm_unpackhi_ps" {
 
 /// shuffle { a[0], b[0], a[1], b[1] };
 pub inline fn _mm_unpacklo_ps(a: __m128, b: __m128) __m128 {
+    if (bug_stage2_x86_64) { // error: unsupported mnemonic: 'unpcklps'
+        return .{ a[0], b[0], a[1], b[1] };
+    }
     return @shuffle(f32, a, b, [4]i32{ 0, -1, 1, -2 });
 }
 
@@ -3820,6 +3826,8 @@ pub inline fn _mm_mulhrs_epi16(a: __m128i, b: __m128i) __m128i {
 }
 
 test "_mm_mulhrs_epi16" {
+    if (bug_stage2_x86_64) return error.SkipZigTest; // genBinOp for mul_wrap
+
     const a = _mm_set_epi16(300, 100, -100, 3, 1, 2, -32768, 32767);
     const div3 = _mm_set1_epi16(10923); // 0x2AAB
     const ref = _mm_set_epi16(100, 33, -33, 1, 0, 1, -10923, 10923);
@@ -4618,7 +4626,7 @@ pub inline fn _mm_packus_epi32(a: __m128i, b: __m128i) __m128i {
 }
 
 test "_mm_packus_epi32" {
-    if (bug_stage2_x86_64) return error.SkipZigTest;
+    if (bug_stage2_x86_64) return error.SkipZigTest; // genBinOp for min
 
     const a = _xx_set_epu32(0x00000001, 0x0000FFFF, 0x00008000, 0x00000000);
     const b = _xx_set_epu32(0x7FFFFFFF, 0x80000000, 0xFFFFFFFF, 0x0001FFFF);
@@ -7313,7 +7321,7 @@ pub inline fn _mm256_mask_i64gather_pd(src: __m256d, base_addr: [*]align(1) cons
 }
 
 test "_mm256_mask_i64gather_pd" {
-    if (bug_stage2_x86_64) return error.SkipZigTest;
+    if (bug_stage2_x86_64) return error.SkipZigTest; // genBinOp for cmp_gt
 
     const vindex = _mm256_set_epi64x(3, 3, -1, 1);
     const mask = _mm256_set_pd(-0.0, 0, -0.0, -0.0);
