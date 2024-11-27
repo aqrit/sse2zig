@@ -4268,21 +4268,51 @@ test "_mm_cvtepu8_epi64" {
     try std.testing.expectEqual(ref, _mm_cvtepu8_epi64(a));
 }
 
+/// dot product
 pub inline fn _mm_dp_pd(a: __m128d, b: __m128d, comptime imm8: comptime_int) __m128d {
-    const dp: f64 = switch (@as(u2, imm8 >> 4)) {
-        0 => 0.0,
-        1 => a[0] * b[0],
-        2 => a[1] * b[1],
-        3 => (a[0] * b[0]) + (a[1] * b[1]),
-    };
-    return switch (@as(u2, imm8 & 0x0F)) { // broadcast
-        0 => .{ 0.0, 0.0 },
-        1 => .{ dp, 0.0 },
-        2 => .{ 0.0, dp },
-        3 => .{ dp, dp },
-    };
+    if ((use_builtins) and (has_sse4_1)) {
+        return struct {
+            extern fn @"llvm.x86.sse41.dppd"(__m128d, __m128d, u8) __m128d;
+        }.@"llvm.x86.sse41.dppd"(a, b, imm8);
+    } else if ((use_asm) and (has_avx) and (!bug_stage2_x86_64)) {
+        return asm ("vdppd %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128d),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "i" (imm8),
+        );
+    } else if ((use_asm) and (has_sse4_1) and (!bug_stage2_x86_64)) {
+        var r = a;
+        asm ("dppd %[c], %[b], %[r]"
+            : [r] "+x" (r),
+            : [b] "x" (b),
+              [c] "i" (imm8),
+        );
+        return r;
+    } else {
+        const dp: f64 = switch (@as(u2, imm8 >> 4)) {
+            0 => 0.0,
+            1 => a[0] * b[0],
+            2 => a[1] * b[1],
+            3 => (a[0] * b[0]) + (a[1] * b[1]),
+        };
+        return switch (@as(u2, imm8 & 0x0F)) { // broadcast
+            0 => .{ 0.0, 0.0 },
+            1 => .{ dp, 0.0 },
+            2 => .{ 0.0, dp },
+            3 => .{ dp, dp },
+        };
+    }
 }
 
+test "_mm_dp_pd" {
+    const a = _mm_set_pd(5.3, 63.1);
+    const b = _mm_set_pd(44.1, 0.1);
+    const ref = _mm_set_pd(240.04, 0.0);
+    try std.testing.expectEqual(ref, _mm_dp_pd(a, b, 0x32));
+}
+
+/// dot product
 pub inline fn _mm_dp_ps(a: __m128, b: __m128, comptime imm8: comptime_int) __m128 {
     if ((use_builtins) and (has_sse4_1)) {
         return struct {
@@ -4312,6 +4342,13 @@ pub inline fn _mm_dp_ps(a: __m128, b: __m128, comptime imm8: comptime_int) __m12
         const sum = (product[3] + product[2]) + (product[1] + product[0]);
         return @select(f32, broadcast, @as(__m128, @splat(sum)), @as(__m128, @splat(0)));
     }
+}
+
+test "_mm_dp_ps" {
+    const a = _mm_set_ps(5.3, 63.1, 98.5, 66.6);
+    const b = _mm_set_ps(44.1, 0.1, 123.5, 1346.0);
+    const ref = _mm_set_ps(102048.390625, 102048.390625, 102048.390625, 102048.390625);
+    try std.testing.expectEqual(ref, _mm_dp_ps(a, b, 0xFF));
 }
 
 /// dst = a[imm8];
@@ -4407,14 +4444,38 @@ test "_mm_insert_epi8" {
     try std.testing.expectEqual(ref, _mm_insert_epi8(a, 272, 6));
 }
 
+/// Copy selected element from `b` into selected element in `a`.
+/// Zero elements in `a` according to the mask.
+/// The helper `_MM_MK_INSERTPS_NDX()` can generate the `imm8` control value.
 pub inline fn _mm_insert_ps(a: __m128, b: __m128, comptime imm8: comptime_int) __m128 {
-    var r = a;
-    r[(imm8 >> 4) & 3] = b[imm8 >> 6];
-    if ((imm8 & 1) == 1) r[0] = 0;
-    if ((imm8 & 2) == 2) r[1] = 0;
-    if ((imm8 & 4) == 4) r[2] = 0;
-    if ((imm8 & 8) == 8) r[3] = 0;
-    return r;
+    if ((use_builtins) and (has_sse4_1)) {
+        return @bitCast(struct {
+            extern fn @"llvm.x86.sse41.insertps"(__m128, __m128, u8) __m128;
+        }.@"llvm.x86.sse41.insertps"(a, b, imm8));
+    } else if ((use_asm) and (has_avx)) {
+        return asm ("vinsertps %[c], %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128),
+            : [a] "x" (a),
+              [b] "x" (b),
+              [c] "i" (imm8),
+        );
+    } else if ((use_asm) and (has_sse4_1)) {
+        var r = a;
+        asm ("insertps %[c], %[b], %[r]"
+            : [r] "+x" (r),
+            : [b] "x" (b),
+              [c] "i" (imm8),
+        );
+        return r;
+    } else {
+        var r = a;
+        r[(imm8 >> 4) & 3] = b[imm8 >> 6];
+        if ((imm8 & 1) != 0) r[0] = 0;
+        if ((imm8 & 2) != 0) r[1] = 0;
+        if ((imm8 & 4) != 0) r[2] = 0;
+        if ((imm8 & 8) != 0) r[3] = 0;
+        return r;
+    }
 }
 
 test "_mm_insert_ps" {
@@ -4545,6 +4606,17 @@ test "_mm_minpos_epu16" {
     try std.testing.expectEqual(ref, _mm_minpos_epu16(a));
 }
 
+/// Helper to create the immediate value for `_mm_insert_ps(a, b, imm8)`.
+/// Copy element at position `src_idx` from `b` over `dst_idx` in `a`.
+/// Zero elements in `a` according to the bitset in `zero_mask`
+pub inline fn _MM_MK_INSERTPS_NDX(comptime src_idx: comptime_int, comptime dst_idx: comptime_int, comptime zero_mask: comptime_int) comptime_int {
+    return (((src_idx) << 6) | ((dst_idx) << 4) | (zero_mask));
+}
+
+test "_MM_MK_INSERTPS_NDX" {
+    try std.testing.expectEqual(0x68, _MM_MK_INSERTPS_NDX(1, 2, 0x8));
+}
+
 pub inline fn _mm_mpsadbw_epu8(a: __m128i, b: __m128i, comptime imm8: comptime_int) __m128i {
     if ((use_builtins) and (has_sse4_1)) {
         return @bitCast(struct {
@@ -4617,12 +4689,33 @@ test "_mm_mullo_epi32" {
     try std.testing.expectEqual(ref, _mm_mullo_epi32(a, b));
 }
 
+/// Append `b` to the left (hi) of `a`, then narrow each element to a `u16`.
+/// Any value that doesn't fit in a `u16` is changed to `0xFFFF`.
 pub inline fn _mm_packus_epi32(a: __m128i, b: __m128i) __m128i {
-    const shuf: [8]i32 = .{ 0, 1, 2, 3, -1, -2, -3, -4 };
-    var ab = @shuffle(i32, bitCast_i32x4(a), bitCast_i32x4(b), shuf);
-    ab = min_i32x8(ab, @splat(65535));
-    ab = max_i32x8(ab, @splat(0));
-    return @bitCast(@as(i16x8, @truncate(ab)));
+    if ((use_builtins) and (has_sse4_1)) {
+        return @bitCast(struct {
+            extern fn @"llvm.x86.sse41.packusdw"(i32x4, i32x4) u16x8;
+        }.@"llvm.x86.sse41.packusdw"(a, b));
+    } else if ((use_asm) and (has_avx)) {
+        return asm ("vpackusdw %[b], %[a], %[ret]"
+            : [ret] "=x" (-> __m128i),
+            : [a] "x" (a),
+              [b] "x" (b),
+        );
+    } else if ((use_asm) and (has_sse4_1)) {
+        var r = a;
+        asm ("packusdw %[b], %[r]"
+            : [r] "+x" (r),
+            : [b] "x" (b),
+        );
+        return r;
+    } else {
+        const shuf: [8]i32 = .{ 0, 1, 2, 3, -1, -2, -3, -4 };
+        var ab = @shuffle(i32, bitCast_i32x4(a), bitCast_i32x4(b), shuf);
+        ab = min_i32x8(ab, @splat(65535));
+        ab = max_i32x8(ab, @splat(0));
+        return @bitCast(@as(i16x8, @truncate(ab)));
+    }
 }
 
 test "_mm_packus_epi32" {
@@ -4691,6 +4784,8 @@ pub inline fn _mm_round_ps(a: __m128, comptime imm8: comptime_int) __m128 {
 }
 
 test "_mm_round_ps" {
+    if (bug_stage2_x86_64) return error.SkipZigTest; // genBinOp for cmp_gte
+
     const a = _mm_set_ps(3.5, 2.5, 1.5, 0.5);
     const b = _mm_set_ps(-3.6, -2.4, -1.5, -0.5);
     const c = _mm_set_ps(1.1, 1.9, 8388607.5, -8388607.5);
@@ -4872,7 +4967,25 @@ test "_mm_test_mix_ones_zeros" {
 
 /// result = if ((~a & b) == 0) 1 else 0;
 pub inline fn _mm_testc_si128(a: __m128i, b: __m128i) i32 {
-    return _mm_testz_si128(~a, b);
+    if ((use_builtins) and (has_sse4_1)) {
+        return struct {
+            extern fn @"llvm.x86.sse41.ptestc"(u64x2, u64x2) i32;
+        }.@"llvm.x86.sse41.ptestc"(@bitCast(a), @bitCast(b));
+    } else if ((use_asm) and (has_avx) and (!bug_stage2_x86_64)) {
+        return asm ("vptest %[b],%[a]"
+            : [_] "={@ccc}" (-> i32),
+            : [a] "x" (a),
+              [b] "x" (b),
+        );
+    } else if ((use_asm) and (has_sse4_1) and (!bug_stage2_x86_64)) {
+        return asm ("ptest %[b],%[a]"
+            : [_] "={@ccc}" (-> i32),
+            : [a] "x" (a),
+              [b] "x" (b),
+        );
+    } else {
+        return _mm_testz_si128(~a, b);
+    }
 }
 
 test "_mm_testc_si128" {
@@ -4901,8 +5014,9 @@ pub inline fn _mm_testnzc_si128(a: __m128i, b: __m128i) i32 {
             : [a] "x" (a),
               [b] "x" (b),
         );
+    } else {
+        return @intFromBool((_mm_testz_si128(a, b) | _mm_testc_si128(a, b)) == 0);
     }
-    return @intFromBool((_mm_testz_si128(a, b) | _mm_testc_si128(a, b)) == 0);
 }
 
 test "_mm_testnzc_si128" {
@@ -4916,7 +5030,25 @@ test "_mm_testnzc_si128" {
 
 /// result = if ((a & b) == 0) 1 else 0;
 pub inline fn _mm_testz_si128(a: __m128i, b: __m128i) i32 {
-    return @intFromBool(@reduce(.Or, (a & b)) == 0);
+    if ((use_builtins) and (has_sse4_1)) {
+        return struct {
+            extern fn @"llvm.x86.sse41.ptestz"(u64x2, u64x2) i32;
+        }.@"llvm.x86.sse41.ptestz"(@bitCast(a), @bitCast(b));
+    } else if ((use_asm) and (has_avx) and (!bug_stage2_x86_64)) {
+        return asm ("vptest %[b],%[a]"
+            : [_] "={@ccz}" (-> i32),
+            : [a] "x" (a),
+              [b] "x" (b),
+        );
+    } else if ((use_asm) and (has_sse4_1) and (!bug_stage2_x86_64)) {
+        return asm ("ptest %[b],%[a]"
+            : [_] "={@ccz}" (-> i32),
+            : [a] "x" (a),
+              [b] "x" (b),
+        );
+    } else {
+        return @intFromBool(@reduce(.Or, (a & b)) == 0);
+    }
 }
 
 test "_mm_testz_si128" {
