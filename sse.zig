@@ -3994,6 +3994,8 @@ pub const _MM_FROUND_TRUNC = _MM_FROUND_RAISE_EXC | _MM_FROUND_TO_ZERO;
 pub const _MM_FROUND_RINT = _MM_FROUND_RAISE_EXC | _MM_FROUND_CUR_DIRECTION;
 pub const _MM_FROUND_NEARBYINT = _MM_FROUND_NO_EXC | _MM_FROUND_CUR_DIRECTION;
 
+/// `@select(i16,imm8,b,a)`.
+/// `r[i] = if (((imm8 >> i) & 1) != 0) b[i] else a[i];`
 pub inline fn _mm_blend_epi16(a: __m128i, b: __m128i, comptime imm8: comptime_int) __m128i {
     const mask: @Vector(8, bool) = @bitCast(@as(u8, imm8));
     return @bitCast(@select(i16, mask, bitCast_i16x8(b), bitCast_i16x8(a)));
@@ -4012,6 +4014,8 @@ test "_mm_blend_epi16" {
     try std.testing.expectEqual(ref3, _mm_blend_epi16(a, b, 85));
 }
 
+/// `@select(f64,imm8,b,a)`.
+/// `r[i] = if (((imm8 >> i) & 1) != 0) b[i] else a[i];`
 pub inline fn _mm_blend_pd(a: __m128d, b: __m128d, comptime imm8: comptime_int) __m128d {
     return @select(f64, @as(@Vector(2, bool), @bitCast(@as(u2, imm8))), b, a);
 }
@@ -4029,6 +4033,8 @@ test "_mm_blend_pd" {
     try std.testing.expectEqual(ref3, @as(__m128i, @bitCast(_mm_blend_pd(a, b, 3))));
 }
 
+/// `@select(f32,imm8,b,a)`.
+/// `r[i] = if (((imm8 >> i) & 1) != 0) b[i] else a[i];`
 pub inline fn _mm_blend_ps(a: __m128, b: __m128, comptime imm8: comptime_int) __m128 {
     return @select(f32, @as(@Vector(4, bool), @bitCast(@as(u4, imm8))), b, a);
 }
@@ -4046,6 +4052,7 @@ test "_mm_blend_ps" {
     try std.testing.expectEqual(ref3, _mm_blend_ps(a, b, 15));
 }
 
+/// `r[i] = if ((mask[i] < 0) b[i] else a[i];`
 pub inline fn _mm_blendv_epi8(a: __m128i, b: __m128i, mask: __m128i) __m128i {
     const cmp = @as(i8x16, @splat(0)) > bitCast_i8x16(mask);
     return @bitCast(@select(i8, cmp, bitCast_i8x16(b), bitCast_i8x16(a)));
@@ -4062,6 +4069,7 @@ test "_mm_blendv_epi8" {
     try std.testing.expectEqual(ref2, _mm_blendv_epi8(b, a, b));
 }
 
+/// `r[i] = if ((mask[i] >> 63) != 0) b[i] else a[i];`
 pub inline fn _mm_blendv_pd(a: __m128d, b: __m128d, mask: __m128d) __m128d {
     const cmp = @as(i64x2, @splat(0)) > bitCast_i64x2(mask);
     return @select(f64, cmp, b, a);
@@ -4078,6 +4086,7 @@ test "_mm_blendv_pd" {
     try std.testing.expectEqual(ref2, @as(__m128i, @bitCast(_mm_blendv_pd(b, a, b))));
 }
 
+/// `r[i] = if ((mask[i] >> 31) != 0) b[i] else a[i];`
 pub inline fn _mm_blendv_ps(a: __m128, b: __m128, mask: __m128) __m128 {
     const cmp = @as(i32x4, @splat(0)) > bitCast_i32x4(mask);
     return @select(f32, cmp, b, a);
@@ -4094,18 +4103,32 @@ test "_mm_blendv_ps" {
     try std.testing.expectEqual(ref2, @as(__m128i, @bitCast(_mm_blendv_ps(b, a, b))));
 }
 
+/// Round up to an integer value, rounding towards positive infinity.
+///
+/// `@ceil(a)` except may raise exceptions, in theory, if we supported that...
 pub inline fn _mm_ceil_pd(a: __m128d) __m128d {
     return _mm_round_pd(a, _MM_FROUND_CEIL);
 }
 
+/// Round up to an integer value, rounding towards positive infinity.
+///
+/// `@ceil(a)` except may raise exceptions, in theory, if we supported that...
 pub inline fn _mm_ceil_ps(a: __m128) __m128 {
     return _mm_round_ps(a, _MM_FROUND_CEIL);
 }
 
+/// Round `b[0]` up to an integer value, rounding towards positive infinity.
+/// Copy `a[1]` into the upper element of the result.
+///
+/// .{ @ceil(b[0]), a[1] }` except may raise exceptions, in theory, if we supported that...
 pub inline fn _mm_ceil_sd(a: __m128d, b: __m128d) __m128d {
     return _mm_round_sd(a, b, _MM_FROUND_CEIL);
 }
 
+/// Round `b[0]` up to an integer value, rounding towards positive infinity.
+/// Copy the upper 3 elements of `a` into the upper three elements of the result.
+///
+/// .{ @ceil(b[0]), a[1], a[2], a[3] }` except may raise exceptions, in theory, if we supported that...
 pub inline fn _mm_ceil_ss(a: __m128, b: __m128) __m128 {
     return _mm_round_ss(a, b, _MM_FROUND_CEIL);
 }
@@ -4392,22 +4415,37 @@ test "_mm_extract_ps" {
     try std.testing.expectEqual(@as(i32, 1073741824), _mm_extract_ps(a, 2));
 }
 
+/// Round down to an integer value, rounding towards negative infinity.
+///
+/// `@floor(a)` except may raise exceptions, in theory, if we supported that...
 pub inline fn _mm_floor_pd(a: __m128d) __m128d {
     return _mm_round_pd(a, _MM_FROUND_FLOOR);
 }
 
+/// Round down to an integer value, rounding towards negative infinity.
+///
+/// `@floor(a)` except may raise exceptions, in theory, if we supported that...
 pub inline fn _mm_floor_ps(a: __m128) __m128 {
     return _mm_round_ps(a, _MM_FROUND_FLOOR);
 }
 
+/// Round `b[0]` down to an integer value, rounding towards negative infinity.
+/// Copy `a[1]` into the upper element of the result.
+///
+/// .{ @floor(b[0]), a[1] }` except may raise exceptions, in theory, if we supported that...
 pub inline fn _mm_floor_sd(a: __m128d, b: __m128d) __m128d {
     return _mm_round_sd(a, b, _MM_FROUND_FLOOR);
 }
 
+/// Round `b[0]` down to an integer value, rounding towards negative infinity.
+/// Copy the upper elements of `a` into the upper element of the result.
+///
+/// .{ @floor(b[0]), a[1], a[2], a[3] }` except may raise exceptions, in theory, if we supported that...
 pub inline fn _mm_floor_ss(a: __m128, b: __m128) __m128 {
     return _mm_round_ss(a, b, _MM_FROUND_FLOOR);
 }
 
+/// a[imm8] = i;
 pub inline fn _mm_insert_epi32(a: __m128i, i: i32, comptime imm8: comptime_int) __m128i {
     var r = bitCast_i32x4(a);
     r[imm8 & 0x03] = i;
@@ -4420,6 +4458,7 @@ test "_mm_insert_epi32" {
     try std.testing.expectEqual(ref, _mm_insert_epi32(a, 0x55555555, 1));
 }
 
+/// a[imm8] = i;
 pub inline fn _mm_insert_epi64(a: __m128i, i: i64, comptime imm8: comptime_int) __m128i {
     var r = bitCast_i64x2(a);
     r[imm8 & 0x01] = i;
@@ -4432,6 +4471,7 @@ test "_mm_insert_epi64" {
     try std.testing.expectEqual(ref, _mm_insert_epi64(a, 0x3333333333333333, 1));
 }
 
+/// a[imm8] = i;
 pub inline fn _mm_insert_epi8(a: __m128i, i: i32, comptime imm8: comptime_int) __m128i {
     var r = bitCast_i8x16(a);
     r[imm8 & 0x0F] = @truncate(i);
@@ -4487,6 +4527,7 @@ test "_mm_insert_ps" {
     try std.testing.expectEqual(ref2, _mm_insert_ps(a, b, 0x65));
 }
 
+/// `@max(a, b)`
 pub inline fn _mm_max_epi32(a: __m128i, b: __m128i) __m128i {
     return @bitCast(max_i32x4(bitCast_i32x4(a), bitCast_i32x4(b)));
 }
@@ -4498,6 +4539,7 @@ test "_mm_max_epi32" {
     try std.testing.expectEqual(ref, _mm_max_epi32(a, b));
 }
 
+/// `@max(a, b)`
 pub inline fn _mm_max_epi8(a: __m128i, b: __m128i) __m128i {
     return @bitCast(max_i8x16(bitCast_i8x16(a), bitCast_i8x16(b)));
 }
@@ -4509,6 +4551,7 @@ test "_mm_max_epi8" {
     try std.testing.expectEqual(ref, _mm_max_epi8(a, b));
 }
 
+/// `@max(a, b)`
 pub inline fn _mm_max_epu16(a: __m128i, b: __m128i) __m128i {
     return @bitCast(max_u16x8(bitCast_u16x8(a), bitCast_u16x8(b)));
 }
@@ -4520,6 +4563,7 @@ test "_mm_max_epu16" {
     try std.testing.expectEqual(ref, _mm_max_epu16(a, b));
 }
 
+/// `@max(a, b)`
 pub inline fn _mm_max_epu32(a: __m128i, b: __m128i) __m128i {
     return @bitCast(max_u32x4(bitCast_u32x4(a), bitCast_u32x4(b)));
 }
@@ -4531,6 +4575,7 @@ test "_mm_max_epu32" {
     try std.testing.expectEqual(ref, _mm_max_epu32(a, b));
 }
 
+/// `@min(a, b)`
 pub inline fn _mm_min_epi32(a: __m128i, b: __m128i) __m128i {
     return @bitCast(min_i32x4(bitCast_i32x4(a), bitCast_i32x4(b)));
 }
@@ -4542,6 +4587,7 @@ test "_mm_min_epi32" {
     try std.testing.expectEqual(ref, _mm_min_epi32(a, b));
 }
 
+/// `@min(a, b)`
 pub inline fn _mm_min_epi8(a: __m128i, b: __m128i) __m128i {
     return @bitCast(min_i8x16(bitCast_i8x16(a), bitCast_i8x16(b)));
 }
@@ -4553,6 +4599,7 @@ test "_mm_min_epi8" {
     try std.testing.expectEqual(ref, _mm_min_epi8(a, b));
 }
 
+/// `@min(a, b)`
 pub inline fn _mm_min_epu16(a: __m128i, b: __m128i) __m128i {
     return @bitCast(min_u16x8(bitCast_u16x8(a), bitCast_u16x8(b)));
 }
@@ -4564,6 +4611,7 @@ test "_mm_min_epu16" {
     try std.testing.expectEqual(ref, _mm_min_epu16(a, b));
 }
 
+/// `@min(a, b)`
 pub inline fn _mm_min_epu32(a: __m128i, b: __m128i) __m128i {
     return @bitCast(min_u32x4(bitCast_u32x4(a), bitCast_u32x4(b)));
 }
@@ -4841,11 +4889,11 @@ pub inline fn _mm_round_sd(a: __m128d, b: __m128d, comptime imm8: comptime_int) 
         return res;
     } else {
         return switch (imm8 & 0x07) {
-            _MM_FROUND_TO_NEAREST_INT => .{ RoundEven_f64(b[0]), a[1], a[2], a[3] },
-            _MM_FROUND_TO_NEG_INF => .{ @floor(b[0]), a[1], a[2], a[3] },
-            _MM_FROUND_TO_POS_INF => .{ @ceil(b[0]), a[1], a[2], a[3] },
-            _MM_FROUND_TO_ZERO => .{ @trunc(b[0]), a[1], a[2], a[3] },
-            else => .{ RoundCurrentDirection_f64(b[0]), a[1], a[2], a[3] },
+            _MM_FROUND_TO_NEAREST_INT => .{ RoundEven_f64(b[0]), a[1] },
+            _MM_FROUND_TO_NEG_INF => .{ @floor(b[0]), a[1] },
+            _MM_FROUND_TO_POS_INF => .{ @ceil(b[0]), a[1] },
+            _MM_FROUND_TO_ZERO => .{ @trunc(b[0]), a[1] },
+            else => .{ RoundCurrentDirection_f64(b[0]), a[1] },
         };
     }
 }
