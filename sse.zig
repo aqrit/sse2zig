@@ -22,9 +22,6 @@ const use_asm = b: {
     break :b true; // enabled by default
 };
 
-/// stage2_x86_64 is currently missing many assembly mnemonics.
-/// It is also has some TODOs related to genBinOp for vector extensions.
-// https://github.com/ziglang/zig/blob/master/src/arch/x86_64/Encoding.zig
 const bug_stage2_x86_64 = (builtin.zig_backend == .stage2_x86_64);
 
 const is_x86_64 = builtin.target.cpu.arch == .x86_64;
@@ -1530,9 +1527,6 @@ pub inline fn _mm_undefined_ps() __m128 {
 
 /// shuffle { a[2], b[2], a[3], b[3] };
 pub inline fn _mm_unpackhi_ps(a: __m128, b: __m128) __m128 {
-    if (bug_stage2_x86_64) { // error: unsupported mnemonic: 'unpckhps'
-        return .{ a[2], b[2], a[3], b[3] };
-    }
     return @shuffle(f32, a, b, [4]i32{ 2, -3, 3, -4 });
 }
 
@@ -1545,9 +1539,6 @@ test "_mm_unpackhi_ps" {
 
 /// shuffle { a[0], b[0], a[1], b[1] };
 pub inline fn _mm_unpacklo_ps(a: __m128, b: __m128) __m128 {
-    if (bug_stage2_x86_64) { // error: unsupported mnemonic: 'unpcklps'
-        return .{ a[0], b[0], a[1], b[1] };
-    }
     return @shuffle(f32, a, b, [4]i32{ 0, -1, 1, -2 });
 }
 
@@ -3552,13 +3543,13 @@ pub inline fn _mm_hadd_epi16(a: __m128i, b: __m128i) __m128i {
         return @bitCast(struct {
             extern fn @"llvm.x86.ssse3.phadd.w.128"(i16x8, i16x8) i16x8;
         }.@"llvm.x86.ssse3.phadd.w.128"(@bitCast(a), @bitCast(b)));
-    } else if ((use_asm) and (has_avx) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_avx)) {
         return asm ("vphaddw %[b], %[a], %[ret]"
             : [ret] "=x" (-> __m128i),
             : [a] "x" (a),
               [b] "x" (b),
         );
-    } else if ((use_asm) and (has_ssse3) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_ssse3)) {
         var r = a;
         asm ("phaddw %[b], %[r]"
             : [r] "+x" (r),
@@ -3587,13 +3578,13 @@ pub inline fn _mm_hadd_epi32(a: __m128i, b: __m128i) __m128i {
         return @bitCast(struct {
             extern fn @"llvm.x86.ssse3.phadd.d.128"(i32x4, i32x4) i32x4;
         }.@"llvm.x86.ssse3.phadd.d.128"(@bitCast(a), @bitCast(b)));
-    } else if ((use_asm) and (has_avx) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_avx)) {
         return asm ("vphaddd %[b], %[a], %[ret]"
             : [ret] "=x" (-> __m128i),
             : [a] "x" (a),
               [b] "x" (b),
         );
-    } else if ((use_asm) and (has_ssse3) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_ssse3)) {
         var r = a;
         asm ("phaddd %[b], %[r]"
             : [r] "+x" (r),
@@ -3622,13 +3613,13 @@ pub inline fn _mm_hadds_epi16(a: __m128i, b: __m128i) __m128i {
         return @bitCast(struct {
             extern fn @"llvm.x86.ssse3.phadd.sw.128"(i16x8, i16x8) i16x8;
         }.@"llvm.x86.ssse3.phadd.sw.128"(@bitCast(a), @bitCast(b)));
-    } else if ((use_asm) and (has_avx) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_avx)) {
         return asm ("vphaddsw %[b], %[a], %[ret]"
             : [ret] "=x" (-> __m128i),
             : [a] "x" (a),
               [b] "x" (b),
         );
-    } else if ((use_asm) and (has_ssse3) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_ssse3)) {
         var r = a;
         asm ("phaddsw %[b], %[r]"
             : [r] "+x" (r),
@@ -3658,13 +3649,13 @@ pub inline fn _mm_hsub_epi16(a: __m128i, b: __m128i) __m128i {
         return @bitCast(struct {
             extern fn @"llvm.x86.ssse3.phsub.w.128"(i16x8, i16x8) i16x8;
         }.@"llvm.x86.ssse3.phsub.w.128"(@bitCast(a), @bitCast(b)));
-    } else if ((use_asm) and (has_avx) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_avx)) {
         return asm ("vphsubw %[b], %[a], %[ret]"
             : [ret] "=x" (-> __m128i),
             : [a] "x" (a),
               [b] "x" (b),
         );
-    } else if ((use_asm) and (has_ssse3) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_ssse3)) {
         var r = a;
         asm ("phsubw %[b], %[r]"
             : [r] "+x" (r),
@@ -3694,13 +3685,13 @@ pub inline fn _mm_hsub_epi32(a: __m128i, b: __m128i) __m128i {
         return @bitCast(struct {
             extern fn @"llvm.x86.ssse3.phsub.d.128"(i32x4, i32x4) i32x4;
         }.@"llvm.x86.ssse3.phsub.d.128"(@bitCast(a), @bitCast(b)));
-    } else if ((use_asm) and (has_avx) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_avx)) {
         return asm ("vphsubd %[b], %[a], %[ret]"
             : [ret] "=x" (-> __m128i),
             : [a] "x" (a),
               [b] "x" (b),
         );
-    } else if ((use_asm) and (has_ssse3) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_ssse3)) {
         var r = a;
         asm ("phsubd %[b], %[r]"
             : [r] "+x" (r),
@@ -3730,13 +3721,13 @@ pub inline fn _mm_hsubs_epi16(a: __m128i, b: __m128i) __m128i {
         return @bitCast(struct {
             extern fn @"llvm.x86.ssse3.phsub.sw.128"(i16x8, i16x8) i16x8;
         }.@"llvm.x86.ssse3.phsub.sw.128"(@bitCast(a), @bitCast(b)));
-    } else if ((use_asm) and (has_avx) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_avx)) {
         return asm ("vphsubsw %[b], %[a], %[ret]"
             : [ret] "=x" (-> __m128i),
             : [a] "x" (a),
               [b] "x" (b),
         );
-    } else if ((use_asm) and (has_ssse3) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_ssse3)) {
         var r = a;
         asm ("phsubsw %[b], %[r]"
             : [r] "+x" (r),
@@ -3767,13 +3758,13 @@ pub inline fn _mm_maddubs_epi16(a: __m128i, b: __m128i) __m128i {
         return @bitCast(struct {
             extern fn @"llvm.x86.ssse3.pmadd.ub.sw.128"(u8x16, i8x16) i16x8;
         }.@"llvm.x86.ssse3.pmadd.ub.sw.128"(@bitCast(a), @bitCast(b)));
-    } else if ((use_asm) and (has_avx) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_avx)) {
         return asm ("vpmaddubsw %[b], %[a], %[ret]"
             : [ret] "=x" (-> __m128i),
             : [a] "x" (a),
               [b] "x" (b),
         );
-    } else if ((use_asm) and (has_ssse3) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_ssse3)) {
         var r = a;
         asm ("pmaddubsw %[b], %[r]"
             : [r] "+x" (r),
@@ -3804,13 +3795,13 @@ pub inline fn _mm_mulhrs_epi16(a: __m128i, b: __m128i) __m128i {
         return @bitCast(struct {
             extern fn @"llvm.x86.ssse3.pmul.hr.sw.128"(i16x8, i16x8) i16x8;
         }.@"llvm.x86.ssse3.pmul.hr.sw.128"(@bitCast(a), @bitCast(b)));
-    } else if ((use_asm) and (has_avx) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_avx)) {
         return asm ("vpmulhrsw %[b], %[a], %[ret]"
             : [ret] "=x" (-> __m128i),
             : [a] "x" (a),
               [b] "x" (b),
         );
-    } else if ((use_asm) and (has_ssse3) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_ssse3)) {
         var r = a;
         asm ("pmulhrsw %[b], %[r]"
             : [r] "+x" (r),
@@ -3826,8 +3817,6 @@ pub inline fn _mm_mulhrs_epi16(a: __m128i, b: __m128i) __m128i {
 }
 
 test "_mm_mulhrs_epi16" {
-    if (bug_stage2_x86_64) return error.SkipZigTest; // genBinOp for mul_wrap
-
     const a = _mm_set_epi16(300, 100, -100, 3, 1, 2, -32768, 32767);
     const div3 = _mm_set1_epi16(10923); // 0x2AAB
     const ref = _mm_set_epi16(100, 33, -33, 1, 0, 1, -10923, 10923);
@@ -3880,13 +3869,13 @@ pub inline fn _mm_sign_epi16(a: __m128i, b: __m128i) __m128i {
         return @bitCast(struct {
             extern fn @"llvm.x86.ssse3.psign.w.128"(i16x8, i16x8) i16x8;
         }.@"llvm.x86.ssse3.psign.w.128"(@bitCast(a), @bitCast(b)));
-    } else if ((use_asm) and (has_avx) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_avx)) {
         return asm ("vpsignw %[b], %[a], %[ret]"
             : [ret] "=x" (-> __m128i),
             : [a] "x" (a),
               [b] "x" (b),
         );
-    } else if ((use_builtins) and (has_ssse3) and (!bug_stage2_x86_64)) {
+    } else if ((use_builtins) and (has_ssse3)) {
         var r = a;
         asm ("psignw %[b], %[r]"
             : [r] "+x" (r),
@@ -3914,13 +3903,13 @@ pub inline fn _mm_sign_epi32(a: __m128i, b: __m128i) __m128i {
         return @bitCast(struct {
             extern fn @"llvm.x86.ssse3.psign.d.128"(i32x4, i32x4) i32x4;
         }.@"llvm.x86.ssse3.psign.d.128"(@bitCast(a), @bitCast(b)));
-    } else if ((use_asm) and (has_avx) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_avx)) {
         return asm ("vpsignd %[b], %[a], %[ret]"
             : [ret] "=x" (-> __m128i),
             : [a] "x" (a),
               [b] "x" (b),
         );
-    } else if ((use_asm) and (has_ssse3) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_ssse3)) {
         var r = a;
         asm ("psignd %[b], %[r]"
             : [r] "+x" (r),
@@ -3950,13 +3939,13 @@ pub inline fn _mm_sign_epi8(a: __m128i, b: __m128i) __m128i {
         return @bitCast(struct {
             extern fn @"llvm.x86.ssse3.psign.b.128"(i8x16, i8x16) i8x16;
         }.@"llvm.x86.ssse3.psign.b.128"(@bitCast(a), @bitCast(b)));
-    } else if ((use_asm) and (has_avx) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_avx)) {
         return asm ("vpsignb %[b], %[a], %[ret]"
             : [ret] "=x" (-> __m128i),
             : [a] "x" (a),
               [b] "x" (b),
         );
-    } else if ((use_asm) and (has_ssse3) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_ssse3)) {
         var r = a;
         asm ("psignb %[b], %[r]"
             : [r] "+x" (r),
@@ -4297,14 +4286,14 @@ pub inline fn _mm_dp_pd(a: __m128d, b: __m128d, comptime imm8: comptime_int) __m
         return struct {
             extern fn @"llvm.x86.sse41.dppd"(__m128d, __m128d, u8) __m128d;
         }.@"llvm.x86.sse41.dppd"(a, b, imm8);
-    } else if ((use_asm) and (has_avx) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_avx)) {
         return asm ("vdppd %[c], %[b], %[a], %[ret]"
             : [ret] "=x" (-> __m128d),
             : [a] "x" (a),
               [b] "x" (b),
               [c] "i" (imm8),
         );
-    } else if ((use_asm) and (has_sse4_1) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_sse4_1)) {
         var r = a;
         asm ("dppd %[c], %[b], %[r]"
             : [r] "+x" (r),
@@ -4341,14 +4330,14 @@ pub inline fn _mm_dp_ps(a: __m128, b: __m128, comptime imm8: comptime_int) __m12
         return struct {
             extern fn @"llvm.x86.sse41.dpps"(__m128, __m128, u8) __m128;
         }.@"llvm.x86.sse41.dpps"(a, b, imm8);
-    } else if ((use_asm) and (has_avx) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_avx)) {
         return asm ("vdpps %[c], %[b], %[a], %[ret]"
             : [ret] "=x" (-> __m128),
             : [a] "x" (a),
               [b] "x" (b),
               [c] "i" (imm8),
         );
-    } else if ((use_asm) and (has_sse4_1) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_sse4_1)) {
         var r = a;
         asm ("dpps %[c], %[b], %[r]"
             : [r] "+x" (r),
@@ -4628,12 +4617,12 @@ pub inline fn _mm_minpos_epu16(a: __m128i) __m128i {
         return @bitCast(struct {
             extern fn @"llvm.x86.sse41.phminposuw"(u16x8) u16x8;
         }.@"llvm.x86.sse41.phminposuw"(@bitCast(a)));
-    } else if ((use_asm) and (has_avx) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_avx)) {
         return asm ("vphminposuw %[a], %[ret]"
             : [ret] "=x" (-> __m128i),
             : [a] "x" (a),
         );
-    } else if ((use_asm) and (has_sse4_1) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_sse4_1)) {
         return asm ("phminposuw %[a], %[ret]"
             : [ret] "=x" (-> __m128i),
             : [a] "x" (a),
@@ -4767,8 +4756,6 @@ pub inline fn _mm_packus_epi32(a: __m128i, b: __m128i) __m128i {
 }
 
 test "_mm_packus_epi32" {
-    if (bug_stage2_x86_64) return error.SkipZigTest; // genBinOp for min
-
     const a = _xx_set_epu32(0x00000001, 0x0000FFFF, 0x00008000, 0x00000000);
     const b = _xx_set_epu32(0x7FFFFFFF, 0x80000000, 0xFFFFFFFF, 0x0001FFFF);
     const ref = _xx_set_epu16(0xFFFF, 0, 0, 0xFFFF, 1, 0xFFFF, 0x8000, 0);
@@ -4832,8 +4819,6 @@ pub inline fn _mm_round_ps(a: __m128, comptime imm8: comptime_int) __m128 {
 }
 
 test "_mm_round_ps" {
-    if (bug_stage2_x86_64) return error.SkipZigTest; // genBinOp for cmp_gte
-
     const a = _mm_set_ps(3.5, 2.5, 1.5, 0.5);
     const b = _mm_set_ps(-3.6, -2.4, -1.5, -0.5);
     const c = _mm_set_ps(1.1, 1.9, 8388607.5, -8388607.5);
@@ -5167,7 +5152,7 @@ pub inline fn _mm_crc32_u16(crc: u32, v: u16) u32 {
         return struct {
             extern fn @"llvm.x86.sse42.crc32.32.16"(u32, u16) u32;
         }.@"llvm.x86.sse42.crc32.32.16"(crc, v);
-    } else if ((use_asm) and (has_sse4_2) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_sse4_2)) {
         var r = crc;
         asm ("crc32 %[b],%[r]"
             : [r] "+r" (r),
@@ -5191,7 +5176,7 @@ pub inline fn _mm_crc32_u32(crc: u32, v: u32) u32 {
         return struct {
             extern fn @"llvm.x86.sse42.crc32.32.32"(u32, u32) u32;
         }.@"llvm.x86.sse42.crc32.32.32"(crc, v);
-    } else if ((use_asm) and (has_sse4_2) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_sse4_2)) {
         var r = crc;
         asm ("crc32 %[b],%[r]"
             : [r] "+r" (r),
@@ -5215,7 +5200,7 @@ pub inline fn _mm_crc32_u64(crc: u64, v: u64) u64 {
         return struct {
             extern fn @"llvm.x86.sse42.crc32.64.64"(u64, u64) u64;
         }.@"llvm.x86.sse42.crc32.64.64"(crc, v);
-    } else if ((use_asm) and (is_x86_64) and (has_sse4_2) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (is_x86_64) and (has_sse4_2)) {
         var r = crc;
         asm ("crc32 %[b],%[r]"
             : [r] "+r" (r),
@@ -5239,7 +5224,7 @@ pub inline fn _mm_crc32_u8(crc: u32, v: u8) u32 {
         return struct {
             extern fn @"llvm.x86.sse42.crc32.32.8"(u32, u8) u32;
         }.@"llvm.x86.sse42.crc32.32.8"(crc, v);
-    } else if ((use_asm) and (has_sse4_2) and (!bug_stage2_x86_64)) {
+    } else if ((use_asm) and (has_sse4_2)) {
         var r = crc;
         asm ("crc32 %[b],%[r]"
             : [r] "+r" (r),
@@ -5839,7 +5824,7 @@ pub inline fn _mm256_permute2f128_si256(a: __m256i, b: __m256i, comptime imm8: c
 }
 
 pub inline fn _mm_permutevar_pd(a: __m128d, b: __m128i) __m128d {
-    if ((has_avx) and (!bug_stage2_x86_64)) {
+    if (has_avx) {
         return asm ("vpermilpd %[b], %[a], %[ret]"
             : [ret] "=x" (-> __m128d),
             : [a] "x" (a),
@@ -5868,7 +5853,7 @@ test "_mm_permutevar_pd" {
 }
 
 pub inline fn _mm256_permutevar_pd(a: __m256d, b: __m256i) __m256d {
-    if ((has_avx) and (!bug_stage2_x86_64)) {
+    if (has_avx) {
         return asm ("vpermilpd %[b], %[a], %[ret]"
             : [ret] "=x" (-> __m256d),
             : [a] "x" (a),
@@ -7466,7 +7451,7 @@ pub inline fn _mm256_i64gather_pd(base_addr: [*]align(1) const f64, vindex: __m2
 }
 
 pub inline fn _mm256_mask_i64gather_pd(src: __m256d, base_addr: [*]align(1) const f64, vindex: __m256i, mask: __m256d, comptime scale: comptime_int) __m256d {
-    if (has_avx2) {
+    if ((has_avx2) and (!bug_stage2_x86_64)) {
         var s = src;
         var m = mask;
 
@@ -7501,8 +7486,6 @@ pub inline fn _mm256_mask_i64gather_pd(src: __m256d, base_addr: [*]align(1) cons
 }
 
 test "_mm256_mask_i64gather_pd" {
-    if (bug_stage2_x86_64) return error.SkipZigTest; // genBinOp for cmp_gt
-
     const vindex = _mm256_set_epi64x(3, 3, -1, 1);
     const mask = _mm256_set_pd(-0.0, 0, -0.0, -0.0);
     const src = _mm256_set1_pd(9.0);
